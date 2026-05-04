@@ -86,7 +86,7 @@ const levelOptions = [
   "Pallet",
 ];
 
-// ── Autofill defaults per level (update values once Excel is confirmed) ─────
+// ── Autofill defaults per level ─────────────────────────────────────────────
 type LevelDefaults = {
   efficiency: string;
   labor: string;
@@ -101,6 +101,58 @@ const levelDefaults: Record<string, LevelDefaults> = {
   "Shipper / Outer":  { efficiency: "", labor: "", unitCost: "", rows: {} },
   "Pallet":           { efficiency: "", labor: "", unitCost: "", rows: {} },
 };
+
+// ── Preset matrix (from Pricing Preset Matrix.csv) ──────────────────────────
+// Fields: Overage Rate, Wage Rate, Unit Fill Rate/Min, Packaging Cost/Unit,
+//         Label Print Cost/Unit, Label Apply Rate/Min, Packaging Weight(g),
+//         No. of Staff/Stations, Hrs/Shift, Working Days, Tab Cost/Unit
+type PresetRow = {
+  level:   string;
+  rows:    Record<string, string>;
+  tabs:    boolean;
+};
+
+const p = (
+  level: string,
+  overage: string, wage: string, fillRate: string,
+  packCost: string, labelCost: string, labelRate: string,
+  weight: string, stations: string, hrs: string, days: string,
+  tabCost: string,
+): PresetRow => ({
+  level,
+  tabs: parseFloat(tabCost) > 0,
+  rows: {
+    "Overage Rate":            overage,
+    "Wage Rate":               wage,
+    "Unit Fill Rate / min":    fillRate,
+    "Packaging Cost / unit":   packCost,
+    "Label Print Cost / unit": labelCost,
+    "Label Apply Rate / min":  labelRate,
+    "Packaging Weight (g)":    weight,
+    "No. of Staff / Stations": stations,
+    "Hrs / Shift":             hrs,
+    "Working Days":            days,
+    "Tab Cost / unit":         tabCost,
+  },
+});
+
+const PRESETS: Record<string, PresetRow> = {
+  "4g Pump":                   p("Individual Units", "15","26","8",  "0.65", "0.2","18","1.6",  "4","7.3","5.5","0"),
+  "10g Pump":                  p("Individual Units", "15","26","5",  "0.65", "0.2","18","1.6",  "4","7.3","5.5","0"),
+  "25g Pump":                  p("Individual Units", "15","26","2",  "0.95", "0.2","18","1.6",  "4","7.3","5.5","0"),
+  "4g Jars":                   p("Individual Units", "10","26","8",  "0.19", "0.1","20","17.46","3","7.3","5.5","0"),
+  "4oz Tins":                  p("Final Kit Units",  "3", "26","15", "0.55", "0.2","0", "71",   "3","7.3","5.5","0"),
+  "4g Pumps in 4g Cartons":    p("Individual Units", "10","26","7",  "0.65", "0.1","10","17.46","5","7.3","5.5","0"),
+  "10pc Carton/Sachets":       p("Individual Units", "15","26","42", "0.08", "0",  "0", "0.77", "3","7.3","5.5","0"),
+  "Rimmers":                   p("Individual Units", "15","26","18", "0.09", "0",  "0", "1.6",  "1","7.3","5.5","0"),
+  "Rimmers - Pop Rocks":       p("Individual Units", "15","26","10", "0.035","0",  "0", "1.6",  "5","7.3","5.5","0"),
+  "CoPacking - Sachets":       p("Individual Units", "20","27","10", "",     "",   "",  "",     "","","",   "0"),
+  "CoPacking - Inners":        p("Inner / Case",     "2", "27","2",  "",     "",   "",  "",     "","","",   "0"),
+  "CoPacking - Outers":        p("Shipper / Outer",  "2", "27","1",  "",     "",   "",  "",     "","","",   "0"),
+  "CoPacking - 20kg Bag":      p("Individual Units", "15","26","5",  "0.2",  "0",  "0", "1.6",  "5","7.3","5", "0"),
+};
+
+const PRESET_NAMES = Object.keys(PRESETS);
 
 export const emptyColumn = (): Column => ({
   id: Date.now() + Math.random(),
@@ -143,6 +195,29 @@ export default function ColumnsSection({
         col.id === id ? { ...col, rows: { ...col.rows, [rowName]: value } } : col
       )
     );
+
+  // Apply a preset: sets type, level, tabs, and all row values
+  const handlePresetChange = (id: number, presetName: string) => {
+    if (presetName === "__custom__") {
+      // Just clear the type so user can type freely; keep everything else
+      updateColumn(id, "type", "");
+      return;
+    }
+    const preset = PRESETS[presetName];
+    if (!preset) return;
+    setColumns((prev) =>
+      prev.map((col) => {
+        if (col.id !== id) return col;
+        return {
+          ...col,
+          type:  presetName,
+          level: preset.level,
+          tabs:  preset.tabs,
+          rows:  { ...Object.fromEntries(displayRows.map((r) => [r, ""])), ...preset.rows },
+        };
+      })
+    );
+  };
 
   // ── Effective columns: derived columns get auto-computed values ───────────
   const effectiveCols = useMemo(() => {
@@ -237,7 +312,7 @@ export default function ColumnsSection({
           </colgroup>
           <tbody>
 
-            {/* ── Markup headers row ── */}
+            {/* ── Column header row (Level N label + derivation pill) ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white" />
               {columns.map((col, index) => {
@@ -247,56 +322,63 @@ export default function ColumnsSection({
                 const dstPack   = parseFloat(col.unitsPerInner || "48") || 48;
                 const ratio     = dstPack / srcPack;
                 return (
-                  <td key={col.id} className={`px-2 pt-1 pb-2 align-top ${isDerived ? "bg-blue-50/40" : ""}`}>
-                    <div className="flex items-center gap-1.5 mb-1.5">
+                  <td key={col.id} className={`px-2 pt-2 pb-1 align-bottom ${isDerived ? "bg-blue-50/40" : ""}`}>
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="text-[0.6rem] font-medium text-gray-400">Level {index + 1}</p>
                       {isDerived && (
                         <span className="flex items-center gap-0.5 text-[0.55rem] font-semibold text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                           <Link2 size={8} />
-                          Auto from {srcCol?.type || `col ${col.sourceId}`} × {ratio}
+                          Auto · {srcPack}pk→{dstPack}pk ×{ratio}&nbsp;
+                          {srcCol && (
+                            <span className="text-blue-400 font-normal">
+                              {effectiveCols.find(e => e.id === col.id)?.units || "?"} cases · {effectiveCols.find(e => e.id === col.id)?.rows?.["Unit Fill Rate / min"] || "?"}/min
+                            </span>
+                          )}
                         </span>
                       )}
-                    </div>
-
-                    {/* Helper derivation panel for derived columns */}
-                    {isDerived && srcCol && (
-                      <div className="mb-2 p-2 bg-blue-50 border border-blue-100 rounded text-[0.6rem] text-blue-700 space-y-0.5">
-                        <p className="font-semibold text-blue-600 mb-1">Derivation logic</p>
-                        <p>Pack ratio: {srcPack}pk → {dstPack}pk = ×{ratio}</p>
-                        <p>Units: {srcCol.units || "?"} ÷ {ratio} = <strong>{effectiveCols.find(e => e.id === col.id)?.units || "?"}</strong></p>
-                        <p>Fill rate: {srcCol.rows?.["Unit Fill Rate / min"] || "?"}×{ratio} = <strong>{effectiveCols.find(e => e.id === col.id)?.rows?.["Unit Fill Rate / min"] || "?"}</strong>/min</p>
-                        <p className="text-blue-400 italic">All other values copied from source</p>
-                      </div>
-                    )}
-
-                    <div className="space-y-1.5">
-                      <div>
-                        <p className="text-[0.55rem] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">
-                          Eff. Buffer <span className="normal-case text-gray-300 font-normal">(% slower)</span>
-                        </p>
-                        <div className="flex items-center">
-                          <input type="number" value={col.efficiency} onChange={(e) => updateColumn(col.id, "efficiency", e.target.value)} className={plainInput} />
-                          <span className={pctBadge}>%</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[0.55rem] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Labor Markup</p>
-                        <div className="flex items-center">
-                          <input type="number" value={col.labor} onChange={(e) => updateColumn(col.id, "labor", e.target.value)} className={plainInput} />
-                          <span className={pctBadge}>%</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[0.55rem] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Unit Cost Markup</p>
-                        <div className="flex items-center">
-                          <input type="number" value={col.unitCost} onChange={(e) => updateColumn(col.id, "unitCost", e.target.value)} className={plainInput} />
-                          <span className={pctBadge}>%</span>
-                        </div>
-                      </div>
                     </div>
                   </td>
                 );
               })}
+            </tr>
+
+            {/* ── Eff. Buffer % ── */}
+            <tr>
+              <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Eff. Buffer %</td>
+              {columns.map((col) => (
+                <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
+                  <div className="flex items-center">
+                    <input type="number" value={col.efficiency} onChange={(e) => updateColumn(col.id, "efficiency", e.target.value)} className={`${plainInput} min-w-0`} />
+                    <span className={pctBadge}>%</span>
+                  </div>
+                </td>
+              ))}
+            </tr>
+
+            {/* ── Labor Markup % ── */}
+            <tr>
+              <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Labor Mkp %</td>
+              {columns.map((col) => (
+                <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
+                  <div className="flex items-center">
+                    <input type="number" value={col.labor} onChange={(e) => updateColumn(col.id, "labor", e.target.value)} className={`${plainInput} min-w-0`} />
+                    <span className={pctBadge}>%</span>
+                  </div>
+                </td>
+              ))}
+            </tr>
+
+            {/* ── Unit Cost Markup % ── */}
+            <tr>
+              <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Unit Mkp %</td>
+              {columns.map((col) => (
+                <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
+                  <div className="flex items-center">
+                    <input type="number" value={col.unitCost} onChange={(e) => updateColumn(col.id, "unitCost", e.target.value)} className={`${plainInput} min-w-0`} />
+                    <span className={pctBadge}>%</span>
+                  </div>
+                </td>
+              ))}
             </tr>
 
             {/* ── Level ── */}
@@ -312,14 +394,39 @@ export default function ColumnsSection({
               ))}
             </tr>
 
-            {/* ── Type ── */}
+            {/* ── Type (preset picker or custom) ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Type</td>
-              {columns.map((col) => (
-                <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
-                  <input type="text" value={col.type} onChange={(e) => updateColumn(col.id, "type", e.target.value)} placeholder="e.g. Bag" className={baseInput} />
-                </td>
-              ))}
+              {columns.map((col) => {
+                const isPreset = PRESET_NAMES.includes(col.type);
+                const selectVal = isPreset ? col.type : col.type === "" ? "" : "__custom__";
+                return (
+                  <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
+                    <select
+                      value={selectVal}
+                      onChange={(e) => handlePresetChange(col.id, e.target.value)}
+                      className={baseInput}
+                    >
+                      <option value="">— select type —</option>
+                      {PRESET_NAMES.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                      <option value="__custom__">Custom…</option>
+                    </select>
+                    {/* Show text input for custom type names */}
+                    {selectVal === "__custom__" && (
+                      <input
+                        type="text"
+                        value={col.type}
+                        onChange={(e) => updateColumn(col.id, "type", e.target.value)}
+                        placeholder="Enter type name"
+                        className={`${baseInput} mt-1`}
+                        autoFocus
+                      />
+                    )}
+                  </td>
+                );
+              })}
             </tr>
 
             {/* ── Units ── */}

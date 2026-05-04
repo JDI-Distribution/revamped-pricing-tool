@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { MoqRow, ProjectFormData } from "@/lib/types";
+import { MoqRow, ProjectFormData, SummaryTableRow } from "@/lib/types";
 
 const emptyMoqRow = (): MoqRow => ({
   id: Date.now() + Math.random(),
@@ -54,6 +55,7 @@ interface Props {
   setMoqRows: React.Dispatch<React.SetStateAction<MoqRow[]>>;
   formData: ProjectFormData;
   setFormField: (field: keyof ProjectFormData, value: string) => void;
+  summaryTableRows: SummaryTableRow[];
 }
 
 // Row definition: [label, field, inputType, unit symbol ("$" = prefix, others = suffix, "" = none)]
@@ -65,7 +67,9 @@ export default function ProjectDetails({
   setMoqRows,
   formData,
   setFormField,
+  summaryTableRows,
 }: Props) {
+  const [bufferUnit, setBufferUnit] = useState<"days" | "weeks">("days");
   const addMoqRow    = () => setMoqRows((prev) => [...prev, emptyMoqRow()]);
   const removeMoqRow = (id: number) => setMoqRows((prev) => prev.filter((r) => r.id !== id));
   const updateMoqRow = (id: number, field: keyof MoqRow, value: string) =>
@@ -220,6 +224,70 @@ export default function ProjectDetails({
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ── Lead Time ────────────────────────────────────────────── */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-widest mb-3">Lead Time</p>
+
+          {/* Buffer input */}
+          <div className="flex items-center gap-4 mb-3">
+            <span className="flex-1 text-xs text-gray-600">Lead Time Buffer</span>
+            <div className="flex items-center h-9 border border-amber-200 rounded-md overflow-hidden shrink-0">
+              <input
+                type="number"
+                value={
+                  bufferUnit === "weeks"
+                    ? formData.leadTimeBufferDays ? (parseFloat(formData.leadTimeBufferDays) / 5).toFixed(1) : ""
+                    : formData.leadTimeBufferDays
+                }
+                onChange={(e) => {
+                  const raw = parseFloat(e.target.value);
+                  if (isNaN(raw)) { setFormField("leadTimeBufferDays", ""); return; }
+                  setFormField("leadTimeBufferDays", bufferUnit === "weeks" ? String(Math.round(raw * 5)) : String(raw));
+                }}
+                placeholder="0"
+                step={bufferUnit === "weeks" ? "0.5" : "1"}
+                className="w-16 h-full px-2 text-xs text-right bg-amber-50/50 border-r border-amber-200 focus:outline-none focus:ring-1 focus:ring-[#e8473f] font-medium"
+              />
+              {(["days", "weeks"] as const).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setBufferUnit(u)}
+                  className={`h-9 px-2 text-[0.6rem] font-semibold transition-colors border-r border-amber-200 last:border-r-0 ${
+                    bufferUnit === u ? "bg-[#e8473f] text-white" : "bg-amber-50/50 text-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Per-column lead time breakdown */}
+          {summaryTableRows.filter(r => r.leadTimeWeeks != null).length > 0 && (
+            <div className="rounded-lg border border-gray-100 overflow-hidden">
+              <div className="grid grid-cols-4 gap-0 bg-gray-50 border-b border-gray-100 px-3 py-1.5">
+                {["Column", "Prod. Days", "+ Buffer", "= Total Wks"].map((h) => (
+                  <span key={h} className="text-[0.55rem] font-semibold text-gray-400 uppercase tracking-wider">{h}</span>
+                ))}
+              </div>
+              {summaryTableRows.filter(r => r.leadTimeWeeks != null).map((r) => {
+                const bufferDays  = parseFloat(formData.leadTimeBufferDays) || 0;
+                const totalWeeks  = r.leadTimeWeeks!;
+                const prodDays    = totalWeeks * 5 - bufferDays;
+                return (
+                  <div key={r.label} className="grid grid-cols-4 gap-0 px-3 py-1.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                    <span className="text-xs text-gray-700 truncate pr-1">{r.label}</span>
+                    <span className="text-xs text-gray-500">{prodDays > 0 ? prodDays.toFixed(1) : "—"}</span>
+                    <span className="text-xs text-gray-500">+{bufferDays}d</span>
+                    <span className="text-xs font-semibold text-gray-900">{totalWeeks.toFixed(2)} wks</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

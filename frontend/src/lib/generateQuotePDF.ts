@@ -20,6 +20,7 @@ export interface CustomerInfo {
   phone:           string;
   email:           string;
   salesRep:        string;
+  productName:     string;
   projectOverview: string;
 }
 
@@ -94,7 +95,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
   const indivRow      = summaryTableRows.find(r => r.leadTimeWeeks != null && r.leadTimeWeeks > 0);
   const leadTimeWeeks = indivRow?.leadTimeWeeks ?? 0;
-  const startDate     = formData.startDate ? new Date(formData.startDate) : today;
+  const startDate     = formData.startDate ? new Date(formData.startDate + "T00:00:00") : today;
   const shipDate      = addBusinessDays(startDate, leadTimeWeeks * 5);
 
   const totalOurCost       = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
@@ -291,9 +292,15 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const disclaimerLines = doc.splitTextToSize(disclaimer, pageW - L * 2);
     doc.text(disclaimerLines, L, pageH - 8 - disclaimerLines.length * 4);
 
-    const safeMoq  = (r.moqRow.moq || "moq").replace(/\s+/g, "_");
+    const safe = (s: string) => s.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
+    const safeMoq  = safe(r.moqRow.moq || "MOQ");
     const safePack = r.casePack.replace(/[×\s]+/g, "x").replace(/[^a-zA-Z0-9_-]/g, "");
-    const filename = `Quote_${brand.label.replace(/\s+/g, "_")}_${quoteId}_MOQ${safeMoq}_${safePack}pk.pdf`;
+    const filename = [
+      safe(customer.customer  || "Customer"),
+      safe(customer.productName || "Product"),
+      safe(brand.label),
+      `${safeMoq}_${safePack}pk`,
+    ].join("_") + ".pdf";
 
     results.push({ doc, filename, moqLabel: r.moqRow.moq || "—", packLabel: r.casePack });
   }
@@ -315,4 +322,60 @@ export async function buildQuotePreviews(args: QuoteArgs): Promise<QuotePreview[
 export async function generateQuotePDFs(args: QuoteArgs): Promise<void> {
   const docs = await buildDocs(args);
   docs.forEach(({ doc, filename }) => doc.save(filename));
+}
+
+// ── Custom quantity preview — single PDF, independent of MOQ table ────────────
+export interface CustomQtyQuoteArgs {
+  brandId:        BrandId;
+  qty:            number;
+  unitsPerInner:  number;
+  ppuCost:        number;    // our cost per unit
+  custPPU:        number;    // customer PPU (already resolved from margin or direct entry)
+  summaryRows:    SummaryRow[];
+  summaryTableRows: SummaryTableRow[];
+  formData:       QuoteArgs["formData"];
+  customer:       CustomerInfo;
+}
+
+export async function buildCustomQtyPreview(args: CustomQtyQuoteArgs): Promise<QuotePreview> {
+  const { brandId, qty, unitsPerInner, ppuCost, custPPU, summaryRows, summaryTableRows, formData, customer } = args;
+
+  // Synthetic MoqPricingRow that represents this custom quantity
+  const syntheticMoqResult: MoqPricingRow = {
+    moqRow: {
+      id:             -999,
+      moq:            String(qty),
+      individualUnits: String(qty),
+      unitsPerInner:  String(unitsPerInner),
+      innersPerMaster: "0",
+    },
+    casePack:           String(unitsPerInner),
+    totalCustomerPrice: custPPU * qty,
+    totalOurCost:       ppuCost * qty,
+    ppuDenominator:     qty,
+    ppu:                custPPU,
+    ppuCost:            ppuCost,
+    marginDollars:      (custPPU - ppuCost) * qty,
+    marginPct:          custPPU > 0 ? ((custPPU - ppuCost) / custPPU) * 100 : 0,
+  };
+
+  // Back-calculate the implied margin % so buildDocs can derive custPPU correctly
+  const impliedMargin = custPPU > 0 && ppuCost > 0
+    ? ((custPPU - ppuCost) / custPPU) * 100
+    : 0;
+
+  const docs = await buildDocs({
+    brandId,
+    moqResults:    [syntheticMoqResult],
+    moqMargins:    { [-999]: impliedMargin.toFixed(4) },
+    summaryRows,
+    summaryTableRows,
+    formData,
+    customer,
+  });
+
+  const { doc, filename, moqLabel, packLabel } = docs[0];
+  const blob    = doc.output("blob");
+  const blobUrl = URL.createObjectURL(blob);
+  return { filename, moqLabel, packLabel, blobUrl, doc };
 }

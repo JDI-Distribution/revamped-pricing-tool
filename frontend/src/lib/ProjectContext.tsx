@@ -29,7 +29,7 @@ const initialFormData: ProjectFormData = {
   setupFeeCustomer:        "1495",
   ppuDenominator:          "6600",
   leadTimeBufferDays:      "57",
-  startDate:               "2026-04-20",
+  startDate:               (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })(),
   materialOverage:         "25",
   rawMaterialMarkup:       "300",
   intakeFeeMarkup:         "25",
@@ -64,17 +64,10 @@ const initialColumns: Column[] = [
     rows: mkRows("3", "26", "15", "0.55", "0.2", "0", "3", "7.3", "5"),
   },
   {
-    // 24pk inner: 6600/24 = 275 cases, fill rate 1/min
-    id: 3, level: "Inner / Case", type: "Inners 24pk", units: "275",
+    id: 3, level: "Inner / Case", type: "Inners", units: "275",
     efficiency: "20", labor: "35", unitCost: "125", tabs: false,
+    unitsPerInner: "24",
     rows: mkRows("2", "26", "1", "0.2", "0", "0", "1", "7.3", "5"),
-  },
-  {
-    // 48pk inner: auto-derived from 24pk (id:3) — units halve, fill rate doubles
-    id: 5, level: "Inner / Case", type: "Inners 48pk", units: "138",
-    efficiency: "20", labor: "35", unitCost: "125", tabs: false,
-    sourceId: 3, unitsPerInner: "48",
-    rows: mkRows("2", "26", "2", "0.2", "0", "0", "1", "7.3", "5"),
   },
   {
     id: 4, level: "Shipper / Outer", type: "Shippers", units: "12",
@@ -107,6 +100,8 @@ interface ProjectContextValue {
   setFormField: (field: keyof ProjectFormData, value: string) => void;
   activeMoqId:  number;
   setActiveMoqId: React.Dispatch<React.SetStateAction<number>>;
+  // columns + auto-generated derived columns from MOQ pack sizes
+  effectiveColumns: Column[];
   // Derived — active MOQ
   scaledColumns:    Column[];
   detailSections:   DetailSection[];
@@ -114,7 +109,10 @@ interface ProjectContextValue {
   summaryTableRows: SummaryTableRow[];
   ppuUnits:         number;
   // Derived — all MOQs (for the MOQ pricing table)
-  allMoqResults:    MoqPricingRow[];
+  allMoqResults:       MoqPricingRow[];
+  perMoqSummaryRows:   Map<number, SummaryRow[]>;
+  // Compute costs for an arbitrary unit count (interstitial pricing)
+  computeForQty: (qty: number, unitsPerInner: number) => { summaryRows: SummaryRow[]; summaryTableRows: SummaryTableRow[]; totalCustomer: number; totalOur: number; ppuCost: number; ppuCustomer: number } | null;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -151,61 +149,156 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [scaledColumns, moqRows, formData],
   );
 
-  // ── Per-MOQ pricing rows (for the MOQ pricing table on the quote page) ──────
-  const allMoqResults = useMemo((): MoqPricingRow[] => {
-    const base = moqRows[0];
-    if (!base) return [];
+  // ── Auto-generate derived Inner columns from extra MOQ pack sizes ────────────
+  // For every unique unitsPerInner in moqRows beyond the base column's own pack,
+  // synthesise a derived column so the user doesn't need to fill it in manually.
+  const effectiveColumns = useMemo((): Column[] => {
+    const baseInner = columns.find(
+      (c) => c.level === "Inner / Case" && c.unitsPerInner && n(c.unitsPerInner) > 0,
+    );
+    if (!baseInner) return columns;
 
-    const baseVal = n(base.unitsPerInner) || n(base.moq) || 1;
-    const containerLevels = new Set(["Inner / Case", "Shipper / Outer", "Pallet"]);
-    const ppuDenom = n(formData.ppuDenominator);
+    const basePack  = n(baseInner.unitsPerInner!);
+    const extraPacks = Array.from(
+      new Set(
+        moqRows
+          .map((r) => n(r.unitsPerInner))
+          .filter((p) => p > 0 && p !== basePack),
+      ),
+    );
+    if (extraPacks.length === 0) return columns;
 
-    return moqRows.map((row) => {
-      const activeVal = n(row.unitsPerInner) || n(row.moq) || 1;
-      const scale     = activeVal / baseVal;
+    const existingDerivedPacks = new Set(
+      columns.filter((c) => c.sourceId === baseInner.id).map((c) => n(c.unitsPerInner)),
+    );
 
-      const rowColumns = (row.id === base.id || scale === 1)
-        ? columns
-        : columns.map((col) =>
-            containerLevels.has(col.level)
-              ? { ...col, units: String(Math.round(n(col.units) * scale)) }
-              : col
-          );
+    const generated: Column[] = extraPacks
+      .filter((p) => !existingDerivedPacks.has(p))
+      .map((dstPack, i) => {
+        const ratio = dstPack / basePack;
+        return {
+          ...baseInner,
+          id:            -(i + 1),
+          type:          `Inners ${dstPack}pk`,
+          units:         n(baseInner.units) > 0
+            ? String(Math.ceil(n(baseInner.units) * (basePack / dstPack)))
+            : "",
+          sourceId:      baseInner.id,
+          unitsPerInner: String(dstPack),
+          rows: {
+            ...baseInner.rows,
+            "Unit Fill Rate / min": n(baseInner.rows?.["Unit Fill Rate / min"]) > 0
+              ? String(parseFloat((n(baseInner.rows["Unit Fill Rate / min"]) * ratio).toFixed(4)))
+              : "",
+          },
+        };
+      });
+
+    const result: Column[] = [];
+    for (const col of columns) {
+      result.push(col);
+      if (col.id === baseInner.id) result.push(...generated);
+    }
+    return result;
+  }, [columns, moqRows]);
+
+  // ── Per-MOQ pricing rows + per-MOQ summary line items ────────────────────────
+  const { allMoqResults, perMoqSummaryRows } = useMemo(() => {
+    if (!moqRows[0]) return { allMoqResults: [] as MoqPricingRow[], perMoqSummaryRows: new Map<number, SummaryRow[]>() };
+    const ppuDenom     = n(formData.ppuDenominator);
+    const pricing:     MoqPricingRow[]              = [];
+    const summaryMap = new Map<number, SummaryRow[]>();
+
+    for (const row of moqRows) {
+      const rowPack = n(row.unitsPerInner);
+
+      const rowColumns = effectiveColumns.filter((col) => {
+        if (col.level !== "Inner / Case") return true;
+        const colPack = n(col.unitsPerInner);
+        if (colPack === 0) return true;
+        return colPack === rowPack;
+      });
 
       const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], formData);
+      summaryMap.set(row.id, sRows);
+
       const totalCustomerPrice = sRows.reduce((s, r) => s + r.customerPrice, 0);
       const totalOurCost       = sRows.reduce((s, r) => s + r.ourCosts, 0);
-
-      const moqVal   = n(row.moq);
-      const innerVal = n(row.unitsPerInner);
+      const moqVal    = n(row.moq);
+      const innerVal  = n(row.unitsPerInner);
       const masterVal = n(row.innersPerMaster);
-
-      const casePack = masterVal > 0
-        ? `${innerVal} × ${masterVal}`
-        : innerVal > 0 ? String(innerVal) : "—";
-
-      // PPU denominator: use the field value if set, otherwise fall back to the MOQ qty
+      const casePack  = masterVal > 0 ? `${innerVal} × ${masterVal}` : innerVal > 0 ? String(innerVal) : "—";
       const effectivePpuDenom = ppuDenom > 0 ? ppuDenom : moqVal || 1;
-      const ppu     = effectivePpuDenom > 0 ? totalCustomerPrice / effectivePpuDenom : 0;
-      const ppuCost = effectivePpuDenom > 0 ? totalOurCost       / effectivePpuDenom : 0;
+      const ppu       = effectivePpuDenom > 0 ? totalCustomerPrice / effectivePpuDenom : 0;
+      const ppuCost   = effectivePpuDenom > 0 ? totalOurCost / effectivePpuDenom : 0;
       const marginDollars = totalCustomerPrice - totalOurCost;
-      const marginPct     = totalCustomerPrice > 0
-        ? ((totalCustomerPrice - totalOurCost) / totalCustomerPrice) * 100
-        : 0;
+      const marginPct = totalCustomerPrice > 0 ? ((totalCustomerPrice - totalOurCost) / totalCustomerPrice) * 100 : 0;
 
-      return {
-        moqRow: row,
-        casePack,
-        totalCustomerPrice,
-        totalOurCost,
-        ppuDenominator: effectivePpuDenom,
-        ppu,
-        ppuCost,
-        marginDollars,
-        marginPct,
+      pricing.push({ moqRow: row, casePack, totalCustomerPrice, totalOurCost,
+                     ppuDenominator: effectivePpuDenom, ppu, ppuCost, marginDollars, marginPct });
+    }
+
+    return { allMoqResults: pricing, perMoqSummaryRows: summaryMap };
+  }, [effectiveColumns, moqRows, formData]);
+
+  // ── Interstitial pricing: compute costs for any arbitrary unit count ──────────
+  // Substitutes qty into Individual/Final Kit columns, scales container columns
+  // proportionally, then runs the full calculation engine.
+  const computeForQty = useMemo(() => {
+    return (qty: number, unitsPerInner: number) => {
+      if (qty <= 0) return null;
+
+      // Find the base qty from the Individual Units column (the reference MOQ)
+      const baseQty = n(effectiveColumns.find(c => c.level === "Individual Units")?.units) || qty;
+
+      // Pick the right inner column for this pack size
+      const rowColumns = effectiveColumns
+        .filter((col) => {
+          if (col.level !== "Inner / Case") return true;
+          const colPack = n(col.unitsPerInner);
+          if (colPack === 0) return true;
+          return colPack === unitsPerInner;
+        })
+        .map((col) => {
+          // Scale Individual/Final Kit units to the custom qty
+          if (col.level === "Individual Units" || col.level === "Final Kit Units") {
+            return { ...col, units: String(qty) };
+          }
+          // Scale container columns proportionally to the custom qty
+          if (col.level === "Inner / Case" || col.level === "Shipper / Outer" || col.level === "Pallet") {
+            const baseUnits = n(col.units);
+            const scaledUnits = baseUnits > 0 && baseQty > 0
+              ? Math.ceil(baseUnits * (qty / baseQty))
+              : baseUnits;
+            return { ...col, units: String(scaledUnits) };
+          }
+          return col;
+        });
+
+      // Build a synthetic MOQ row for this custom quantity
+      const syntheticMoqRow: MoqRow = {
+        id: -999,
+        moq:             String(qty),
+        individualUnits: String(qty),
+        unitsPerInner:   String(unitsPerInner),
+        innersPerMaster: "0",
       };
-    });
-  }, [columns, moqRows, formData]);
+
+      // Override ppuDenominator to qty so all per-unit costs are based on this qty,
+      // not the stored ppuDenominator (which is the base MOQ).
+      const formDataForQty = { ...formData, ppuDenominator: String(qty) };
+
+      const { summaryRows: sRows, summaryTableRows: sTableRows } =
+        computeDetailSections(rowColumns, [syntheticMoqRow], formDataForQty);
+
+      const totalCustomer = sRows.reduce((s, r) => s + r.customerPrice, 0);
+      const totalOur      = sRows.reduce((s, r) => s + r.ourCosts, 0);
+      const ppuCost       = totalOur      / qty;
+      const ppuCustomer   = totalCustomer / qty;
+
+      return { summaryRows: sRows, summaryTableRows: sTableRows, totalCustomer, totalOur, ppuCost, ppuCustomer };
+    };
+  }, [effectiveColumns, formData]);
 
   return (
     <ProjectContext.Provider value={{
@@ -213,9 +306,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       columns, setColumns,
       formData, setFormField,
       activeMoqId, setActiveMoqId,
+      effectiveColumns,
       scaledColumns,
       detailSections, summaryRows, summaryTableRows, ppuUnits,
       allMoqResults,
+      perMoqSummaryRows,
+      computeForQty,
     }}>
       {children}
     </ProjectContext.Provider>

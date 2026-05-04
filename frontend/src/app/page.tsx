@@ -14,9 +14,10 @@ export default function Home() {
 
   const {
     moqRows, setMoqRows,
-    columns, setColumns,
+    setColumns,
     formData, setFormField,
     activeMoqId, setActiveMoqId,
+    effectiveColumns,
     detailSections, summaryRows, summaryTableRows, ppuUnits,
   } = useProject();
 
@@ -34,10 +35,11 @@ export default function Home() {
             setMoqRows={setMoqRows}
             formData={formData}
             setFormField={setFormField}
+            summaryTableRows={summaryTableRows}
           />
           <ColumnsSection
             expanded={expanded}
-            columns={columns}
+            columns={effectiveColumns}
             setColumns={setColumns}
           />
         </div>
