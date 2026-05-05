@@ -2,13 +2,25 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { MoqPricingRow } from "./ProjectContext";
 import { SummaryRow, SummaryTableRow } from "./types";
+import logoJdi         from "../../public/logo-jdi.png";
+import logoBrewglitter from "../../public/logo-brewglitter.png";
+import logoBakell      from "../../public/logo-bakell.png";
+import logoPfg         from "../../public/logo-pfg.png";
+
+// Build-time resolved logo URLs (Next.js static import gives hashed path safe for static export)
+const LOGO_SRCS: Record<string, string> = {
+  jdi:         logoJdi.src,
+  brewglitter: logoBrewglitter.src,
+  bakell:      logoBakell.src,
+  pfg:         logoPfg.src,
+};
 
 // ── Brand definitions ─────────────────────────────────────────────────────────
 export const BRANDS = [
-  { id: "jdi",         label: "JDI Distribution", logo: "/logo-jdi.png",         accent: "#e8473f", phone: "1-800-000-0000", email: "sales@jdidistribution.com", address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "brewglitter", label: "Brew Glitter",      logo: "/logo-brewglitter.png", accent: "#c0932b", phone: "1-800-292-2137", email: "sales@brewglitter.com",    address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "bakell",      label: "Bakell",            logo: "/logo-bakell.png",      accent: "#d45f8a", phone: "1-800-000-0000", email: "sales@bakell.com",         address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "pfg",         label: "Pro Foods Group",   logo: "/logo-pfg.png",         accent: "#2e6faf", phone: "1-800-000-0000", email: "sales@profoods.com",       address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "jdi",         label: "JDI Distribution", accent: "#e8473f", phone: "1-800-000-0000", email: "sales@jdidistribution.com", address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "brewglitter", label: "Brew Glitter",      accent: "#c0932b", phone: "1-800-292-2137", email: "sales@brewglitter.com",    address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "bakell",      label: "Bakell",            accent: "#d45f8a", phone: "1-800-000-0000", email: "sales@bakell.com",         address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "pfg",         label: "Pro Foods Group",   accent: "#2e6faf", phone: "1-800-000-0000", email: "sales@profoods.com",       address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
 ] as const;
 
 export type BrandId = typeof BRANDS[number]["id"];
@@ -91,7 +103,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
   const brand    = BRANDS.find((b) => b.id === brandId)!;
   const quoteId  = generateQuoteId();
   const today    = new Date();
-  const logoDataUrl = await loadImageAsDataUrl(brand.logo);
+  const logoDataUrl = await loadImageAsDataUrl(LOGO_SRCS[brand.id]);
 
   const indivRow      = summaryTableRows.find(r => r.leadTimeWeeks != null && r.leadTimeWeeks > 0);
   const leadTimeWeeks = indivRow?.leadTimeWeeks ?? 0;
