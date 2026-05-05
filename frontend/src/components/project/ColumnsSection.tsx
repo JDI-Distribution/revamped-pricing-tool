@@ -416,17 +416,14 @@ export default function ColumnsSection({
                       ))}
                       <option value="__custom__">Custom…</option>
                     </select>
-                    {/* Show text input for custom type names */}
-                    {selectVal === "__custom__" && (
-                      <input
-                        type="text"
-                        value={col.type}
-                        onChange={(e) => updateColumn(col.id, "type", e.target.value)}
-                        placeholder="Enter type name"
-                        className={`${baseInput} mt-1`}
-                        autoFocus
-                      />
-                    )}
+                    <input
+                      type="text"
+                      value={col.type}
+                      onChange={(e) => updateColumn(col.id, "type", e.target.value)}
+                      placeholder="Type name"
+                      className={`${baseInput} mt-1 ${selectVal === "__custom__" ? "" : "invisible"}`}
+                      autoFocus={selectVal === "__custom__"}
+                    />
                   </td>
                 );
               })}
@@ -488,7 +485,7 @@ export default function ColumnsSection({
                       <td key={col.id} className={`px-2 py-1.5 align-top ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                         {isPackagingCost && (
                           <p className="text-[0.6rem] text-gray-400 mb-0.5 truncate">
-                            {col.type ? `${col.type} - Cost/unit` : "Packaging Cost / unit"}
+                            {col.type ? `${col.type} - Cost/unit` : " "}
                           </p>
                         )}
                         <div className="flex items-center">

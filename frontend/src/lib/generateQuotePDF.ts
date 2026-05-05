@@ -84,35 +84,23 @@ function generateQuoteId(): string {
 }
 
 async function loadImageAsDataUrl(src: string): Promise<{ dataUrl: string; width: number; height: number } | null> {
-  try {
-    const res = await fetch(src);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const rawDataUrl = await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onload  = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-    if (!rawDataUrl) return null;
-
-    return await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX_W = 400;
-        const scale = Math.min(1, MAX_W / img.naturalWidth);
-        const w = Math.round(img.naturalWidth  * scale);
-        const h = Math.round(img.naturalHeight * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width  = w;
-        canvas.height = h;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.7), width: img.naturalWidth, height: img.naturalHeight });
-      };
-      img.onerror = () => resolve(null);
-      img.src = rawDataUrl;
-    });
-  } catch { return null; }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const MAX_W = 400;
+      const scale = Math.min(1, MAX_W / img.naturalWidth);
+      const w = Math.round(img.naturalWidth  * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.7), width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
 
 // ── Core builder — returns one {doc, filename} per MOQ row ────────────────────
