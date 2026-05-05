@@ -95,7 +95,10 @@ async function loadImageAsDataUrl(src: string): Promise<{ dataUrl: string; width
       const canvas = document.createElement("canvas");
       canvas.width  = w;
       canvas.height = h;
-      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
       resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.7), width: img.naturalWidth, height: img.naturalHeight });
     };
     img.onerror = () => resolve(null);
