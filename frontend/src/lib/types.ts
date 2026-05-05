@@ -16,6 +16,8 @@ export interface Column {
   units: string;
   tabs: boolean;
   rows: Record<string, string>;
+  // When true, the Type field is a free-text name (not a preset selection)
+  customType?:     boolean;
   // When set, this column's units + fill rate auto-derive from the source column
   // scaled by (this column's unitsPerInner / source's unitsPerInner)
   sourceId?:       number;

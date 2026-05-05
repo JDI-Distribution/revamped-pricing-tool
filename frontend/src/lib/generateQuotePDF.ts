@@ -83,16 +83,34 @@ function generateQuoteId(): string {
   return `Q-${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
 }
 
-async function loadImageAsDataUrl(src: string): Promise<string | null> {
+async function loadImageAsDataUrl(src: string): Promise<{ dataUrl: string; width: number; height: number } | null> {
   try {
     const res = await fetch(src);
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await new Promise((resolve) => {
+    const rawDataUrl = await new Promise<string | null>((resolve) => {
       const reader = new FileReader();
       reader.onload  = () => resolve(reader.result as string);
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
+    });
+    if (!rawDataUrl) return null;
+
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_W = 400;
+        const scale = Math.min(1, MAX_W / img.naturalWidth);
+        const w = Math.round(img.naturalWidth  * scale);
+        const h = Math.round(img.naturalHeight * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width  = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.7), width: img.naturalWidth, height: img.naturalHeight });
+      };
+      img.onerror = () => resolve(null);
+      img.src = rawDataUrl;
     });
   } catch { return null; }
 }
@@ -146,15 +164,12 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const LOGO_Y = HDR_TOP + 5;
     let   logoDrawH = 0;
     if (logoDataUrl) {
-      const dims: Record<string, [number, number]> = {
-        brewglitter: [6667, 2500], jdi: [6250, 1287], bakell: [2959, 1722], pfg: [96, 95],
-      };
-      const [srcW, srcH] = dims[brand.id] ?? [200, 80];
+      const { dataUrl, width: srcW, height: srcH } = logoDataUrl;
       const maxW = 70, maxH = 12;
       const ratio  = Math.min(maxW / srcW, maxH / srcH);
       const drawW  = srcW * ratio;
       logoDrawH    = srcH * ratio;
-      try { doc.addImage(logoDataUrl, "PNG", L + 3, LOGO_Y, drawW, logoDrawH); } catch { /* skip */ }
+      try { doc.addImage(dataUrl, "JPEG", L + 3, LOGO_Y, drawW, logoDrawH); } catch { /* skip */ }
     }
 
     // Contact lines — immediately below logo with 2mm gap

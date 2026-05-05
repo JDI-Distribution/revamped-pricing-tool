@@ -199,8 +199,9 @@ export default function ColumnsSection({
   // Apply a preset: sets type, level, tabs, and all row values
   const handlePresetChange = (id: number, presetName: string) => {
     if (presetName === "__custom__") {
-      // Just clear the type so user can type freely; keep everything else
-      updateColumn(id, "type", "");
+      setColumns((prev) =>
+        prev.map((col) => col.id !== id ? col : { ...col, type: "", customType: true })
+      );
       return;
     }
     const preset = PRESETS[presetName];
@@ -210,10 +211,11 @@ export default function ColumnsSection({
         if (col.id !== id) return col;
         return {
           ...col,
-          type:  presetName,
-          level: preset.level,
-          tabs:  preset.tabs,
-          rows:  { ...Object.fromEntries(displayRows.map((r) => [r, ""])), ...preset.rows },
+          type:       presetName,
+          customType: false,
+          level:      preset.level,
+          tabs:       preset.tabs,
+          rows:       { ...Object.fromEntries(displayRows.map((r) => [r, ""])), ...preset.rows },
         };
       })
     );
@@ -398,8 +400,9 @@ export default function ColumnsSection({
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Type</td>
               {columns.map((col) => {
-                const isPreset = PRESET_NAMES.includes(col.type);
-                const selectVal = isPreset ? col.type : col.type === "" ? "" : "__custom__";
+                const selectVal = col.customType ? "__custom__"
+                  : PRESET_NAMES.includes(col.type) ? col.type
+                  : "";
                 return (
                   <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                     <select
