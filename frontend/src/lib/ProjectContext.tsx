@@ -210,16 +210,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const summaryMap = new Map<number, SummaryRow[]>();
 
     for (const row of moqRows) {
-      const rowPack = n(row.unitsPerInner);
+      const rowPack  = n(row.unitsPerInner);
+      const rowQty   = n(row.individualUnits) || n(row.moq) || 1;
+      const baseQty  = n(effectiveColumns.find(c => c.level === "Individual Units")?.units) || rowQty;
 
-      const rowColumns = effectiveColumns.filter((col) => {
-        if (col.level !== "Inner / Case") return true;
-        const colPack = n(col.unitsPerInner);
-        if (colPack === 0) return true;
-        return colPack === rowPack;
-      });
+      const rowColumns = effectiveColumns
+        .filter((col) => {
+          if (col.level !== "Inner / Case") return true;
+          const colPack = n(col.unitsPerInner);
+          if (colPack === 0) return true;
+          return colPack === rowPack;
+        })
+        .map((col) => {
+          if (col.level === "Individual Units" || col.level === "Final Kit Units") {
+            return { ...col, units: String(rowQty) };
+          }
+          if (col.level === "Inner / Case" || col.level === "Shipper / Outer" || col.level === "Pallet") {
+            const scaled = baseQty > 0 ? Math.ceil(n(col.units) * (rowQty / baseQty)) : n(col.units);
+            return { ...col, units: String(scaled) };
+          }
+          return col;
+        });
 
-      const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], formData);
+      const rowFormData = { ...formData, ppuDenominator: String(rowQty) };
+      const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], rowFormData);
       summaryMap.set(row.id, sRows);
 
       const totalCustomerPrice = sRows.reduce((s, r) => s + r.customerPrice, 0);
