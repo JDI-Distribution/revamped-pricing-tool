@@ -284,24 +284,22 @@ export default function ProjectDetails({
             </div>
           </div>
 
-          {/* Per-column lead time breakdown */}
-          {summaryTableRows.filter(r => r.leadTimeWeeks != null).length > 0 && (
+          {/* Per-column lead time breakdown — shows production days only, buffer in Summary */}
+          {summaryTableRows.filter(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary).length > 0 && (
             <div className="rounded-lg border border-gray-100 overflow-hidden">
-              <div className="grid grid-cols-4 gap-0 bg-gray-50 border-b border-gray-100 px-3 py-1.5">
-                {["Column", "Prod. Days", "+ Buffer", "= Total Wks"].map((h) => (
+              <div className="grid grid-cols-3 gap-0 bg-gray-50 border-b border-gray-100 px-3 py-1.5">
+                {["Component", "Prod. Days", "Total Wks"].map((h) => (
                   <span key={h} className="text-[0.55rem] font-semibold text-gray-400 uppercase tracking-wider">{h}</span>
                 ))}
               </div>
-              {summaryTableRows.filter(r => r.leadTimeWeeks != null).map((r) => {
-                const bufferDays  = parseFloat(formData.leadTimeBufferDays) || 0;
-                const totalWeeks  = r.leadTimeWeeks!;
-                const prodDays    = totalWeeks * 5 - bufferDays;
+              {summaryTableRows.filter(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary).map((r) => {
+                const prodWeeks = r.leadTimeWeeks!;
+                const prodDays  = prodWeeks * 5;
                 return (
-                  <div key={r.label} className="grid grid-cols-4 gap-0 px-3 py-1.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                  <div key={r.label} className="grid grid-cols-3 gap-0 px-3 py-1.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                     <span className="text-xs text-gray-700 truncate pr-1">{r.label}</span>
                     <span className="text-xs text-gray-500">{prodDays > 0 ? prodDays.toFixed(1) : "—"}</span>
-                    <span className="text-xs text-gray-500">+{bufferDays}d</span>
-                    <span className="text-xs font-semibold text-gray-900">{totalWeeks.toFixed(2)} wks</span>
+                    <span className="text-xs font-semibold text-gray-900">{prodWeeks.toFixed(2)} wks</span>
                   </div>
                 );
               })}

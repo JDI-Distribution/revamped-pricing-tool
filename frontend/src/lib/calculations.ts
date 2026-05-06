@@ -33,7 +33,6 @@ function computeColumn(
   index: number,
   unitWeightG: number,
   ppuDenominator: number,
-  leadTimeBufferDays: number,
 ): {
   section: DetailSection;
   summaryTableRow: SummaryTableRow;
@@ -94,14 +93,14 @@ function computeColumn(
 
   // ── Lead time ──────────────────────────────────────────────────
   // productionDays = totalHrsReq / (hoursPerShift × numStations)
-  // leadTimeWeeks  = (productionDays + bufferDays) / 5  (5-day work week)
+  // leadTimeWeeks  = productionDays / 5  (buffer added once at project level)
   const hoursPerShift  = n(col.rows?.["Hrs / Shift"]);
   const numStations    = n(col.rows?.["No. of Staff / Stations"]);
   const productionDays = hoursPerShift > 0 && numStations > 0
     ? totalHrsReq / (hoursPerShift * numStations)
     : null;
   const leadTimeWeeks  = productionDays !== null
-    ? (productionDays + leadTimeBufferDays) / 5
+    ? productionDays / 5
     : null;
 
   // ── Level helpers ──────────────────────────────────────────────
@@ -230,7 +229,7 @@ export function computeDetailSections(
 
   // ── Per-column results ─────────────────────────────────────────
   const colResults = columns.map((col, i) =>
-    computeColumn(col, i, unitWeight, ppuDenominator, leadTimeBufferDays),
+    computeColumn(col, i, unitWeight, ppuDenominator),
   );
 
   // ── Detail sections ────────────────────────────────────────────
@@ -292,7 +291,7 @@ export function computeDetailSections(
   // ── Summary table rows ─────────────────────────────────────────
   const summaryTableRows: SummaryTableRow[] = [
     ...(setupFeeOur > 0 || setupFeeCustomer > 0
-      ? [{
+      ? [{  
           label:         "Setup / QA Fee",
           throughput:    null,
           leadTimeWeeks: null,
@@ -316,7 +315,6 @@ export function computeDetailSections(
     ...colResults.map((r) => r.summaryTableRow),
     ...(palletCustomerTotal > 0 || palletOurTotal > 0
       ? [{
-        
           label:         "Pallets & Fees",
           throughput:    null,
           leadTimeWeeks: null,
@@ -328,6 +326,27 @@ export function computeDetailSections(
         } satisfies SummaryTableRow]
       : []),
   ];
+
+  // ── Project-level lead time summary rows ──────────────────────
+  const componentWeeks = colResults
+    .map((r) => r.summaryTableRow.leadTimeWeeks)
+    .filter((w): w is number => w !== null);
+  if (componentWeeks.length > 0) {
+    const bufferWeeks        = leadTimeBufferDays / 5;
+    const maxProductionWeeks = Math.max(...componentWeeks);
+    const totalLeadTimeWeeks = maxProductionWeeks + bufferWeeks;
+    const makeLeadRow = (label: string, weeks: number): SummaryTableRow => ({
+      label, isLeadTimeSummary: true,
+      throughput: null, costPerUnit: null, totalWeight: null,
+      totalUnits: null, totalCost: null, totalPrice: null,
+      leadTimeWeeks: weeks,
+    });
+    summaryTableRows.push(
+      makeLeadRow("Estimated Production Lead Time", maxProductionWeeks),
+      makeLeadRow("Lead Time Buffer",               bufferWeeks),
+      makeLeadRow("Estimated Total Lead Time",      totalLeadTimeWeeks),
+    );
+  }
 
   return { detailSections, summaryRows, summaryTableRows, ppuUnits };
 }

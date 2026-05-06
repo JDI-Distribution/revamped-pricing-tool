@@ -66,12 +66,13 @@ export interface SummaryRow {
 export interface SummaryTableRow {
   label: string;
   throughput: number | null;      // units / hr (nominal rate × efficiency)
-  leadTimeWeeks: number | null;   // (productionDays + bufferDays) / 5 working days
+  leadTimeWeeks: number | null;   // productionDays / 5 (no buffer) for components; buffer-adjusted for summary rows
   costPerUnit: number | null;     // customer price per unit = totalPrice / ppuDenominator
   totalWeight: number | null;     // grams
   totalUnits: number | null;
   totalCost: number | null;       // our cost
   totalPrice: number | null;      // customer price
+  isLeadTimeSummary?: boolean;    // true for the 3 project-level lead time rows appended after all line items
 }
 
 export interface DetailRow {

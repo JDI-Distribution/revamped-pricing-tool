@@ -184,6 +184,26 @@ export default function SummaryTables({
                   </td>
                 </tr>
               ) : activeRows.map((row) => {
+                if (row.isLeadTimeSummary) {
+                  const isTotalRow = row.label === "Estimated Total Lead Time";
+                  return (
+                    <tr key={row.label} className={`border-b border-gray-100 ${isTotalRow ? "bg-blue-50/60" : "bg-gray-50/30"}`}>
+                      <td className={`py-2 px-2 text-xs ${isTotalRow ? "font-semibold text-gray-900" : "text-gray-500 pl-5"}`}>{row.label}</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className={`py-2 px-2 text-right text-xs ${isTotalRow ? "font-semibold text-gray-900" : "text-gray-600"}`}>
+                        {row.leadTimeWeeks !== null ? fmtLeadTime(row.leadTimeWeeks, leadTimeUnit) : "—"}
+                      </td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                    </tr>
+                  );
+                }
+
                 const section   = sectionByLabel.get(row.label);
                 const hasDetail = !!section && row.label !== "Setup / QA Fee";
                 const expanded  = expandedRows.has(row.label);
