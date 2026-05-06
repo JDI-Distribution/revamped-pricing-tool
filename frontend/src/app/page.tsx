@@ -35,7 +35,6 @@ export default function Home() {
             setMoqRows={setMoqRows}
             formData={formData}
             setFormField={setFormField}
-            summaryTableRows={summaryTableRows}
           />
           <ColumnsSection
             expanded={expanded}

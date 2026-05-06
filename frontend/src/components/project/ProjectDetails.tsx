@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { MoqRow, ProjectFormData, SummaryTableRow } from "@/lib/types";
+import { MoqRow, ProjectFormData } from "@/lib/types";
 
 const emptyMoqRow = (): MoqRow => ({
   id: Date.now() + Math.random(),
@@ -55,7 +55,6 @@ interface Props {
   setMoqRows: React.Dispatch<React.SetStateAction<MoqRow[]>>;
   formData: ProjectFormData;
   setFormField: (field: keyof ProjectFormData, value: string) => void;
-  summaryTableRows: SummaryTableRow[];
 }
 
 // Row definition: [label, field, inputType, unit symbol ("$" = prefix, others = suffix, "" = none)]
@@ -67,7 +66,6 @@ export default function ProjectDetails({
   setMoqRows,
   formData,
   setFormField,
-  summaryTableRows,
 }: Props) {
   const [bufferUnit, setBufferUnit] = useState<"days" | "weeks">("days");
   const addMoqRow    = () => setMoqRows((prev) => [...prev, emptyMoqRow()]);
@@ -284,27 +282,6 @@ export default function ProjectDetails({
             </div>
           </div>
 
-          {/* Per-column lead time breakdown — shows production days only, buffer in Summary */}
-          {summaryTableRows.filter(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary).length > 0 && (
-            <div className="rounded-lg border border-gray-100 overflow-hidden">
-              <div className="grid grid-cols-3 gap-0 bg-gray-50 border-b border-gray-100 px-3 py-1.5">
-                {["Component", "Prod. Days", "Total Wks"].map((h) => (
-                  <span key={h} className="text-[0.55rem] font-semibold text-gray-400 uppercase tracking-wider">{h}</span>
-                ))}
-              </div>
-              {summaryTableRows.filter(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary).map((r) => {
-                const prodWeeks = r.leadTimeWeeks!;
-                const prodDays  = prodWeeks * 5;
-                return (
-                  <div key={r.label} className="grid grid-cols-3 gap-0 px-3 py-1.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                    <span className="text-xs text-gray-700 truncate pr-1">{r.label}</span>
-                    <span className="text-xs text-gray-500">{prodDays > 0 ? prodDays.toFixed(1) : "—"}</span>
-                    <span className="text-xs font-semibold text-gray-900">{prodWeeks.toFixed(2)} wks</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
 

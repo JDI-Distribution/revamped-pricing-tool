@@ -505,6 +505,51 @@ export default function QuotePage() {
           </table>
         </div>
 
+        {/* ── Lead Time ── */}
+        {summaryTableRows.some(r => r.leadTimeWeeks != null) && (
+          <div className="border border-gray-100 rounded-sm overflow-hidden mb-4">
+            <div className="bg-gray-50 border-b border-gray-100 px-3 py-2">
+              <span className="text-xs font-semibold text-black uppercase tracking-wide">Lead Time</span>
+            </div>
+            <div className="p-4">
+              {/* Component breakdown */}
+              <table className="w-full border-collapse mb-3">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Component</th>
+                    <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Prod. Days</th>
+                    <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Total Wks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summaryTableRows.filter(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary).map((r) => (
+                    <tr key={r.label} className="border-b border-gray-50 hover:bg-gray-50/50">
+                      <td className="py-1.5 px-2 text-xs text-gray-700">{r.label}</td>
+                      <td className="py-1.5 px-2 text-right text-xs text-gray-500">{(r.leadTimeWeeks! * 5).toFixed(1)}</td>
+                      <td className="py-1.5 px-2 text-right text-xs font-semibold text-gray-900">{r.leadTimeWeeks!.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Project-level summary rows */}
+              <div className="border border-gray-100 rounded-sm overflow-hidden">
+                {summaryTableRows.filter(r => r.isLeadTimeSummary).map((r) => {
+                  const isTotal = r.label === "Estimated Total Lead Time";
+                  return (
+                    <div key={r.label} className={`flex items-center justify-between px-3 py-2 border-b border-gray-100 last:border-0 ${isTotal ? "bg-blue-50/60" : "bg-gray-50/40"}`}>
+                      <span className={`text-xs ${isTotal ? "font-semibold text-gray-900" : "text-gray-500"}`}>{r.label}</span>
+                      <span className={`text-xs ${isTotal ? "font-bold text-gray-900" : "text-gray-600"}`}>
+                        {r.leadTimeWeeks != null ? `${r.leadTimeWeeks.toFixed(2)} wks` : "—"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Custom Quantity Pricing ── */}
         <div className="border border-gray-100 rounded-sm overflow-hidden">
           <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 flex items-center gap-2">
