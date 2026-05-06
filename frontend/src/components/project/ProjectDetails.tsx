@@ -108,6 +108,12 @@ export default function ProjectDetails({
     ["Left Over Inventory Absorb", "leftOverInventoryAbsorb", "number", "%"],
   ];
 
+  const palletRows: RowDef[] = [
+    ["Outbound Fee / Pallet", "outboundFee",       "number", "$"],
+    ["# of Finished Pallets", "numFinishedPallets", "number", ""],
+    ["Outbound Fee Markup",   "outboundFeeMarkup",  "number", "%"],
+  ];
+
   // Compact input for table cells (no outer rounding, smaller height)
   const cellInputBase =
     "h-8 w-full px-2 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
@@ -196,6 +202,19 @@ export default function ProjectDetails({
               <SymInput field={field} type={type} sym={sym} formData={formData} setFormField={setFormField} />
             </div>
           ))}
+        </div>
+
+        {/* Pallets & Fees sub-section */}
+        <div className="mt-3">
+          <p className="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-widest mb-2">Pallets &amp; Fees</p>
+          <div className="divide-y divide-gray-100">
+            {palletRows.map(([label, field, type, sym]) => (
+              <div key={field} className="flex items-center gap-4 py-2">
+                <span className="flex-1 text-xs text-gray-600">{label}</span>
+                <SymInput field={field} type={type} sym={sym} formData={formData} setFormField={setFormField} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -102,7 +102,7 @@ export default function SummaryTables({
 
   const activeTotalCost   = activeRows.reduce((s, r) => s + (r.totalCost  ?? 0), 0);
   const activeTotalPrice  = activeRows.reduce((s, r) => s + (r.totalPrice ?? 0), 0);
-  const activeTotalUnits  = activeRows.reduce((s, r) => s + (r.totalUnits ?? 0), 0);
+
   const activeTotalWt     = activeRows.reduce((s, r) => s + (r.totalWeight ?? 0), 0);
 
   // ── Build a label→section lookup for the pivot ───────────────
@@ -262,7 +262,7 @@ export default function SummaryTables({
                     <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
                     <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{activeTotalWt > 0 ? fmtWeight(activeTotalWt, weightUnit) : "—"}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{activeTotalUnits > 0 ? Math.round(activeTotalUnits).toLocaleString("en-US") : "—"}</td>
+                    <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(activeTotalCost)}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(activeTotalPrice)}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(totalMarginDollars)}</td>

@@ -131,17 +131,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const active = moqRows.find((r) => r.id === activeMoqId) ?? base;
     if (!base || !active || active.id === base.id) return columns;
 
-    const baseVal   = n(base.unitsPerInner)   || n(base.moq)   || 1;
-    const activeVal = n(active.unitsPerInner) || n(active.moq) || 1;
-    const scale     = activeVal / baseVal;
-    if (scale === 1) return columns;
+    const baseQty   = n(base.individualUnits)   || n(base.moq)   || 1;
+    const activeQty = n(active.individualUnits) || n(active.moq) || 1;
+    const scale     = activeQty / baseQty;
 
-    const containerLevels = new Set(["Inner / Case", "Shipper / Outer", "Pallet"]);
-    return columns.map((col) =>
-      containerLevels.has(col.level)
-        ? { ...col, units: String(Math.round(n(col.units) * scale)) }
-        : col
-    );
+    const individualLevels = new Set(["Individual Units", "Final Kit Units"]);
+    const containerLevels  = new Set(["Inner / Case", "Shipper / Outer", "Pallet"]);
+    return columns.map((col) => {
+      if (individualLevels.has(col.level))
+        return { ...col, units: String(Math.round(n(col.units) * scale)) };
+      if (containerLevels.has(col.level))
+        return { ...col, units: String(Math.round(n(col.units) * scale)) };
+      return col;
+    });
   }, [columns, moqRows, activeMoqId]);
 
   const { detailSections, summaryRows, summaryTableRows, ppuUnits } = useMemo(
