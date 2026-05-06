@@ -9,7 +9,6 @@ import { useProject } from "@/lib/ProjectContext";
 import { BRANDS, BrandId, CustomerInfo, QuotePreview, buildQuotePreviews, buildCustomQtyPreview } from "@/lib/generateQuotePDF";
 import PdfPreviewModal from "@/components/quote/PdfPreviewModal";
 import SaveQuoteButton from "@/components/quote/SaveQuoteButton";
-import ManageQuotes    from "@/components/quote/ManageQuotes";
 import excelLogo     from "@/assets/excel.png";
 import workdriveLogo from "@/assets/zoho-workdrive.png";
 import crmLogo       from "@/assets/zoho-crm.png";
@@ -240,7 +239,6 @@ export default function QuotePage() {
               {generating ? "Generating…" : `Preview & Export (${allMoqResults.length})`}
             </button>
             <SaveQuoteButton quotePageState={{ customer, selectedBrand, moqMargins, moqPpuInputs, moqLastEdited }} />
-            <ManageQuotes />
             <button className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium px-3 h-7 transition-colors">
               <div className="w-3 h-3 relative shrink-0"><Image src={excelLogo} alt="Excel" fill className="object-contain" /></div>
               .xlsx

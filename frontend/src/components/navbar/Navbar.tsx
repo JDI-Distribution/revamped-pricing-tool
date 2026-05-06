@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import logo from "@/assets/JDI_Distribution_Logo.png";
+import ManageQuotes from "@/components/quote/ManageQuotes";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -37,6 +38,9 @@ export default function Navbar() {
           </li>
         ))}
       </ul>
+
+      {/* Saved Quotes */}
+      <ManageQuotes />
 
       {/* Next / Back navigation */}
       <div className="ml-auto">

@@ -121,12 +121,12 @@ export default function ManageQuotes() {
         </div>
       )}
 
-      {/* Trigger button */}
+      {/* Trigger button — styled as a nav link */}
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium px-3 h-7 transition-colors"
+        className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]"
       >
-        <FolderOpen size={12} />
+        <FolderOpen size={14} />
         Saved Quotes
       </button>
 
