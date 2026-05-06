@@ -10,8 +10,14 @@ const CORS_HEADERS = {
 
 const TABLE = "Quotes";
 
+function setCors(res) {
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+}
+
 function json(res, status, body) {
-  res.status(status).set(CORS_HEADERS).json(body);
+  res.status = status;
+  setCors(res);
+  res.json(body);
 }
 
 function parseId(str) {
@@ -22,7 +28,9 @@ function parseId(str) {
 module.exports = async (req, res) => {
   // Preflight
   if (req.method === "OPTIONS") {
-    return res.status(204).set(CORS_HEADERS).send("");
+    res.status = 204;
+    setCors(res);
+    return res.send("");
   }
 
   const app   = catalyst.initialize(req);
