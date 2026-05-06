@@ -113,6 +113,8 @@ interface ProjectContextValue {
   perMoqSummaryRows:   Map<number, SummaryRow[]>;
   // Compute costs for an arbitrary unit count (interstitial pricing)
   computeForQty: (qty: number, unitsPerInner: number) => { summaryRows: SummaryRow[]; summaryTableRows: SummaryTableRow[]; totalCustomer: number; totalOur: number; ppuCost: number; ppuCustomer: number } | null;
+  // Restore all project state from a saved quote snapshot
+  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData }) => void;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -316,6 +318,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     };
   }, [effectiveColumns, formData]);
 
+  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData }) => {
+    setMoqRows(state.moqRows);
+    setColumns(state.columns);
+    setFormData(state.formData);
+    setActiveMoqId(state.moqRows[0]?.id ?? 1);
+  };
+
   return (
     <ProjectContext.Provider value={{
       moqRows, setMoqRows,
@@ -328,6 +337,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       allMoqResults,
       perMoqSummaryRows,
       computeForQty,
+      loadQuoteState,
     }}>
       {children}
     </ProjectContext.Provider>
