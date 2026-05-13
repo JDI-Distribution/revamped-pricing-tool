@@ -1,0 +1,188 @@
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { ChevronRight, ChevronLeft, FolderOpen, Menu, X } from "lucide-react";
+import logo from "@/assets/JDI_Distribution_Logo.png";
+import MarginCalculator from "@/components/MarginCalculator";
+import ConversionCalculator from "@/components/ConversionCalculator";
+
+const navLinks = [
+  { label: "Home",                  href: "/",                    drawer: null },
+  { label: "Analytics",             href: "/analytics",           drawer: null },
+  { label: "Margin Calculator",     href: "/margin-calculator",   drawer: "margin" as const },
+  { label: "Conversion Calculator", href: "/conversion-calculator", drawer: "conversion" as const },
+];
+
+const linkCls = "text-sm text-gray-600 hover:text-gray-900 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]";
+
+export default function Navbar() {
+  const { pathname } = useLocation();
+  const isQuotePage  = pathname === "/quote";
+  const isSavedPage  = pathname === "/saved-quotes";
+  const [menuOpen,      setMenuOpen]      = useState(false);
+  const [marginOpen,    setMarginOpen]    = useState(false);
+  const [conversionOpen, setConversionOpen] = useState(false);
+
+  const handleNavClick = (drawer: string | null, e: React.MouseEvent) => {
+    if (drawer === "margin") {
+      e.preventDefault();
+      setMenuOpen(false);
+      setMarginOpen(true);
+    } else if (drawer === "conversion") {
+      e.preventDefault();
+      setMenuOpen(false);
+      setConversionOpen(true);
+    }
+  };
+
+  // Called when user applies a margin from the calculator
+  const handleApplyMargin = (_moqRowId: number, _adjPPU: number) => {
+    // The calculator is read-only for the main quote by default.
+    // When the user clicks "Apply to Quote" we close the drawer — the
+    // QuotePage's moqPpuInputs/moqMargins state would need to be lifted
+    // to the context to fully wire this up; for now we just close.
+    setMarginOpen(false);
+  };
+
+  return (
+    <>
+      <nav className="w-full bg-white border-b border-gray-100 relative z-30">
+        {/* ── Main bar ── */}
+        <div className="px-4 md:px-6 py-3 flex items-center gap-4 md:gap-12">
+          {/* Logo */}
+          <Link to="/" onClick={() => setMenuOpen(false)}>
+            <img src={logo} alt="JDI Distribution" style={{ height: 36 }} className="md:h-10" />
+          </Link>
+
+          {/* Desktop nav links */}
+          <ul className="hidden md:flex items-center gap-8 lg:gap-12">
+            {navLinks.map((link) => (
+              <li key={link.href}>
+                <Link
+                  to={link.drawer ? "#" : link.href}
+                  onClick={(e) => handleNavClick(link.drawer, e)}
+                  className={`${linkCls} ${
+                    link.drawer === "margin" && marginOpen
+                      ? "border-[#e8473f] text-gray-900"
+                      : pathname === link.href && !link.drawer
+                        ? "border-[#e8473f] text-gray-900"
+                        : ""
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop Saved Quotes */}
+          <Link
+            to="/saved-quotes"
+            className={`hidden md:flex items-center gap-1.5 ${linkCls} ${isSavedPage ? "border-[#e8473f] text-gray-900" : ""}`}
+          >
+            <FolderOpen size={14} />
+            Saved Quotes
+          </Link>
+
+          {/* Desktop Next / Back */}
+          <div className="hidden md:flex ml-auto">
+            {isQuotePage || isSavedPage ? (
+              <Link
+                to="/"
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-5 h-9 rounded-lg transition-colors"
+              >
+                <ChevronLeft size={15} />
+                Back to Pricing
+              </Link>
+            ) : (
+              <Link
+                to="/quote"
+                className="flex items-center gap-2 bg-[#e8473f] hover:bg-[#d43f37] text-white text-sm font-medium px-5 h-9 rounded-lg transition-colors"
+              >
+                Next
+                <ChevronRight size={15} />
+              </Link>
+            )}
+          </div>
+
+          {/* Mobile: action button + hamburger */}
+          <div className="flex items-center gap-2 ml-auto md:hidden">
+            {isQuotePage || isSavedPage ? (
+              <Link
+                to="/"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium px-3 h-9 min-w-11 justify-center rounded-lg transition-colors"
+              >
+                <ChevronLeft size={14} />
+                Back
+              </Link>
+            ) : (
+              <Link
+                to="/quote"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-1.5 bg-[#e8473f] text-white text-xs font-medium px-3 h-9 min-w-11 justify-center rounded-lg transition-colors"
+              >
+                Next
+                <ChevronRight size={14} />
+              </Link>
+            )}
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex items-center justify-center w-11 h-11 text-gray-600 hover:text-gray-900 transition-colors"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+            >
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Mobile dropdown menu ── */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-gray-100 bg-white shadow-lg">
+            <ul className="flex flex-col py-2">
+              {navLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    to={link.drawer ? "#" : link.href}
+                    onClick={(e) => { setMenuOpen(false); handleNavClick(link.drawer, e); }}
+                    className={`flex items-center px-5 py-3.5 text-sm font-medium transition-colors ${
+                      (link.drawer === "margin" && marginOpen) || (pathname === link.href && !link.drawer)
+                        ? "text-[#e8473f] bg-red-50"
+                        : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link
+                  to="/saved-quotes"
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors ${
+                    isSavedPage ? "text-[#e8473f] bg-red-50" : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <FolderOpen size={15} />
+                  Saved Quotes
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
+      </nav>
+
+      {/* Margin Calculator modal */}
+      <MarginCalculator
+        open={marginOpen}
+        onClose={() => setMarginOpen(false)}
+        onApply={handleApplyMargin}
+      />
+
+      {/* Conversion Calculator modal */}
+      <ConversionCalculator
+        open={conversionOpen}
+        onClose={() => setConversionOpen(false)}
+      />
+    </>
+  );
+}

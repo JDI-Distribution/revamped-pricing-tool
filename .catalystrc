@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "project": 1,
+    "env": 1
+  },
+  "actives": {
+    "project": 1,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "56569000000131004",
+      "name": "jdi-pricing-tool",
+      "domain": {
+        "id": "10125203117",
+        "name": "jdi-pricing-tool-914416811.development"
+      },
+      "timezone": "America/Los_Angeles",
+      "env": [
+        {
+          "idx": 1,
+          "id": "914416811",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}

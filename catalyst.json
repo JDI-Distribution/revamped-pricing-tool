@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "targets": ["quotes-api"],
+    "ignore": [],
+    "source": "functions"
+  }
+}
