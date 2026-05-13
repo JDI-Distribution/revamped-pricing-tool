@@ -118,8 +118,8 @@ describe("TC1 — Bartesian 4oz Sachets 6600 MOQ", () => {
 
   it("4oz Tins packaging", () => {
     const r = get("4oz Tins");
-    near(r.customerPrice, 10103.53, "tins customer");
-    near(r.ourCosts,       3984.38, "tins our");
+    near(r.customerPrice, 11803.03, "tins customer");
+    near(r.ourCosts,       5343.98, "tins our");
   });
 
   it("Inners", () => {
@@ -143,15 +143,15 @@ describe("TC1 — Bartesian 4oz Sachets 6600 MOQ", () => {
   it("TOTALS", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust, 50196.78, "total customer");
-    near(totalOur,  15986.36, "total our");
+    near(totalCust, 51896.28, "total customer");
+    near(totalOur,  17345.96, "total our");
   });
 
   it("PPU", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust / 6600, 7.61, "customer PPU");
-    near(totalOur  / 6600, 2.42, "cost PPU");
+    near(totalCust / 6600, 7.86, "customer PPU");
+    near(totalOur  / 6600, 2.63, "cost PPU");
   });
 });
 
@@ -206,8 +206,8 @@ describe("TC2 — DecoPac 25g Pump 3000 MOQ", () => {
 
   it("25g Pump packaging (harmonic mean fill+label rate)", () => {
     const r = get("25g Pump");
-    near(r.customerPrice, 9465.94, "pump customer");
-    near(r.ourCosts,      4315.69, "pump our");
+    near(r.customerPrice, 10328.44, "pump customer");
+    near(r.ourCosts,       5005.69, "pump our");
   });
 
   it("Inners", () => {
@@ -225,15 +225,15 @@ describe("TC2 — DecoPac 25g Pump 3000 MOQ", () => {
   it("TOTALS", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust, 50440.91, "total customer");
-    near(totalOur,  15722.82, "total our");
+    near(totalCust, 51303.41, "total customer");
+    near(totalOur,  16412.82, "total our");
   });
 
   it("PPU", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust / 3000, 16.81, "customer PPU");
-    near(totalOur  / 3000,  5.24, "cost PPU");
+    near(totalCust / 3000, 17.10, "customer PPU");
+    near(totalOur  / 3000,  5.47, "cost PPU");
   });
 });
 
@@ -354,8 +354,8 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
 
   it("10g Pump (harmonic mean fill+label rate)", () => {
     const r = get("10g Pump");
-    near(r.customerPrice, 7656.41, "pump customer");
-    near(r.ourCosts,      3264.08, "pump our");
+    near(r.customerPrice, 8691.41, "pump customer");
+    near(r.ourCosts,      4092.08, "pump our");
   });
 
   it("Inners customer price visible (not 0)", () => {
@@ -373,14 +373,14 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
   it("TOTALS", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust, 29312.11, "total customer");
-    near(totalOur,   9909.68, "total our");
+    near(totalCust, 30347.11, "total customer");
+    near(totalOur,  10737.68, "total our");
   });
 
   it("PPU", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust / 3600, 8.14, "customer PPU");
-    near(totalOur  / 3600, 2.75, "cost PPU");
+    near(totalCust / 3600, 8.43, "customer PPU");
+    near(totalOur  / 3600, 2.98, "cost PPU");
   });
 });

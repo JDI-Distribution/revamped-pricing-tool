@@ -51,8 +51,6 @@ function computeColumn(
   const labelApplyRate = n(col.rows?.["Label Apply Rate / min"]);
   // efficiency is entered as an integer percent (e.g. 20 = 20% buffer).
   const efficiency  = n(col.efficiency);
-  // numStations read here so it applies to both throughput and labor cost.
-  const numStations = n(col.rows?.["No. of Staff / Stations"]);
 
   // When a label apply rate is present, the bottleneck throughput is the harmonic
   // mean of fill rate and label apply rate (two sequential operations on the same line).
@@ -60,50 +58,50 @@ function computeColumn(
     ? (unitsPerMin * labelApplyRate) / (unitsPerMin + labelApplyRate)
     : unitsPerMin;
 
-  // effectiveRate = nominalRate × numStations × (1 − efficiency/100)
-  // Staff multiplier increases aggregate throughput of the line.
+  // effectiveRate = nominalRate × (1 − efficiency/100)
+  // Staff/stations does NOT multiply throughput — wage_rate represents the total
+  // line cost and staff is a capacity-planning input only.
   const effectiveRate = nominalRate > 0 && efficiency < 100
-    ? nominalRate * numStations * (1 - efficiency / 100)
-    : nominalRate * numStations;
+    ? nominalRate * (1 - efficiency / 100)
+    : nominalRate;
 
   const totalMinReq = effectiveRate > 0 ? unitsReq / effectiveRate : 0;
   const totalHrsReq = totalMinReq / 60;
 
-  // Display rate shown in UI (after efficiency buffer, per station)
-  const displayPerMin = numStations > 0 ? effectiveRate / numStations : effectiveRate;
+  // Display rate shown in UI (after efficiency buffer)
+  const displayPerMin = effectiveRate;
 
   // ── Labor ─────────────────────────────────────────────────────
-  // labor_our = totalHrsReq × wageRate × numStations
+  // wage_rate is the total line rate (already includes all staff cost).
   // CustomerLaborPrice = ourLaborCost × (1 + laborMarkup/100)
   const wageRate        = n(col.rows?.["Wage Rate"]);
   const laborMarkup     = n(col.labor);
 
-  const ourLaborCost      = totalHrsReq * wageRate * numStations;
+  const ourLaborCost      = totalHrsReq * wageRate;
   const customerLaborCost = ourLaborCost * (1 + laborMarkup / 100);
 
   // ── Packaging materials ────────────────────────────────────────
-  // Label print cost is customer-facing only (not in our cost basis).
+  // Label print cost is part of our cost basis and is marked up with packaging.
   const packagingCostPerUnit = n(col.rows?.["Packaging Cost / unit"]);
   const labelCostPerUnit     = n(col.rows?.["Label Print Cost / unit"]);
   const tabCostPerUnit       = col.tabs ? n(col.rows?.["Tab Cost / unit"]) : 0;
 
-  // our cost excludes label print (pass-through at customer price only)
-  const ourPackagingCost      = (packagingCostPerUnit + tabCostPerUnit) * unitsReq;
-  const labelCostCustomer     = labelCostPerUnit * unitsReq;
-  // unitCostMarkup is entered as an integer percent (e.g. 125 = 125% markup).
+  // unitCostMarkup is entered as an integer percent (e.g. 125 = 125% markup → ×2.25).
   const unitCostMarkup        = n(col.unitCost);
-  const customerPackagingCost = ourPackagingCost * (1 + unitCostMarkup / 100) + labelCostCustomer;
+  const ourPackagingCost      = (packagingCostPerUnit + labelCostPerUnit + tabCostPerUnit) * unitsReq;
+  const customerPackagingCost = ourPackagingCost * (1 + unitCostMarkup / 100);
 
   // ── Totals ─────────────────────────────────────────────────────
   const ourTotalCost      = ourLaborCost + ourPackagingCost;
   const customerTotalCost = customerLaborCost + customerPackagingCost;
 
   // ── Lead time ──────────────────────────────────────────────────
-  // totalHrsReq already incorporates numStations via effectiveRate, so
-  // productionDays = totalHrsReq / hoursPerShift (no second division by numStations).
+  // productionDays = totalHrsReq / (hoursPerShift × numStations)
+  // Staff increases available capacity per day, reducing production days.
   const hoursPerShift  = n(col.rows?.["Hrs / Shift"]);
-  const productionDays = hoursPerShift > 0
-    ? totalHrsReq / hoursPerShift
+  const numStations    = n(col.rows?.["No. of Staff / Stations"]);
+  const productionDays = hoursPerShift > 0 && numStations > 0
+    ? totalHrsReq / (hoursPerShift * numStations)
     : null;
   const leadTimeWeeks  = productionDays !== null
     ? productionDays / 5
