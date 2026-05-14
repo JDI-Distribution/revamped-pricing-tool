@@ -102,6 +102,13 @@ export interface MoqRowError {
   innersPerMaster?: string;  // error message for inners-per-master field
 }
 
+export interface SaveState {
+  savedQuoteId:    string | null;
+  savedQuoteName:  string | null;
+  hasUnsavedChanges: boolean;
+  lastSavedAt:     Date | null;
+}
+
 interface ProjectContextValue {
   // Raw state
   moqRows:      MoqRow[];
@@ -129,7 +136,11 @@ interface ProjectContextValue {
   moqErrors:    MoqRowError[];
   hasMoqErrors: boolean;
   // Restore all project state from a saved quote snapshot
-  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData }) => void;
+  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData }, savedId?: string, savedName?: string) => void;
+  // Save state — tracks whether current quote has been saved and if there are unsaved changes
+  saveState:    SaveState;
+  markSaved:    (id: string, name: string) => void;
+  clearSave:    () => void;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -137,6 +148,7 @@ const ProjectContext = createContext<ProjectContextValue | null>(null);
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [moqRows,  setMoqRows]  = useState<MoqRow[]>(initialMoqRows);
   const [columns,  setColumns]  = useState<Column[]>(initialColumns);
+
   const [formData, setFormData] = useState<ProjectFormData>(initialFormData);
   const [activeMoqId, setActiveMoqId] = useState<number>(initialMoqRows[0].id);
 
@@ -400,11 +412,55 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const hasMoqErrors = moqErrors.length > 0;
 
-  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData }) => {
+  // ── Save state ────────────────────────────────────────────────
+  const [saveState, setSaveState] = useState<SaveState>({
+    savedQuoteId:    null,
+    savedQuoteName:  null,
+    hasUnsavedChanges: false,
+    lastSavedAt:     null,
+  });
+
+  // Track a snapshot of state at last save to detect changes
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string>("");
+
+  // Current snapshot — recomputed whenever project state changes
+  const currentSnapshot = useMemo(
+    () => JSON.stringify({ moqRows, columns, formData }),
+    [moqRows, columns, formData],
+  );
+
+  // Detect unsaved changes whenever snapshot drifts from saved baseline
+  useMemo(() => {
+    if (!lastSavedSnapshot) return;
+    const hasChanges = currentSnapshot !== lastSavedSnapshot;
+    setSaveState((prev) =>
+      prev.hasUnsavedChanges === hasChanges ? prev : { ...prev, hasUnsavedChanges: hasChanges }
+    );
+  }, [currentSnapshot, lastSavedSnapshot]);
+
+  const markSaved = (id: string, name: string) => {
+    setSaveState({ savedQuoteId: id, savedQuoteName: name, hasUnsavedChanges: false, lastSavedAt: new Date() });
+    setLastSavedSnapshot(currentSnapshot);
+  };
+
+  const clearSave = () => {
+    setSaveState({ savedQuoteId: null, savedQuoteName: null, hasUnsavedChanges: false, lastSavedAt: null });
+    setLastSavedSnapshot("");
+  };
+
+  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData }, savedId?: string, savedName?: string) => {
     setMoqRows(state.moqRows);
     setColumns(state.columns);
     setFormData(state.formData);
     setActiveMoqId(state.moqRows[0]?.id ?? 1);
+    const snap = JSON.stringify(state);
+    setLastSavedSnapshot(snap);
+    setSaveState({
+      savedQuoteId:   savedId ?? null,
+      savedQuoteName: savedName ?? null,
+      hasUnsavedChanges: false,
+      lastSavedAt: savedId ? new Date() : null,
+    });
   };
 
   return (
@@ -421,6 +477,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       computeForQty,
       moqErrors, hasMoqErrors,
       loadQuoteState,
+      saveState, markSaved, clearSave,
     }}>
       {children}
     </ProjectContext.Provider>

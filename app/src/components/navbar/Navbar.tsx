@@ -4,6 +4,7 @@ import { ChevronRight, ChevronLeft, FolderOpen, Menu, X } from "lucide-react";
 import logo from "@/assets/JDI_Distribution_Logo.png";
 import MarginCalculator from "@/components/MarginCalculator";
 import ConversionCalculator from "@/components/ConversionCalculator";
+import NavbarSaveButton from "@/components/navbar/NavbarSaveButton";
 
 const navLinks = [
   { label: "Home",                  href: "/",                    drawer: null },
@@ -83,6 +84,11 @@ export default function Navbar() {
             Saved Quotes
           </Link>
 
+          {/* Desktop Save button */}
+          <div className="hidden md:flex items-center">
+            <NavbarSaveButton />
+          </div>
+
           {/* Desktop Next / Back */}
           <div className="hidden md:flex ml-auto">
             {isQuotePage || isSavedPage ? (
@@ -104,8 +110,9 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile: action button + hamburger */}
+          {/* Mobile: Save + action + hamburger */}
           <div className="flex items-center gap-2 ml-auto md:hidden">
+            <NavbarSaveButton />
             {isQuotePage || isSavedPage ? (
               <Link
                 to="/"

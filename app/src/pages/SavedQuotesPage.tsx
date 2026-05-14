@@ -140,7 +140,7 @@ export default function SavedQuotesPage() {
       const data = await res.json();
       const state = parseQuoteData(data.quote_data);
       if (!state) throw new Error("Quote data is missing required fields");
-      loadQuoteState({ moqRows: state.moqRows, columns: state.columns, formData: state.formData });
+      loadQuoteState({ moqRows: state.moqRows, columns: state.columns, formData: state.formData }, id, name);
       showToast("success", `Loaded "${name}"`);
       navigate("/");
     } catch (err) {
