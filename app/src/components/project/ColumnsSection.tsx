@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+﻿import { useRef, useMemo } from "react";
 import { Plus, Link2, Trash2 } from "lucide-react";
 import { Column } from "@/lib/types";
 
@@ -177,6 +177,11 @@ export default function ColumnsSection({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Derived columns (sourceId set) are auto-computed from the base inner column
+  // for alternate pack sizes. They're used internally in calculations but not shown
+  // as editable columns in the UI.
+  const visibleColumns = columns.filter((c) => !c.sourceId);
+
   const addColumn = () => setColumns((prev) => [...prev, emptyColumn()]);
 
   // removeColumnById removes from the raw columns array.
@@ -289,12 +294,12 @@ export default function ColumnsSection({
             Packaging and Packouts
           </h2>
           <div className="flex items-center gap-1 flex-wrap">
-            {columns.map((col) => (
+            {visibleColumns.map((col) => (
               <span
                 key={col.id}
                 className="h-5 px-2 text-[0.6rem] font-semibold rounded-full bg-gray-100 text-gray-600 flex items-center whitespace-nowrap"
               >
-                {col.type || `Col ${columns.indexOf(col) + 1}`}
+                {col.type || `Col ${visibleColumns.indexOf(col) + 1}`}
               </span>
             ))}
           </div>
@@ -311,19 +316,19 @@ export default function ColumnsSection({
 
       {/* Main Scrollable Content — table layout so sticky td works */}
       <div ref={scrollRef} className="overflow-x-auto">
-        <table className="border-collapse" style={{ minWidth: LABEL_WIDTH + columns.length * COL_WIDTH }}>
+        <table className="border-collapse" style={{ minWidth: LABEL_WIDTH + visibleColumns.length * COL_WIDTH }}>
           <colgroup>
             <col style={{ width: LABEL_WIDTH, minWidth: LABEL_WIDTH }} />
-            {columns.map((col) => <col key={col.id} style={{ width: COL_WIDTH, minWidth: COL_WIDTH }} />)}
+            {visibleColumns.map((col) => <col key={col.id} style={{ width: COL_WIDTH, minWidth: COL_WIDTH }} />)}
           </colgroup>
           <tbody>
 
             {/* ── Column header row (Level N label + derivation pill) ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white" />
-              {columns.map((col, index) => {
+              {visibleColumns.map((col, index) => {
                 const isDerived = !!col.sourceId;
-                const srcCol    = isDerived ? columns.find(c => c.id === col.sourceId) : null;
+                const srcCol    = isDerived ? visibleColumns.find(c => c.id === col.sourceId) : null;
                 const srcPack   = parseFloat(srcCol?.unitsPerInner || "24") || 24;
                 const dstPack   = parseFloat(col.unitsPerInner || "48") || 48;
                 const ratio     = dstPack / srcPack;
@@ -344,7 +349,7 @@ export default function ColumnsSection({
                           </span>
                         )}
                       </div>
-                      {columns.length > 1 && (
+                      {visibleColumns.length > 1 && (
                         <button
                           onClick={() => removeColumnById(col.id)}
                           className="shrink-0 text-gray-300 hover:text-red-400 transition-colors p-0.5"
@@ -362,7 +367,7 @@ export default function ColumnsSection({
             {/* ── Units (auto-populated from scaledColumns, editable) ── */}
             <tr className="border-b border-gray-50">
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Units</td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   <input
                     type="number"
@@ -378,7 +383,7 @@ export default function ColumnsSection({
             {/* ── Eff. Buffer % ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Eff. Buffer %</td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   <div className="flex items-center">
                     <input type="number" value={col.efficiency} onChange={(e) => updateColumn(col.id, "efficiency", e.target.value)} className={`${plainInput} min-w-0`} />
@@ -391,7 +396,7 @@ export default function ColumnsSection({
             {/* ── Labor Markup % ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Labor Mkp %</td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   <div className="flex items-center">
                     <input type="number" value={col.labor} onChange={(e) => updateColumn(col.id, "labor", e.target.value)} className={`${plainInput} min-w-0`} />
@@ -404,7 +409,7 @@ export default function ColumnsSection({
             {/* ── Unit Cost Markup % ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Unit Mkp %</td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   <div className="flex items-center">
                     <input type="number" value={col.unitCost} onChange={(e) => updateColumn(col.id, "unitCost", e.target.value)} className={`${plainInput} min-w-0`} />
@@ -417,7 +422,7 @@ export default function ColumnsSection({
             {/* ── Level ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Level</td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   <select value={col.level} onChange={(e) => handleLevelChange(col.id, e.target.value)} className={baseInput}>
                     <option value="">— select level —</option>
@@ -430,7 +435,7 @@ export default function ColumnsSection({
             {/* ── Type (preset picker or custom) ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Type</td>
-              {columns.map((col) => {
+              {visibleColumns.map((col) => {
                 const selectVal = col.customType ? "__custom__"
                   : PRESET_NAMES.includes(col.type) ? col.type
                   : "";
@@ -463,7 +468,7 @@ export default function ColumnsSection({
             {/* ── Tabs ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Tabs</td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-2 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   <button
                     type="button"
@@ -477,15 +482,15 @@ export default function ColumnsSection({
             </tr>
 
             {/* ── Divider ── */}
-            <tr><td colSpan={columns.length + 1} className="border-t border-gray-100" /></tr>
+            <tr><td colSpan={visibleColumns.length + 1} className="border-t border-gray-100" /></tr>
 
             {/* ── High-volume fill rate (hidden for Inner/Case — no fill rate input) ── */}
-            {columns.some(c => c.level !== "Inner / Case") && (
+            {visibleColumns.some(c => c.level !== "Inner / Case") && (
             <tr className="border-b border-gray-50">
               <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 align-middle">
                 <span className="text-xs text-gray-600">High Vol. Rate</span>
               </td>
-              {columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <td key={col.id} className={`px-2 py-1.5 align-top ${col.sourceId ? "bg-blue-50/40" : ""}`}>
                   {col.level === "Inner / Case" ? (
                     <span className="text-[0.6rem] text-gray-300 italic">n/a</span>
@@ -559,7 +564,7 @@ export default function ColumnsSection({
                       )}
                     </div>
                   </td>
-                  {columns.map((col) => {
+                  {visibleColumns.map((col) => {
                     const locked      = isTabLocked && !col.tabs;
                     const innerHidden = isFillRateRow && col.level === "Inner / Case";
                     const sym         = rowSymbol[row];
