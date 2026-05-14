@@ -247,21 +247,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           return colPack === rowPack;
         })
         .map((col) => {
-          if (col.level === "Individual Units" || col.level === "Final Kit Units") {
-            return { ...col, units: String(rowQty) };
+          // Apply per-MOQ fill rate override for this column if set
+          const fillOverride = row.fillRateOverrides?.[col.id];
+          const colWithRate  = (fillOverride !== undefined && fillOverride !== "")
+            ? { ...col, rows: { ...col.rows, "Unit Fill Rate / min": fillOverride } }
+            : col;
+          if (colWithRate.level === "Individual Units" || colWithRate.level === "Final Kit Units") {
+            return { ...colWithRate, units: String(rowQty) };
           }
-          if (col.level === "Inner / Case") {
-            return { ...col, units: String(rowInners) };
+          if (colWithRate.level === "Inner / Case") {
+            return { ...colWithRate, units: String(rowInners) };
           }
-          if (col.level === "Shipper / Outer") {
-            return { ...col, units: String(rowShippers) };
+          if (colWithRate.level === "Shipper / Outer") {
+            return { ...colWithRate, units: String(rowShippers) };
           }
-          return col;
+          return colWithRate;
         });
 
       const rowFormData = {
         ...formData,
         ppuDenominator: String(rowQty),
+        // Per-MOQ manual pallet count: when set, skips weight-based auto-calc
+        ...(row.pallets !== undefined && row.pallets !== ""
+          ? { manualPallets: row.pallets }
+          : {}),
       };
       const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], rowFormData);
       summaryMap.set(row.id, sRows);

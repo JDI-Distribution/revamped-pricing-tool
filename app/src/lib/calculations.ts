@@ -271,7 +271,11 @@ export function computeDetailSections(
 
   const totalProjectWeightG  = reqGrams + packagingWeightG;
   const calculatedPallets    = maxPalletWeightG > 0 ? Math.ceil(totalProjectWeightG / maxPalletWeightG) : 0;
-  const totalPallets         = calculatedPallets + palletBuffer;
+  // manualPallets: per-MOQ override skips weight-based auto-calc entirely.
+  const manualPallets        = formData.manualPallets !== undefined && formData.manualPallets !== ""
+    ? n(formData.manualPallets)
+    : null;
+  const totalPallets         = manualPallets !== null ? manualPallets : calculatedPallets + palletBuffer;
   const outboundTotalFee     = outboundFee * totalPallets;
   const outboundCustomerFee  = outboundFee * (1 + outboundFeeMarkup / 100) * totalPallets;
   const palletOurTotal       = outboundTotalFee;
@@ -305,8 +309,8 @@ export function computeDetailSections(
     title:      "Pallets",
     overageReq: null,
     rows: [
-      { label: "# of Finished Pallets",  projectDetails: calculatedPallets || null,                            projectCosts: null,               isCurrency: false },
-      { label: "Pallet Buffer",           projectDetails: palletBuffer || null,                                 projectCosts: null,               isCurrency: false },
+      { label: "# of Finished Pallets",  projectDetails: (manualPallets !== null ? manualPallets : calculatedPallets) || null, projectCosts: null, isCurrency: false },
+      ...(manualPallets === null ? [{ label: "Pallet Buffer", projectDetails: palletBuffer || null, projectCosts: null, isCurrency: false } satisfies DetailRow] : []),
       { label: "Total Pallets",           projectDetails: totalPallets || null,                                 projectCosts: null,               isCurrency: false },
       { label: "Outbound Fee / Pallet",   projectDetails: outboundFee * (1 + outboundFeeMarkup / 100) || null, projectCosts: outboundFee || null, isCurrency: true  },
       { label: "Total Fees",              projectDetails: palletCustomerTotal || null,                          projectCosts: palletOurTotal || null, isCurrency: true },

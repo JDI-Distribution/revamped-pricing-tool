@@ -4,6 +4,9 @@ export interface MoqRow {
   individualUnits: string;
   unitsPerInner: string;
   innersPerMaster: string;
+  // Per-row overrides (optional — fall back to global when absent)
+  pallets?: string;                          // manual pallet count for this MOQ row
+  fillRateOverrides?: Record<number, string>; // column id → fill rate override
 }
 
 export interface Column {
@@ -43,6 +46,7 @@ export interface ProjectFormData {
   outboundFeeMarkup: string;
   maxPalletWeightLbs: string;    // Max weight per pallet (lbs) — used to auto-calculate finished pallet count
   palletBuffer: string;          // Added pallets buffer on top of auto-calculated pallet count
+  manualPallets?: string;        // When set, overrides weight-based auto-calc (used per-MOQ row)
   // Fees
   testingFee: string;
   testingFeeMarkup: string;

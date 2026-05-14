@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { MoqRow, ProjectFormData } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
+import PalletToolPopover from "@/components/project/PalletToolPopover";
+import FillRateOverridePopover from "@/components/project/FillRateOverridePopover";
 
 const emptyMoqRow = (): MoqRow => ({
   id: Date.now() + Math.random(),
@@ -69,7 +71,9 @@ export default function ProjectDetails({
   setFormField,
 }: Props) {
   const [bufferUnit, setBufferUnit] = useState<"days" | "weeks">("days");
-  const { moqErrors } = useProject();
+  const [palletToolRowId, setPalletToolRowId] = useState<number | null>(null);
+  const [fillRateRowId,   setFillRateRowId]   = useState<number | null>(null);
+  const { moqErrors, columns } = useProject();
   const addMoqRow    = () => setMoqRows((prev) => [...prev, emptyMoqRow()]);
   const removeMoqRow = (id: number) => setMoqRows((prev) => prev.filter((r) => r.id !== id));
   const updateMoqRow = (id: number, field: keyof MoqRow, value: string) =>
@@ -226,9 +230,9 @@ export default function ProjectDetails({
           <button onClick={addMoqRow} className={addRowBtn}><Plus size={10} strokeWidth={2.5} />Add Row</button>
         </div>
         <div className="overflow-x-auto -mx-1 px-1">
-          <div className="min-w-72">
-            <div className="grid grid-cols-3 gap-3 pb-2 border-b border-gray-100 mb-2.5">
-              {["# of Units", "Units / Inner", "Inners / Master"].map((col) => (
+          <div className="min-w-80">
+            <div className="grid grid-cols-4 gap-2 pb-2 border-b border-gray-100 mb-2.5">
+              {["# of Units", "Units / Inner", "Inners / Master", "# of Pallets"].map((col) => (
                 <span key={col} className={colHead}>{col}</span>
               ))}
             </div>
@@ -238,9 +242,11 @@ export default function ProjectDetails({
                 const innerPack  = parseFloat(row.unitsPerInner)   || 0;
                 const innerCount = innerPack > 0 ? Math.ceil(qty / innerPack) : 0;
                 const rowErr     = moqErrors.find((e) => e.rowId === row.id);
+                const hasRateOverrides = row.fillRateOverrides &&
+                  Object.values(row.fillRateOverrides).some(v => v !== "");
                 return (
                 <div key={row.id} className="space-y-1">
-                  <div className="grid grid-cols-3 gap-3 items-center">
+                  <div className="grid grid-cols-4 gap-2 items-center">
                     <input
                       type="number"
                       value={row.individualUnits}
@@ -260,16 +266,48 @@ export default function ProjectDetails({
                       placeholder="0"
                       className={`${cellInputBase} ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`}
                     />
-                    <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={row.innersPerMaster}
+                      onChange={(e) => updateMoqRow(row.id, "innersPerMaster", e.target.value)}
+                      placeholder="0"
+                      className={`${cellInputBase} ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`}
+                    />
+                    {/* Pallets input + tool buttons */}
+                    <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        value={row.innersPerMaster}
-                        onChange={(e) => updateMoqRow(row.id, "innersPerMaster", e.target.value)}
-                        placeholder="0"
-                        className={`${cellInputBase} flex-1 ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`}
+                        value={row.pallets ?? ""}
+                        onChange={(e) => updateMoqRow(row.id, "pallets", e.target.value)}
+                        placeholder="auto"
+                        className={`${cellInputBase} flex-1 min-w-0`}
                       />
+                      <button
+                        onClick={() => setPalletToolRowId(row.id)}
+                        title="Pallet calculator"
+                        className="shrink-0 text-gray-300 hover:text-amber-500 transition-colors p-0.5"
+                      >
+                        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+                          <rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                          <text x="8" y="11" textAnchor="middle" fontSize="8" fontWeight="bold">🧮</text>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setFillRateRowId(row.id)}
+                        title={hasRateOverrides ? "Custom rates active" : "Fill rate overrides"}
+                        className={`shrink-0 transition-colors p-0.5 ${hasRateOverrides ? "text-[#e8473f]" : "text-gray-300 hover:text-[#e8473f]"}`}
+                      >
+                        <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+                          <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                          <circle cx="8" cy="8" r="2" fill="currentColor"/>
+                          <line x1="8" y1="1" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5"/>
+                          <line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" strokeWidth="1.5"/>
+                          <line x1="1" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5"/>
+                          <line x1="12" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.5"/>
+                        </svg>
+                      </button>
                       {moqRows.length > 1 && (
-                        <button onClick={() => removeMoqRow(row.id)} className="text-gray-300 hover:text-red-400 transition-colors shrink-0 p-1"><Trash2 size={12} /></button>
+                        <button onClick={() => removeMoqRow(row.id)} className="shrink-0 text-gray-300 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
                       )}
                     </div>
                   </div>
@@ -280,16 +318,56 @@ export default function ProjectDetails({
                   {rowErr?.innersPerMaster && (
                     <p className="text-[0.6rem] text-red-500 font-medium">{rowErr.innersPerMaster}</p>
                   )}
-                  {/* Helper: show derived inner count when valid */}
-                  {!rowErr && innerPack > 0 && qty > 0 && (
-                    <p className="text-[0.6rem] text-gray-400">→ {innerCount} inners</p>
-                  )}
+                  {/* Helper hints */}
+                  <div className="flex items-center gap-2">
+                    {!rowErr && innerPack > 0 && qty > 0 && (
+                      <p className="text-[0.6rem] text-gray-400">→ {innerCount} inners</p>
+                    )}
+                    {hasRateOverrides && (
+                      <p className="text-[0.6rem] text-[#e8473f] font-medium">⚙ custom rates</p>
+                    )}
+                  </div>
                 </div>
               );
               })}
             </div>
           </div>
         </div>
+
+        {/* ── Pallet Tool Popover ── */}
+        {palletToolRowId !== null && (() => {
+          const row = moqRows.find(r => r.id === palletToolRowId);
+          return row ? (
+            <PalletToolPopover
+              row={row}
+              formData={formData}
+              columns={columns}
+              onUse={(pallets) => {
+                updateMoqRow(row.id, "pallets", String(pallets));
+                setPalletToolRowId(null);
+              }}
+              onClose={() => setPalletToolRowId(null)}
+            />
+          ) : null;
+        })()}
+
+        {/* ── Fill Rate Override Popover ── */}
+        {fillRateRowId !== null && (() => {
+          const row = moqRows.find(r => r.id === fillRateRowId);
+          return row ? (
+            <FillRateOverridePopover
+              row={row}
+              columns={columns}
+              onSave={(overrides) => {
+                setMoqRows(prev => prev.map(r =>
+                  r.id === row.id ? { ...r, fillRateOverrides: overrides } : r
+                ));
+                setFillRateRowId(null);
+              }}
+              onClose={() => setFillRateRowId(null)}
+            />
+          ) : null;
+        })()}
 
         {/* ── Lead Time ────────────────────────────────────────────── */}
         <div className="mt-4 pt-4 border-t border-gray-100">
