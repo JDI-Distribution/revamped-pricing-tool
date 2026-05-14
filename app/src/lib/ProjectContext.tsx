@@ -39,7 +39,8 @@ const initialFormData: ProjectFormData = {
 
 const mkRows = (
   overageRate: string, wageRate: string, unitsPerMin: string,
-  packagingCost: string, labelPrint: string, tabCost: string,
+  packagingCost: string, labelPrint: string, labelApplyRate: string,
+  packagingWeight: string, tabCost: string,
   stations: string, hrsPerShift: string, workingDays: string
 ) => ({
   "Overage Rate":            overageRate,
@@ -47,33 +48,37 @@ const mkRows = (
   "Unit Fill Rate / min":    unitsPerMin,
   "Packaging Cost / unit":   packagingCost,
   "Label Print Cost / unit": labelPrint,
+  "Label Apply Rate / min":  labelApplyRate,
+  "Packaging Weight (g)":    packagingWeight,
   "Tab Cost / unit":         tabCost,
   "No. of Staff / Stations": stations,
   "Hrs / Shift":             hrsPerShift,
   "Working Days":            workingDays,
 });
 
+// Args: overageRate, wage, fillRate, packCost, labelPrint, labelApplyRate,
+//       packagingWeight(g), tabCost, stations, hrsPerShift, workingDays
 const initialColumns: Column[] = [
   {
     id: 1, level: "Individual Units", type: "4oz Sachets", units: "6600",
     efficiency: "20", labor: "35", unitCost: "125", tabs: false,
-    rows: mkRows("15", "26", "12", "0.035", "0", "0", "5", "7.3", "5"),
+    rows: mkRows("15", "26", "12", "0.035", "0", "0", "1.6", "0", "5", "7.3", "5"),
   },
   {
     id: 2, level: "Final Kit Units", type: "4oz Tins", units: "6600",
     efficiency: "20", labor: "35", unitCost: "125", tabs: false,
-    rows: mkRows("3", "26", "15", "0.55", "0.2", "0", "3", "7.3", "5"),
+    rows: mkRows("3", "26", "15", "0.55", "0.2", "0", "71", "0", "3", "7.3", "5"),
   },
   {
     id: 3, level: "Inner / Case", type: "Inners", units: "275",
     efficiency: "20", labor: "35", unitCost: "125", tabs: false,
     unitsPerInner: "24",
-    rows: mkRows("2", "26", "1", "0.2", "0", "0", "1", "7.3", "5"),
+    rows: mkRows("2", "26", "1", "0.2", "0", "0", "454", "0", "1", "7.3", "5"),
   },
   {
     id: 4, level: "Shipper / Outer", type: "Shippers", units: "12",
     efficiency: "25", labor: "35", unitCost: "125", tabs: false,
-    rows: mkRows("1", "26", "1", "0.2", "0", "0", "1", "7.3", "5"),
+    rows: mkRows("1", "26", "1", "0.2", "0", "0", "454", "0", "1", "7.3", "5"),
   },
 ];
 
