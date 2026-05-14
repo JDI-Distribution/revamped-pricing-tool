@@ -288,6 +288,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         ...(row.pallets !== undefined && row.pallets !== ""
           ? { manualPallets: row.pallets }
           : {}),
+        // Per-MOQ cost/gram override: feeds directly into raw material cost
+        ...(row.costPerGram !== undefined && row.costPerGram !== ""
+          ? { costPerGram: row.costPerGram }
+          : {}),
       };
       const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], rowFormData);
       summaryMap.set(row.id, sRows);

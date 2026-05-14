@@ -330,11 +330,12 @@ export default function ProjectDetails({
                     {/* Pallets input + tool buttons */}
                     <div className="flex items-center gap-1">
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={row.pallets ?? ""}
                         onChange={(e) => updateMoqRow(row.id, "pallets", e.target.value)}
                         placeholder={autoPallets !== null ? String(autoPallets) : "auto"}
-                        className={`${cellInputBase} flex-1 min-w-0 ${!row.pallets && autoPallets !== null ? "text-gray-400" : ""}`}
+                        className={`${cellInputBase} flex-1 min-w-0`}
                       />
                       <button
                         onClick={() => setPalletToolRowId(row.id)}
@@ -364,12 +365,28 @@ export default function ProjectDetails({
                         <button onClick={() => removeMoqRow(row.id)} className="shrink-0 text-gray-300 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
                       )}
                     </div>
-                    {/* Cost/gram — read-only derived */}
-                    <div className="flex items-center h-8 px-2 rounded-md border border-gray-100 bg-gray-50 text-[0.65rem] text-gray-500 font-mono">
-                      {costPerGram !== null
-                        ? `$${costPerGram.toFixed(4)}`
-                        : <span className="text-gray-300 italic">—</span>
-                      }
+                    {/* Cost/gram — editable, overrides global cost/gram for this MOQ row */}
+                    <div className="flex items-center gap-0.5">
+                      <div className="flex items-center border border-amber-200 rounded-md overflow-hidden flex-1 min-w-0">
+                        <span className="text-[0.6rem] text-gray-400 px-1.5 bg-amber-50/50 h-8 flex items-center border-r border-amber-200 shrink-0">$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={row.costPerGram ?? ""}
+                          onChange={(e) => updateMoqRow(row.id, "costPerGram", e.target.value)}
+                          placeholder={costPerGram !== null ? costPerGram.toFixed(4) : "0.0000"}
+                          className="w-full h-8 px-1.5 text-[0.65rem] font-mono text-gray-900 bg-amber-50/50 focus:outline-none focus:bg-amber-50"
+                        />
+                      </div>
+                      {row.costPerGram !== undefined && row.costPerGram !== "" && (
+                        <button
+                          onClick={() => updateMoqRow(row.id, "costPerGram", "")}
+                          title="Reset to derived value"
+                          className="shrink-0 text-[0.6rem] text-gray-300 hover:text-[#e8473f] transition-colors px-0.5"
+                        >
+                          ↺
+                        </button>
+                      )}
                     </div>
                   </div>
                   {/* Per-field error messages */}

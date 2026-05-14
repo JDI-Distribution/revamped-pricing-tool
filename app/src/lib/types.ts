@@ -6,6 +6,7 @@ export interface MoqRow {
   innersPerMaster: string;
   // Per-row overrides (optional — fall back to global when absent)
   pallets?: string;                          // manual pallet count for this MOQ row
+  costPerGram?: string;                      // manual cost/gram override for this MOQ row
   fillRateOverrides?: Record<number, string>; // column id → fill rate override
 }
 

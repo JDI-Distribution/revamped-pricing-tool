@@ -138,7 +138,8 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
               <span className="flex-1 text-xs text-gray-600">Max Weight / Pallet</span>
               <div className="flex items-center border border-amber-200 rounded-md overflow-hidden">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={maxWeightDisplay}
                   onChange={(e) => handleMaxWeightChange(e.target.value)}
                   className="w-16 h-7 px-2 text-xs text-right bg-amber-50/50 focus:outline-none"
@@ -151,7 +152,8 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
             <div className="flex items-center gap-2">
               <span className="flex-1 text-xs text-gray-600">Buffer Pallets</span>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={buffer}
                 onChange={(e) => setBuffer(parseFloat(e.target.value) || 0)}
                 className="w-20 h-7 px-2 text-xs text-right border border-amber-200 rounded-md bg-amber-50/50 focus:outline-none"
