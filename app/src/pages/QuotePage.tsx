@@ -167,7 +167,7 @@ export default function QuotePage() {
           onConfirm={async (selectedMoq) => {
             setXlsxGenerating(true);
             try {
-              await generateQuoteXLSX({ formData, columns, allMoqResults, customer, selectedBrand, moqMargins: resolvedMoqMargins, selectedMoq });
+              await generateQuoteXLSX({ formData, columns, allMoqResults, perMoqSummaryRows, customer, selectedBrand, moqMargins: resolvedMoqMargins, selectedMoq });
               setXlsxModalOpen(false);
             } finally {
               setXlsxGenerating(false);

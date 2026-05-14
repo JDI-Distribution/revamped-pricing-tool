@@ -22,7 +22,7 @@ const initialFormData: ProjectFormData = {
   numPallets:              "1",
   outboundFee:             "350",
   outboundFeeMarkup:       "40",
-  numFinishedPallets:      "3",
+  maxPalletWeightLbs:      "1000",
   palletBuffer:            "1",
   testingFee:              "350",
   testingFeeMarkup:        "30",
@@ -232,10 +232,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const pricing:     MoqPricingRow[]              = [];
     const summaryMap = new Map<number, SummaryRow[]>();
 
-    // Base MOQ quantity — used to scale outbound pallets proportionally.
-    const baseMoqQty       = n(moqRows[0].individualUnits) || n(moqRows[0].moq) || 1;
-    const baseFinishedPallets = n(formData.numFinishedPallets);
-
     for (const row of moqRows) {
       const rowPack         = n(row.unitsPerInner);
       const rowQty          = n(row.individualUnits) || n(row.moq) || 1;
@@ -263,13 +259,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           return col;
         });
 
-      // Scale outbound pallets proportionally to this MOQ's quantity.
-      // Intake/testing fees stay flat (global inputs independent of MOQ).
-      const scaledFinishedPallets = Math.ceil(baseFinishedPallets * rowQty / baseMoqQty);
       const rowFormData = {
         ...formData,
-        ppuDenominator:     String(rowQty),
-        numFinishedPallets: String(scaledFinishedPallets),
+        ppuDenominator: String(rowQty),
       };
       const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], rowFormData);
       summaryMap.set(row.id, sRows);
@@ -338,14 +330,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         innersPerMaster: "0",
       };
 
-      // Scale outbound pallets proportionally; ppuDenominator follows qty.
-      const baseMoqQtyForQty      = n(moqRows[0]?.individualUnits) || n(moqRows[0]?.moq) || 1;
-      const baseFinishedForQty    = n(formData.numFinishedPallets);
-      const scaledFinishedForQty  = Math.ceil(baseFinishedForQty * qty / baseMoqQtyForQty);
       const formDataForQty = {
         ...formData,
-        ppuDenominator:     String(qty),
-        numFinishedPallets: String(scaledFinishedForQty),
+        ppuDenominator: String(qty),
       };
 
       const { summaryRows: sRows, summaryTableRows: sTableRows } =

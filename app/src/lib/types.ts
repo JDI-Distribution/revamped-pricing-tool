@@ -22,6 +22,9 @@ export interface Column {
   // scaled by (this column's unitsPerInner / source's unitsPerInner)
   sourceId?:       number;
   unitsPerInner?:  string;
+  // High-volume fill rate: if units exceed hvThreshold, use hvFillRate instead of base rate
+  hvThreshold?:    string;
+  hvFillRate?:     string;
 }
 
 export interface ProjectFormData {
@@ -38,8 +41,8 @@ export interface ProjectFormData {
   // Outbound / finished-goods pallets
   outboundFee: string;
   outboundFeeMarkup: string;
-  numFinishedPallets: string;
-  palletBuffer: string;          // Added pallets buffer (e.g. 1) — added on top of numFinishedPallets
+  maxPalletWeightLbs: string;    // Max weight per pallet (lbs) — used to auto-calculate finished pallet count
+  palletBuffer: string;          // Added pallets buffer on top of auto-calculated pallet count
   // Fees
   testingFee: string;
   testingFeeMarkup: string;

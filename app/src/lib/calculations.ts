@@ -47,7 +47,13 @@ function computeColumn(
   const unitsReq    = units * (1 + overageRate / 100);
 
   // ── Throughput ────────────────────────────────────────────────
-  const unitsPerMin    = n(col.rows?.["Unit Fill Rate / min"]);
+  const unitsPerMin = (() => {
+    const base     = n(col.rows?.["Unit Fill Rate / min"]);
+    const hvThresh = n(col.hvThreshold);
+    const hvRate   = n(col.hvFillRate);
+    if (hvThresh > 0 && hvRate > 0 && units > hvThresh) return hvRate;
+    return base;
+  })();
   const labelApplyRate = n(col.rows?.["Label Apply Rate / min"]);
   // efficiency is entered as an integer percent (e.g. 20 = 20% buffer).
   const efficiency  = n(col.efficiency);
@@ -181,7 +187,6 @@ export function computeDetailSections(
   const intakeFee           = n(formData.intakeFee);
   const numPallets          = n(formData.numPallets);
   const outboundFee         = n(formData.outboundFee);
-  const numFinishedPallets  = n(formData.numFinishedPallets);
   const testingFee          = n(formData.testingFee);
   const testingFeeMarkup    = n(formData.testingFeeMarkup);
   const setupFeeOur         = n(formData.setupFeeOur);
@@ -224,40 +229,55 @@ export function computeDetailSections(
   const materialOurTotal      = rawMaterialOur + intakeTotalOur + testingFeeOur + leftOverAbsorbed;
   const materialCustomerTotal = rawMaterialCustomer + intakeTotalCustomer + testingFeeCustomer + leftOverAbsorbed;
 
-  // ── Pallets — outbound only ────────────────────────────────────
-  // totalPallets = user-specified pallets + buffer (matching Excel Z4 + Z18)
-  const outboundFeeMarkup    = n(formData.outboundFeeMarkup);
-  const palletBuffer         = n(formData.palletBuffer);
-  const totalPallets         = numFinishedPallets + palletBuffer;
-  const outboundTotalFee     = outboundFee * totalPallets;
-  const outboundCustomerFee  = outboundFee * (1 + outboundFeeMarkup / 100) * totalPallets;
-  const palletOurTotal       = outboundTotalFee;
-  const palletCustomerTotal  = outboundCustomerFee;
-
-  // ── Per-column results ─────────────────────────────────────────
+  // ── Per-column results (needed for auto-pallet weight) ────────────────────────
   // Guard: Inner/Case units must never exceed the moq quantity.
   // unitsPerInner=0 is invalid and produces no inners (units stays 0).
-  const moqUnits = ppuDenominator || totalBaseUnits;
-  const guardedColumns = columns.map((col) => {
+  const moqUnits_pre = ppuDenominator || totalBaseUnits;
+  const guardedColumns_pre = columns.map((col) => {
     if (col.level !== "Inner / Case") return col;
     const innerUnits    = n(col.units);
     const unitsPerInner = n(col.unitsPerInner);
     if (unitsPerInner <= 0) {
-      // Invalid pack size — zero out to avoid nonsensical results
       if (innerUnits > 0) console.warn("[calc] Inner/Case column has unitsPerInner <= 0; zeroing units", { col: col.type });
       return { ...col, units: "0" };
     }
-    if (moqUnits > 0 && innerUnits > moqUnits) {
-      const corrected = Math.ceil(moqUnits / unitsPerInner);
-      console.warn("[calc] innerUnits > moqUnits — recorrecting", { innerUnits, moqUnits, unitsPerInner, corrected, col: col.type });
+    if (moqUnits_pre > 0 && innerUnits > moqUnits_pre) {
+      const corrected = Math.ceil(moqUnits_pre / unitsPerInner);
+      console.warn("[calc] innerUnits > moqUnits — recorrecting", { innerUnits, moqUnits: moqUnits_pre, unitsPerInner, corrected, col: col.type });
       return { ...col, units: String(corrected) };
     }
     return col;
   });
 
-  const colResults = guardedColumns.map((col, i) =>
+  const colResults_pre = guardedColumns_pre.map((col, i) =>
     computeColumn(col, i, unitWeight, ppuDenominator),
   );
+
+  // ── Pallets — auto-calculated from total project weight ───────────────────────
+  const outboundFeeMarkup    = n(formData.outboundFeeMarkup);
+  const palletBuffer         = n(formData.palletBuffer);
+  const maxPalletWeightLbs   = n(formData.maxPalletWeightLbs) || 1000;
+  const maxPalletWeightG     = maxPalletWeightLbs * 453.592;
+
+  // Sum all per-column packaging weights (units_req × packaging_weight_g)
+  const packagingWeightG = colResults_pre.reduce((sum, _r, i) => {
+    const col = guardedColumns_pre[i];
+    const pwg = n(col.rows?.["Packaging Weight (g)"]);
+    if (pwg <= 0) return sum;
+    const over = n(col.rows?.["Overage Rate"]);
+    const uReq = n(col.units) * (1 + over / 100);
+    return sum + uReq * pwg;
+  }, 0);
+
+  const totalProjectWeightG  = reqGrams + packagingWeightG;
+  const calculatedPallets    = maxPalletWeightG > 0 ? Math.ceil(totalProjectWeightG / maxPalletWeightG) : 0;
+  const totalPallets         = calculatedPallets + palletBuffer;
+  const outboundTotalFee     = outboundFee * totalPallets;
+  const outboundCustomerFee  = outboundFee * (1 + outboundFeeMarkup / 100) * totalPallets;
+  const palletOurTotal       = outboundTotalFee;
+  const palletCustomerTotal  = outboundCustomerFee;
+
+  const colResults = colResults_pre;
 
   // ── Detail sections ────────────────────────────────────────────
   const materialSection: DetailSection = {
@@ -285,9 +305,11 @@ export function computeDetailSections(
     title:      "Pallets",
     overageReq: null,
     rows: [
-      { label: "# of Finished Pallets",  projectDetails: totalPallets || null,                               projectCosts: null,               isCurrency: false },
-      { label: "Outbound Fee / Pallet",  projectDetails: outboundFee * (1 + outboundFeeMarkup / 100) || null, projectCosts: outboundFee || null, isCurrency: true  },
-      { label: "Total Fees",             projectDetails: palletCustomerTotal || null,                          projectCosts: palletOurTotal || null, isCurrency: true },
+      { label: "# of Finished Pallets",  projectDetails: calculatedPallets || null,                            projectCosts: null,               isCurrency: false },
+      { label: "Pallet Buffer",           projectDetails: palletBuffer || null,                                 projectCosts: null,               isCurrency: false },
+      { label: "Total Pallets",           projectDetails: totalPallets || null,                                 projectCosts: null,               isCurrency: false },
+      { label: "Outbound Fee / Pallet",   projectDetails: outboundFee * (1 + outboundFeeMarkup / 100) || null, projectCosts: outboundFee || null, isCurrency: true  },
+      { label: "Total Fees",              projectDetails: palletCustomerTotal || null,                          projectCosts: palletOurTotal || null, isCurrency: true },
     ],
     totalCustomerCost: palletCustomerTotal,
     totalOurCost:      palletOurTotal,

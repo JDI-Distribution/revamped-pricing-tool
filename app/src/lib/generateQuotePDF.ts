@@ -47,7 +47,7 @@ type QuoteArgs = {
   moqMargins:       Record<number, string>;
   summaryRows:      SummaryRow[];
   summaryTableRows: SummaryTableRow[];
-  formData:         { startDate: string; leadTimeBufferDays: string; ppuDenominator: string; numFinishedPallets: string; outboundFee: string; outboundFeeMarkup: string };
+  formData:         { startDate: string; leadTimeBufferDays: string; ppuDenominator: string; outboundFee: string; outboundFeeMarkup: string; palletBuffer: string };
   customer:         CustomerInfo;
 };
 
@@ -277,7 +277,13 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       ]);
     }
     if (palletRow) {
-      const nPal = parseFloat(formData.numFinishedPallets || "0") || 0;
+      // Derive pallet count from outbound fee (auto-calculated, not stored in formData).
+      const outFee = parseFloat(formData.outboundFee || "0") || 0;
+      const outMkp = parseFloat(formData.outboundFeeMarkup || "0") || 0;
+      const feePerPallet = outFee > 0 ? outFee * (1 + outMkp / 100) : 0;
+      const nPal = (feePerPallet > 0 && palletRow.customerPrice > 0)
+        ? Math.round(palletRow.customerPrice / feePerPallet)
+        : 0;
       const palPPU = nPal > 0 ? fmt(palletRow.customerPrice / nPal) : "$0.00";
       body.push(["Palletization & Outbound Staging", nPal > 0 ? String(nPal) : "—", palPPU, fmt(palletRow.customerPrice)]);
     }

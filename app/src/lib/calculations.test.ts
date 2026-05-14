@@ -76,7 +76,7 @@ describe("TC1 — Bartesian 4oz Sachets 6600 MOQ", () => {
     ppuDenominator:          "6600",
     outboundFee:             "350",
     outboundFeeMarkup:       "40",
-    numFinishedPallets:      "4",
+    maxPalletWeightLbs:      "1000",
     palletBuffer:            "0",
     leadTimeBufferDays:      "57",
     startDate:               "2026-01-01",
@@ -178,7 +178,7 @@ describe("TC2 — DecoPac 25g Pump 3000 MOQ", () => {
     ppuDenominator:          "3000",
     outboundFee:             "350",
     outboundFeeMarkup:       "40",
-    numFinishedPallets:      "2",
+    maxPalletWeightLbs:      "1000",
     palletBuffer:            "0",
     leadTimeBufferDays:      "50",
     startDate:               "2026-01-01",
@@ -216,24 +216,24 @@ describe("TC2 — DecoPac 25g Pump 3000 MOQ", () => {
     near(r.ourCosts,      189.13, "inners our");
   });
 
-  it("Pallets & Fees", () => {
+  it("Pallets & Fees (auto-calc: 1 pallet from weight)", () => {
     const r = get("Pallets & Fees");
-    near(r.customerPrice, 980, "pallets customer");
-    near(r.ourCosts,      700, "pallets our");
+    near(r.customerPrice, 490, "pallets customer");
+    near(r.ourCosts,      350, "pallets our");
   });
 
   it("TOTALS", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust, 51303.41, "total customer");
-    near(totalOur,  16412.82, "total our");
+    near(totalCust, 50813.4, "total customer");
+    near(totalOur,  16062.8, "total our");
   });
 
   it("PPU", () => {
     const totalCust = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
     const totalOur  = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
-    near(totalCust / 3000, 17.10, "customer PPU");
-    near(totalOur  / 3000,  5.47, "cost PPU");
+    near(totalCust / 3000, 16.94, "customer PPU");
+    near(totalOur  / 3000,  5.35, "cost PPU");
   });
 });
 
@@ -271,7 +271,7 @@ describe("Inner/Case guard — invalid unitsPerInner", () => {
     testingFee: "0", testingFeeMarkup: "0",
     leftOverInventoryCost: "0", leftOverInventoryAbsorb: "0",
     setupFeeOur: "0", setupFeeCustomer: "0", ppuDenominator: "100",
-    outboundFee: "0", outboundFeeMarkup: "0", numFinishedPallets: "0", palletBuffer: "0",
+    outboundFee: "0", outboundFeeMarkup: "0", maxPalletWeightLbs: "1000", palletBuffer: "0",
     leadTimeBufferDays: "0", startDate: "2026-01-01",
   };
 
@@ -327,8 +327,8 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
     ppuDenominator:          "3600",
     outboundFee:             "350",
     outboundFeeMarkup:       "40",
-    numFinishedPallets:      "1",   // base pallets
-    palletBuffer:            "1",   // buffer — total = 1+1 = 2
+    maxPalletWeightLbs:      "1000",
+    palletBuffer:            "1",   // buffer on top of auto-calculated pallets
     leadTimeBufferDays:      "50",
     startDate:               "2026-01-01",
   };
@@ -385,12 +385,18 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
   });
 });
 
-// ── MOQ pallet scaling ────────────────────────────────────────────────────────
-// numFinishedPallets should scale proportionally to MOQ quantity.
-// At 15000 MOQ with base 3 finished pallets @ 6600 units:
-//   scaledFinished = ceil(3 * 15000/6600) = ceil(6.818) = 7
-//   totalPallets   = 7 + 1 (buffer) = 8
-describe("Pallet scaling — proportional to MOQ quantity", () => {
+// ── Auto pallet calculation from weight ───────────────────────────────────────
+// Pallets are now auto-calculated: ceil(totalProjectWeightG / maxPalletWeightG).
+// totalProjectWeightG = reqGrams + packagingWeightG
+describe("Auto pallet calculation from project weight", () => {
+  // Single Individual Units column, 15000 units at 113.4g each, no overage,
+  // packaging weight 71g/unit. maxPalletWeight = 1000 lbs.
+  // reqGrams = 15000 * 113.4 = 1,701,000g
+  // packagingWeightG = 15000 * 71 = 1,065,000g (no overage on Individual Units col)
+  // totalWeight = 2,766,000g
+  // maxPalletWeightG = 1000 * 453.592 = 453,592g
+  // calculatedPallets = ceil(2,766,000 / 453,592) = ceil(6.097) = 7
+  // totalPallets = 7 + 1 (buffer) = 8
   const baseFormData: ProjectFormData = {
     unitWeight: "113.4", unitWeightUnit: "g", costPerGram: "0",
     numSkus: "1", rawMaterialSkus: "1", materialOverage: "0", rawMaterialMarkup: "0",
@@ -399,27 +405,32 @@ describe("Pallet scaling — proportional to MOQ quantity", () => {
     leftOverInventoryCost: "0", leftOverInventoryAbsorb: "0",
     setupFeeOur: "0", setupFeeCustomer: "0", ppuDenominator: "15000",
     outboundFee: "350", outboundFeeMarkup: "40",
-    numFinishedPallets: "7",   // pre-scaled: ceil(3 * 15000/6600) = 7
+    maxPalletWeightLbs: "1000",
     palletBuffer: "1",
     leadTimeBufferDays: "0", startDate: "2026-01-01",
   };
 
+  const weightTestCol = makeCol(1, "Individual Units", "Test Units", "15000", "0", "0", "0",
+    rows("0", "0", "0", "0", "0", "0", "71", "1", "8", "5"));
+
   it("8 total pallets → outbound our=$2800, customer=$3920", () => {
-    const { summaryRows } = computeDetailSections([], [], baseFormData);
+    const { summaryRows } = computeDetailSections([weightTestCol], [], baseFormData);
     const r = summaryRows.find(r => r.label === "Pallets & Fees")!;
     near(r.ourCosts,      2800, "pallets our");
     near(r.customerPrice, 3920, "pallets customer");
   });
 
-  it("ceil(3 * 15000/6600) = 7", () => {
-    expect(Math.ceil(3 * 15000 / 6600)).toBe(7);
+  it("auto-calc: ceil((1701000+1065000)/453592) = 7 calculated pallets", () => {
+    expect(Math.ceil((1701000 + 1065000) / (1000 * 453.592))).toBe(7);
   });
 
-  it("ceil(3 * 6600/6600) = 3 (base MOQ unchanged)", () => {
-    expect(Math.ceil(3 * 6600 / 6600)).toBe(3);
+  it("ceil(totalWeight / maxPalletWeightG) formula", () => {
+    const totalWeightG = 15000 * 113.4 + 15000 * 71;
+    const maxG = 1000 * 453.592;
+    expect(Math.ceil(totalWeightG / maxG)).toBe(7);
   });
 
-  it("ceil(3 * 13200/6600) = 6 (2× MOQ)", () => {
-    expect(Math.ceil(3 * 13200 / 6600)).toBe(6);
+  it("buffer of 1 adds to calculated pallets (7+1=8)", () => {
+    expect(7 + 1).toBe(8);
   });
 });

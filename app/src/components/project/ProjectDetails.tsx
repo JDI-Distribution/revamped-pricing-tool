@@ -109,10 +109,10 @@ export default function ProjectDetails({
   ];
 
   const palletRows: RowDef[] = [
-    ["Outbound Fee / Pallet", "outboundFee",       "number", "$"],
-    ["# of Finished Pallets", "numFinishedPallets", "number", ""],
-    ["Pallet Buffer",         "palletBuffer",       "number", ""],
-    ["Outbound Fee Markup",   "outboundFeeMarkup",  "number", "%"],
+    ["Outbound Fee / Pallet", "outboundFee",        "number", "$"],
+    ["Max Pallet Weight",     "maxPalletWeightLbs", "number", "lbs"],
+    ["Pallet Buffer",         "palletBuffer",        "number", ""],
+    ["Outbound Fee Markup",   "outboundFeeMarkup",   "number", "%"],
   ];
 
   // Compact input for table cells (no outer rounding, smaller height)

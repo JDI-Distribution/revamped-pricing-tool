@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { ProjectFormData } from "./types";
+import { ProjectFormData, SummaryRow } from "./types";
 import { MoqPricingRow } from "./ProjectContext";
 import { Column } from "./types";
 import { BrandId, CustomerInfo } from "./generateQuotePDF";
@@ -28,17 +28,18 @@ function colByLevel(columns: Column[], level: string): Column | undefined {
 // ─── main export ─────────────────────────────────────────────────────────────
 
 export interface XlsxExportArgs {
-  formData:         ProjectFormData;
-  allMoqResults:    MoqPricingRow[];
-  columns:          Column[];           // raw (base) columns from ProjectContext
-  customer:         CustomerInfo;
-  selectedBrand:    BrandId;
-  moqMargins:       Record<number, string>;
-  selectedMoq:      MoqPricingRow;     // the MOQ the user chose in the selection modal
+  formData:            ProjectFormData;
+  allMoqResults:       MoqPricingRow[];
+  perMoqSummaryRows:   Map<number, SummaryRow[]>;
+  columns:             Column[];           // raw (base) columns from ProjectContext
+  customer:            CustomerInfo;
+  selectedBrand:       BrandId;
+  moqMargins:          Record<number, string>;
+  selectedMoq:         MoqPricingRow;     // the MOQ the user chose in the selection modal
 }
 
 export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
-  const { formData, allMoqResults, columns, customer, selectedBrand, moqMargins, selectedMoq } = args;
+  const { formData, allMoqResults, perMoqSummaryRows, columns, customer, selectedBrand, moqMargins, selectedMoq } = args;
 
   // 1. Fetch the template from /app/costing_template.xlsx
   const resp = await fetch("/app/costing_template.xlsx");
@@ -187,7 +188,14 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
 
   // ── Y/Z: Packout 3 - Pallets & Outbound inputs ───────────────────────────
   set("Z3",  n(formData.outboundFee));                           // Outbound fee per pallet
-  set("Z4",  n(formData.numFinishedPallets));                    // Approx # of pallets
+  // Z4: total pallets — derive from pallet summary row: palletOurCost / outboundFee
+  const moqSRows    = perMoqSummaryRows.get(firstMoq?.moqRow.id ?? -1) ?? [];
+  const palletSRow  = moqSRows.find(r => r.label === "Pallets & Fees");
+  const outFeeXlsx  = n(formData.outboundFee);
+  const palletCount = (palletSRow && outFeeXlsx > 0)
+    ? Math.round(palletSRow.ourCosts / outFeeXlsx)
+    : 0;
+  set("Z4",  palletCount);
   set("Z17", n(formData.outboundFeeMarkup) / 100);               // Outbound fee markup %
   set("Z18", n(formData.palletBuffer) || 1);                     // Added pallets buffer
 

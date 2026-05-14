@@ -465,6 +465,59 @@ export default function ColumnsSection({
             {/* ── Divider ── */}
             <tr><td colSpan={columns.length + 1} className="border-t border-gray-100" /></tr>
 
+            {/* ── High-volume fill rate ── */}
+            <tr className="border-b border-gray-50">
+              <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 align-middle">
+                <span className="text-xs text-gray-600">High Vol. Rate</span>
+              </td>
+              {columns.map((col) => (
+                <td key={col.id} className={`px-2 py-1.5 align-top ${col.sourceId ? "bg-blue-50/40" : ""}`}>
+                  <label className="flex items-center gap-1.5 cursor-pointer mb-1">
+                    <input
+                      type="checkbox"
+                      checked={!!(col.hvThreshold || col.hvFillRate)}
+                      onChange={(e) => {
+                        if (!e.target.checked) {
+                          updateColumn(col.id, "hvThreshold", "");
+                          updateColumn(col.id, "hvFillRate", "");
+                        } else {
+                          updateColumn(col.id, "hvThreshold", "8000");
+                        }
+                      }}
+                      className="w-3 h-3 accent-[#e8473f]"
+                    />
+                    <span className="text-[0.6rem] text-gray-500">Different rate at high volume</span>
+                  </label>
+                  {!!(col.hvThreshold || col.hvFillRate) && (
+                    <div className="space-y-1 pl-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[0.6rem] text-gray-400 w-14 shrink-0">Threshold</span>
+                        <input
+                          type="number"
+                          value={col.hvThreshold ?? ""}
+                          onChange={(e) => updateColumn(col.id, "hvThreshold", e.target.value)}
+                          placeholder="8000"
+                          className={`${baseInput} flex-1`}
+                        />
+                        <span className="text-[0.6rem] text-gray-400 shrink-0">units</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[0.6rem] text-gray-400 w-14 shrink-0">HV Rate</span>
+                        <input
+                          type="number"
+                          value={col.hvFillRate ?? ""}
+                          onChange={(e) => updateColumn(col.id, "hvFillRate", e.target.value)}
+                          placeholder="13"
+                          className={`${baseInput} flex-1`}
+                        />
+                        <span className="text-[0.6rem] text-gray-400 shrink-0">/min</span>
+                      </div>
+                    </div>
+                  )}
+                </td>
+              ))}
+            </tr>
+
             {/* ── Display Rows ── */}
             {displayRows.map((row) => {
               const isTabLocked     = tabLockedRows.includes(row);
