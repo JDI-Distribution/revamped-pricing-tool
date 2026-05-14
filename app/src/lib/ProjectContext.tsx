@@ -232,6 +232,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const pricing:     MoqPricingRow[]              = [];
     const summaryMap = new Map<number, SummaryRow[]>();
 
+    // Base MOQ quantity — used to scale outbound pallets proportionally.
+    const baseMoqQty       = n(moqRows[0].individualUnits) || n(moqRows[0].moq) || 1;
+    const baseFinishedPallets = n(formData.numFinishedPallets);
+
     for (const row of moqRows) {
       const rowPack         = n(row.unitsPerInner);
       const rowQty          = n(row.individualUnits) || n(row.moq) || 1;
@@ -259,7 +263,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           return col;
         });
 
-      const rowFormData = { ...formData, ppuDenominator: String(rowQty) };
+      // Scale outbound pallets proportionally to this MOQ's quantity.
+      // Intake/testing fees stay flat (global inputs independent of MOQ).
+      const scaledFinishedPallets = Math.ceil(baseFinishedPallets * rowQty / baseMoqQty);
+      const rowFormData = {
+        ...formData,
+        ppuDenominator:     String(rowQty),
+        numFinishedPallets: String(scaledFinishedPallets),
+      };
       const { summaryRows: sRows } = computeDetailSections(rowColumns, [row], rowFormData);
       summaryMap.set(row.id, sRows);
 
@@ -327,9 +338,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         innersPerMaster: "0",
       };
 
-      // Override ppuDenominator to qty so all per-unit costs are based on this qty,
-      // not the stored ppuDenominator (which is the base MOQ).
-      const formDataForQty = { ...formData, ppuDenominator: String(qty) };
+      // Scale outbound pallets proportionally; ppuDenominator follows qty.
+      const baseMoqQtyForQty      = n(moqRows[0]?.individualUnits) || n(moqRows[0]?.moq) || 1;
+      const baseFinishedForQty    = n(formData.numFinishedPallets);
+      const scaledFinishedForQty  = Math.ceil(baseFinishedForQty * qty / baseMoqQtyForQty);
+      const formDataForQty = {
+        ...formData,
+        ppuDenominator:     String(qty),
+        numFinishedPallets: String(scaledFinishedForQty),
+      };
 
       const { summaryRows: sRows, summaryTableRows: sTableRows } =
         computeDetailSections(rowColumns, [syntheticMoqRow], formDataForQty);

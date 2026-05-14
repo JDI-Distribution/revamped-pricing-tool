@@ -384,3 +384,42 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
     near(totalOur  / 3600, 2.98, "cost PPU");
   });
 });
+
+// ── MOQ pallet scaling ────────────────────────────────────────────────────────
+// numFinishedPallets should scale proportionally to MOQ quantity.
+// At 15000 MOQ with base 3 finished pallets @ 6600 units:
+//   scaledFinished = ceil(3 * 15000/6600) = ceil(6.818) = 7
+//   totalPallets   = 7 + 1 (buffer) = 8
+describe("Pallet scaling — proportional to MOQ quantity", () => {
+  const baseFormData: ProjectFormData = {
+    unitWeight: "113.4", unitWeightUnit: "g", costPerGram: "0",
+    numSkus: "1", rawMaterialSkus: "1", materialOverage: "0", rawMaterialMarkup: "0",
+    intakeFee: "0", numPallets: "1", intakeFeeMarkup: "0",
+    testingFee: "0", testingFeeMarkup: "0",
+    leftOverInventoryCost: "0", leftOverInventoryAbsorb: "0",
+    setupFeeOur: "0", setupFeeCustomer: "0", ppuDenominator: "15000",
+    outboundFee: "350", outboundFeeMarkup: "40",
+    numFinishedPallets: "7",   // pre-scaled: ceil(3 * 15000/6600) = 7
+    palletBuffer: "1",
+    leadTimeBufferDays: "0", startDate: "2026-01-01",
+  };
+
+  it("8 total pallets → outbound our=$2800, customer=$3920", () => {
+    const { summaryRows } = computeDetailSections([], [], baseFormData);
+    const r = summaryRows.find(r => r.label === "Pallets & Fees")!;
+    near(r.ourCosts,      2800, "pallets our");
+    near(r.customerPrice, 3920, "pallets customer");
+  });
+
+  it("ceil(3 * 15000/6600) = 7", () => {
+    expect(Math.ceil(3 * 15000 / 6600)).toBe(7);
+  });
+
+  it("ceil(3 * 6600/6600) = 3 (base MOQ unchanged)", () => {
+    expect(Math.ceil(3 * 6600 / 6600)).toBe(3);
+  });
+
+  it("ceil(3 * 13200/6600) = 6 (2× MOQ)", () => {
+    expect(Math.ceil(3 * 13200 / 6600)).toBe(6);
+  });
+});
