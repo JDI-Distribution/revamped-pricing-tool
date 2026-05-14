@@ -266,7 +266,7 @@ export default function ProjectDetails({
           <button onClick={addMoqRow} className={addRowBtn}><Plus size={10} strokeWidth={2.5} />Add Row</button>
         </div>
         <div className="overflow-x-auto -mx-1 px-1">
-          <div className="min-w-96">
+          <div className="min-w-120">
             <div className="grid grid-cols-5 gap-2 pb-2 border-b border-gray-100 mb-2.5">
               {["# of Units", "Units / Inner", "Inners / Master", "# of Pallets", "Cost/g"].map((col) => (
                 <span key={col} className={colHead}>{col}</span>
@@ -366,23 +366,20 @@ export default function ProjectDetails({
                       )}
                     </div>
                     {/* Cost/gram — editable, overrides global cost/gram for this MOQ row */}
-                    <div className="flex items-center gap-0.5">
-                      <div className="flex items-center border border-amber-200 rounded-md overflow-hidden flex-1 min-w-0">
-                        <span className="text-[0.6rem] text-gray-400 px-1.5 bg-amber-50/50 h-8 flex items-center border-r border-amber-200 shrink-0">$</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row.costPerGram ?? ""}
-                          onChange={(e) => updateMoqRow(row.id, "costPerGram", e.target.value)}
-                          placeholder={costPerGram !== null ? costPerGram.toFixed(4) : "0.0000"}
-                          className="w-full h-8 px-1.5 text-[0.65rem] font-mono text-gray-900 bg-amber-50/50 focus:outline-none focus:bg-amber-50"
-                        />
-                      </div>
+                    <div className="flex items-center gap-0.5 min-w-0">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={row.costPerGram ?? ""}
+                        onChange={(e) => updateMoqRow(row.id, "costPerGram", e.target.value)}
+                        placeholder={costPerGram !== null ? costPerGram.toFixed(4) : "0.0000"}
+                        className={`${cellInputBase} flex-1 min-w-0 font-mono`}
+                      />
                       {row.costPerGram !== undefined && row.costPerGram !== "" && (
                         <button
                           onClick={() => updateMoqRow(row.id, "costPerGram", "")}
                           title="Reset to derived value"
-                          className="shrink-0 text-[0.6rem] text-gray-300 hover:text-[#e8473f] transition-colors px-0.5"
+                          className="shrink-0 text-[0.6rem] text-gray-300 hover:text-[#e8473f] transition-colors pl-0.5"
                         >
                           ↺
                         </button>

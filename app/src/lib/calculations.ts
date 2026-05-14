@@ -128,18 +128,11 @@ function computeColumn(
 
   // ── Detail rows ────────────────────────────────────────────────
   const rows: DetailRow[] = [
-    { label: unitsLabel,      projectDetails: unitsReq || null,                                    projectCosts: null,                    isCurrency: false },
-    // Fill rate rows are not applicable for Inner/Case (uses fill rate internally but not displayed)
-    ...(!isInnerLevel ? [
-      { label: "Per / Min",     projectDetails: displayPerMin || null,                             projectCosts: null,                    isCurrency: false } satisfies DetailRow,
-      { label: "Per / Hr",      projectDetails: displayPerMin > 0 ? displayPerMin * 60 : null,     projectCosts: null,                    isCurrency: false } satisfies DetailRow,
-      { label: "Total Min Req", projectDetails: totalMinReq || null,                               projectCosts: null,                    isCurrency: false } satisfies DetailRow,
-    ] : []),
-    { label: "Total Hrs Req", projectDetails: totalHrsReq || null,                                 projectCosts: null,                    isCurrency: false },
-    { label: costLabel,       projectDetails: wageRate || null,                                    projectCosts: null,                    isCurrency: true  },
-    { label: "Total Labor",   projectDetails: customerLaborCost || null,                           projectCosts: ourLaborCost || null,     isCurrency: true  },
-    { label: "Packaging Cost",projectDetails: customerPackagingCost || null,                       projectCosts: ourPackagingCost || null, isCurrency: true  },
-    { label: "Total Cost",    projectDetails: customerTotalCost || null,                           projectCosts: ourTotalCost || null,     isCurrency: true  },
+    { label: unitsLabel,      projectDetails: unitsReq || null,        projectCosts: null,                    isCurrency: false },
+    { label: costLabel,       projectDetails: wageRate || null,         projectCosts: null,                    isCurrency: true  },
+    { label: "Total Labor",   projectDetails: customerLaborCost || null, projectCosts: ourLaborCost || null,   isCurrency: true  },
+    { label: "Packaging Cost",projectDetails: customerPackagingCost || null, projectCosts: ourPackagingCost || null, isCurrency: true },
+    { label: "Total Cost",    projectDetails: customerTotalCost || null, projectCosts: ourTotalCost || null,   isCurrency: true  },
   ];
 
   const summaryLabel = col.type || col.level || `Column ${index + 1}`;
