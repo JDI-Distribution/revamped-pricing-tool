@@ -47,7 +47,8 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
   const totalLbs     = rawLbs + packagingLbs;
 
   const [maxWeight, setMaxWeight] = useState(String(n(formData.maxPalletWeightLbs) || 1000));
-  const [buffer,    setBuffer]    = useState(String(n(formData.palletBuffer) || 1));
+  // Default buffer to 0: pallet count is calculated, buffer is additive and user-controlled
+  const [buffer,    setBuffer]    = useState(String(n(formData.palletBuffer)));
 
   const maxW  = n(maxWeight) || 1000;
   const buf   = n(buffer);

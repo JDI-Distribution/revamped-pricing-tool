@@ -73,7 +73,7 @@ export default function ProjectDetails({
   const [bufferUnit, setBufferUnit] = useState<"days" | "weeks">("days");
   const [palletToolRowId, setPalletToolRowId] = useState<number | null>(null);
   const [fillRateRowId,   setFillRateRowId]   = useState<number | null>(null);
-  const { moqErrors, columns } = useProject();
+  const { moqErrors, effectiveColumns } = useProject();
   const addMoqRow    = () => setMoqRows((prev) => [...prev, emptyMoqRow()]);
   const removeMoqRow = (id: number) => setMoqRows((prev) => prev.filter((r) => r.id !== id));
   const updateMoqRow = (id: number, field: keyof MoqRow, value: string) =>
@@ -341,7 +341,7 @@ export default function ProjectDetails({
             <PalletToolPopover
               row={row}
               formData={formData}
-              columns={columns}
+              columns={effectiveColumns}
               onUse={(pallets) => {
                 updateMoqRow(row.id, "pallets", String(pallets));
                 setPalletToolRowId(null);
@@ -357,7 +357,7 @@ export default function ProjectDetails({
           return row ? (
             <FillRateOverridePopover
               row={row}
-              columns={columns}
+              columns={effectiveColumns}
               onSave={(overrides) => {
                 setMoqRows(prev => prev.map(r =>
                   r.id === row.id ? { ...r, fillRateOverrides: overrides } : r
