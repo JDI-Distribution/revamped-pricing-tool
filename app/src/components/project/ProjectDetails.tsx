@@ -6,6 +6,10 @@ import { MoqRow, ProjectFormData } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
 import PalletToolPopover from "@/components/project/PalletToolPopover";
 import FillRateOverridePopover from "@/components/project/FillRateOverridePopover";
+import ConversionCalculator, { ConversionPrefill } from "@/components/ConversionCalculator";
+
+// Grams per display unit — for converting when the unit dropdown changes
+const GRAMS_PER: Record<string, number> = { g: 1, oz: 28.3495, lb: 453.592, kg: 1000, mg: 0.001 };
 
 const emptyMoqRow = (): MoqRow => ({
   id: Date.now() + Math.random(),
@@ -26,7 +30,6 @@ const prefixBadge =
 const suffixBadge =
   "text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
 
-const WEIGHT_UNITS = ["g", "oz", "lb", "kg", "fl oz"] as const;
 
 /* ── SymInput lifted outside component so its identity is stable ── */
 interface SymInputProps {
@@ -73,7 +76,30 @@ export default function ProjectDetails({
   const [bufferUnit, setBufferUnit] = useState<"days" | "weeks">("days");
   const [palletToolRowId, setPalletToolRowId] = useState<number | null>(null);
   const [fillRateRowId,   setFillRateRowId]   = useState<number | null>(null);
+  const [convOpen,        setConvOpen]        = useState(false);
+  const [convPrefill,     setConvPrefill]     = useState<ConversionPrefill | undefined>();
   const { moqErrors, effectiveColumns } = useProject();
+
+  const UNIT_OPTS = ["g", "oz", "lb", "kg", "mg"] as const;
+
+  // When the unit dropdown changes, auto-convert the current value to the new unit
+  const handleUnitWeightUnitChange = (newUnit: string) => {
+    const currentVal  = parseFloat(formData.unitWeight) || 0;
+    const currentUnit = formData.unitWeightUnit ?? "g";
+    if (currentVal > 0 && currentUnit !== newUnit) {
+      const grams    = currentVal * (GRAMS_PER[currentUnit] ?? 1);
+      const newVal   = grams / (GRAMS_PER[newUnit] ?? 1);
+      // Round to 4 sig figs for display
+      const rounded  = parseFloat(newVal.toPrecision(4));
+      setFormField("unitWeight", String(rounded));
+    }
+    setFormField("unitWeightUnit", newUnit);
+  };
+
+  const openConverter = () => {
+    setConvPrefill({ value: formData.unitWeight ?? "", unit: formData.unitWeightUnit ?? "g" });
+    setConvOpen(true);
+  };
   const addMoqRow    = () => setMoqRows((prev) => [...prev, emptyMoqRow()]);
   const removeMoqRow = (id: number) => setMoqRows((prev) => prev.filter((r) => r.id !== id));
   const updateMoqRow = (id: number, field: keyof MoqRow, value: string) =>
@@ -124,6 +150,7 @@ export default function ProjectDetails({
     "h-8 w-full px-2 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
 
   return (
+    <>
     <div className="px-4 md:px-6 py-5 transition-all duration-300">
 
       {/* ── Page header ─────────────────────────────────────────── */}
@@ -143,9 +170,18 @@ export default function ProjectDetails({
         <p className="text-xs font-semibold text-gray-900 mb-3">Customer Project Overview</p>
         <div className="divide-y divide-gray-100">
 
-          {/* Unit Size / ea — weight input with interactive unit dropdown */}
+          {/* Unit Size / ea — weight input with unit dropdown + converter link */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 py-2">
-            <span className="flex-1 text-xs text-gray-600">Unit Size / ea</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs text-gray-600">Unit Size / ea</span>
+              <button
+                type="button"
+                onClick={openConverter}
+                className="ml-2 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] transition-colors"
+              >
+                Open Converter →
+              </button>
+            </div>
             <div className="w-full sm:w-44 shrink-0 flex items-center">
               <input
                 type="number"
@@ -155,10 +191,10 @@ export default function ProjectDetails({
               />
               <select
                 value={formData.unitWeightUnit ?? "g"}
-                onChange={(e) => setFormField("unitWeightUnit", e.target.value)}
+                onChange={(e) => handleUnitWeightUnitChange(e.target.value)}
                 className="text-[0.6rem] font-medium text-gray-500 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
               >
-                {WEIGHT_UNITS.map((u) => (
+                {UNIT_OPTS.map((u) => (
                   <option key={u} value={u}>{u}</option>
                 ))}
               </select>
@@ -413,5 +449,14 @@ export default function ProjectDetails({
 
       </div>{/* end cards grid/stack */}
     </div>
+
+    {/* Conversion Calculator — opened from Unit Size field */}
+    <ConversionCalculator
+      open={convOpen}
+      onClose={() => setConvOpen(false)}
+      prefill={convPrefill}
+    />
+    </>
   );
 }
+

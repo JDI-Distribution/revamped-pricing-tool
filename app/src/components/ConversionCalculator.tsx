@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
+export interface ConversionPrefill {
+  value: string;
+  unit:  string;
+}
+
 interface Props {
-  open:    boolean;
-  onClose: () => void;
+  open:     boolean;
+  onClose:  () => void;
+  prefill?: ConversionPrefill;  // pre-loads the Weight converter's left side when set
 }
 
 // ── Conversion factors (everything to a base unit) ───────────────────────────
@@ -144,9 +150,9 @@ function ConverterRow({ leftVal, leftUnit, rightUnit, units, table, onLeftVal, o
 
 // ── Weight Converter ─────────────────────────────────────────────────────────
 
-function WeightConverter() {
-  const [leftVal,   setLeftVal]   = useState("1");
-  const [leftUnit,  setLeftUnit]  = useState("lb");
+function WeightConverter({ prefill }: { prefill?: ConversionPrefill }) {
+  const [leftVal,   setLeftVal]   = useState(prefill?.value ?? "1");
+  const [leftUnit,  setLeftUnit]  = useState(prefill?.unit  ?? "lb");
   const [rightUnit, setRightUnit] = useState("g");
   return <ConverterRow leftVal={leftVal} leftUnit={leftUnit} rightUnit={rightUnit} units={WEIGHT_UNITS} table={WEIGHT_TO_G} onLeftVal={setLeftVal} onLeftUnit={setLeftUnit} onRightUnit={setRightUnit} />;
 }
@@ -244,7 +250,7 @@ const REFS = [
 
 // ── Main modal ───────────────────────────────────────────────────────────────
 
-export default function ConversionCalculator({ open, onClose }: Props) {
+export default function ConversionCalculator({ open, onClose, prefill }: Props) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -277,7 +283,7 @@ export default function ConversionCalculator({ open, onClose }: Props) {
           {/* Section 1 — Weight */}
           <div>
             <SectionHeader title="Weight" />
-            <WeightConverter />
+            <WeightConverter prefill={prefill} />
           </div>
 
           {/* Section 2 — Volume */}
