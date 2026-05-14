@@ -47,6 +47,11 @@ function computeColumn(
   const unitsReq    = units * (1 + overageRate / 100);
 
   // ── Throughput ────────────────────────────────────────────────
+  const hoursPerShiftEarly = n(col.rows?.["Hrs / Shift"]);
+  const numStationsEarly   = n(col.rows?.["No. of Staff / Stations"]);
+
+  const isInnerLevel = col.level === "Inner / Case";
+
   const unitsPerMin = (() => {
     const base     = n(col.rows?.["Unit Fill Rate / min"]);
     const hvThresh = n(col.hvThreshold);
@@ -74,7 +79,7 @@ function computeColumn(
   const totalMinReq = effectiveRate > 0 ? unitsReq / effectiveRate : 0;
   const totalHrsReq = totalMinReq / 60;
 
-  // Display rate shown in UI (after efficiency buffer)
+  // Display rate shown in UI (after efficiency buffer); not shown for Inner/Case
   const displayPerMin = effectiveRate;
 
   // ── Labor ─────────────────────────────────────────────────────
@@ -104,10 +109,8 @@ function computeColumn(
   // ── Lead time ──────────────────────────────────────────────────
   // productionDays = totalHrsReq / (hoursPerShift × numStations)
   // Staff increases available capacity per day, reducing production days.
-  const hoursPerShift  = n(col.rows?.["Hrs / Shift"]);
-  const numStations    = n(col.rows?.["No. of Staff / Stations"]);
-  const productionDays = hoursPerShift > 0 && numStations > 0
-    ? totalHrsReq / (hoursPerShift * numStations)
+  const productionDays = hoursPerShiftEarly > 0 && numStationsEarly > 0
+    ? totalHrsReq / (hoursPerShiftEarly * numStationsEarly)
     : null;
   const leadTimeWeeks  = productionDays !== null
     ? productionDays / 5
@@ -126,9 +129,12 @@ function computeColumn(
   // ── Detail rows ────────────────────────────────────────────────
   const rows: DetailRow[] = [
     { label: unitsLabel,      projectDetails: unitsReq || null,                                    projectCosts: null,                    isCurrency: false },
-    { label: "Per / Min",     projectDetails: displayPerMin || null,                               projectCosts: null,                    isCurrency: false },
-    { label: "Per / Hr",      projectDetails: displayPerMin > 0 ? displayPerMin * 60 : null,       projectCosts: null,                    isCurrency: false },
-    { label: "Total Min Req", projectDetails: totalMinReq || null,                                 projectCosts: null,                    isCurrency: false },
+    // Fill rate rows are not applicable for Inner/Case (uses fill rate internally but not displayed)
+    ...(!isInnerLevel ? [
+      { label: "Per / Min",     projectDetails: displayPerMin || null,                             projectCosts: null,                    isCurrency: false } satisfies DetailRow,
+      { label: "Per / Hr",      projectDetails: displayPerMin > 0 ? displayPerMin * 60 : null,     projectCosts: null,                    isCurrency: false } satisfies DetailRow,
+      { label: "Total Min Req", projectDetails: totalMinReq || null,                               projectCosts: null,                    isCurrency: false } satisfies DetailRow,
+    ] : []),
     { label: "Total Hrs Req", projectDetails: totalHrsReq || null,                                 projectCosts: null,                    isCurrency: false },
     { label: costLabel,       projectDetails: wageRate || null,                                    projectCosts: null,                    isCurrency: true  },
     { label: "Total Labor",   projectDetails: customerLaborCost || null,                           projectCosts: ourLaborCost || null,     isCurrency: true  },
@@ -143,7 +149,7 @@ function computeColumn(
 
   const summaryTableRow: SummaryTableRow = {
     label:         summaryLabel,
-    throughput:    displayPerMin > 0 ? displayPerMin * 60 : null,
+    throughput:    !isInnerLevel && displayPerMin > 0 ? displayPerMin * 60 : null,
     leadTimeWeeks,
     costPerUnit,
     totalWeight:   isIndividual && unitWeightG > 0

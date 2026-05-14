@@ -1,5 +1,3 @@
-
-
 import { useRef, useMemo } from "react";
 import { Plus, Link2, Trash2 } from "lucide-react";
 import { Column } from "@/lib/types";
@@ -361,6 +359,22 @@ export default function ColumnsSection({
               })}
             </tr>
 
+            {/* ── Units (auto-populated from scaledColumns, editable) ── */}
+            <tr className="border-b border-gray-50">
+              <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Units</td>
+              {columns.map((col) => (
+                <td key={col.id} className={`px-2 py-1 ${col.sourceId ? "bg-blue-50/40" : ""}`}>
+                  <input
+                    type="number"
+                    value={col.units}
+                    onChange={(e) => updateColumn(col.id, "units", e.target.value)}
+                    placeholder="auto"
+                    className={`${baseInput} font-medium`}
+                  />
+                </td>
+              ))}
+            </tr>
+
             {/* ── Eff. Buffer % ── */}
             <tr>
               <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Eff. Buffer %</td>
@@ -465,63 +479,72 @@ export default function ColumnsSection({
             {/* ── Divider ── */}
             <tr><td colSpan={columns.length + 1} className="border-t border-gray-100" /></tr>
 
-            {/* ── High-volume fill rate ── */}
+            {/* ── High-volume fill rate (hidden for Inner/Case — no fill rate input) ── */}
+            {columns.some(c => c.level !== "Inner / Case") && (
             <tr className="border-b border-gray-50">
               <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 align-middle">
                 <span className="text-xs text-gray-600">High Vol. Rate</span>
               </td>
               {columns.map((col) => (
                 <td key={col.id} className={`px-2 py-1.5 align-top ${col.sourceId ? "bg-blue-50/40" : ""}`}>
-                  <label className="flex items-center gap-1.5 cursor-pointer mb-1">
-                    <input
-                      type="checkbox"
-                      checked={!!(col.hvThreshold || col.hvFillRate)}
-                      onChange={(e) => {
-                        if (!e.target.checked) {
-                          updateColumn(col.id, "hvThreshold", "");
-                          updateColumn(col.id, "hvFillRate", "");
-                        } else {
-                          updateColumn(col.id, "hvThreshold", "8000");
-                        }
-                      }}
-                      className="w-3 h-3 accent-[#e8473f]"
-                    />
-                    <span className="text-[0.6rem] text-gray-500">Different rate at high volume</span>
-                  </label>
-                  {!!(col.hvThreshold || col.hvFillRate) && (
-                    <div className="space-y-1 pl-1">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[0.6rem] text-gray-400 w-14 shrink-0">Threshold</span>
-                        <input
-                          type="number"
-                          value={col.hvThreshold ?? ""}
-                          onChange={(e) => updateColumn(col.id, "hvThreshold", e.target.value)}
-                          placeholder="8000"
-                          className={`${baseInput} flex-1`}
-                        />
-                        <span className="text-[0.6rem] text-gray-400 shrink-0">units</span>
+                  {col.level === "Inner / Case" ? (
+                    <span className="text-[0.6rem] text-gray-300 italic">n/a</span>
+                  ) : (
+                    <>
+                    <label className="flex items-center gap-1.5 cursor-pointer mb-1">
+                      <input
+                        type="checkbox"
+                        checked={!!(col.hvThreshold || col.hvFillRate)}
+                        onChange={(e) => {
+                          if (!e.target.checked) {
+                            updateColumn(col.id, "hvThreshold", "");
+                            updateColumn(col.id, "hvFillRate", "");
+                          } else {
+                            updateColumn(col.id, "hvThreshold", "8000");
+                          }
+                        }}
+                        className="w-3 h-3 accent-[#e8473f]"
+                      />
+                      <span className="text-[0.6rem] text-gray-500">Different rate at high volume</span>
+                    </label>
+                    {!!(col.hvThreshold || col.hvFillRate) && (
+                      <div className="space-y-1 pl-1">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[0.6rem] text-gray-400 w-14 shrink-0">Threshold</span>
+                          <input
+                            type="number"
+                            value={col.hvThreshold ?? ""}
+                            onChange={(e) => updateColumn(col.id, "hvThreshold", e.target.value)}
+                            placeholder="8000"
+                            className={`${baseInput} flex-1`}
+                          />
+                          <span className="text-[0.6rem] text-gray-400 shrink-0">units</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[0.6rem] text-gray-400 w-14 shrink-0">HV Rate</span>
+                          <input
+                            type="number"
+                            value={col.hvFillRate ?? ""}
+                            onChange={(e) => updateColumn(col.id, "hvFillRate", e.target.value)}
+                            placeholder="13"
+                            className={`${baseInput} flex-1`}
+                          />
+                          <span className="text-[0.6rem] text-gray-400 shrink-0">/min</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[0.6rem] text-gray-400 w-14 shrink-0">HV Rate</span>
-                        <input
-                          type="number"
-                          value={col.hvFillRate ?? ""}
-                          onChange={(e) => updateColumn(col.id, "hvFillRate", e.target.value)}
-                          placeholder="13"
-                          className={`${baseInput} flex-1`}
-                        />
-                        <span className="text-[0.6rem] text-gray-400 shrink-0">/min</span>
-                      </div>
-                    </div>
+                    )}
+                    </>
                   )}
                 </td>
               ))}
             </tr>
+            )}
 
             {/* ── Display Rows ── */}
             {displayRows.map((row) => {
               const isTabLocked     = tabLockedRows.includes(row);
               const isPackagingCost = row === "Packaging Cost / unit";
+              const isFillRateRow   = row === "Unit Fill Rate / min" || row === "Label Apply Rate / min";
               return (
                 <tr key={row} className="border-b border-gray-50">
                   <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 align-middle">
@@ -538,32 +561,37 @@ export default function ColumnsSection({
                   </td>
                   {columns.map((col) => {
                     const locked      = isTabLocked && !col.tabs;
+                    const innerHidden = isFillRateRow && col.level === "Inner / Case";
                     const sym         = rowSymbol[row];
                     const badge       = "text-[0.6rem] font-medium text-gray-400 border border-gray-200 h-7 flex items-center px-2 bg-amber-50 shrink-0 select-none";
                     const lockedBadge = "text-[0.6rem] font-medium text-gray-200 border border-gray-100 h-7 flex items-center px-2 bg-gray-50 shrink-0 select-none";
                     return (
                       <td key={col.id} className={`px-2 py-1.5 align-top ${col.sourceId ? "bg-blue-50/40" : ""}`}>
-                        {isPackagingCost && (
-                          <p className="text-[0.6rem] text-gray-400 mb-0.5 truncate">
-                            {col.type ? `${col.type} - Cost/unit` : " "}
-                          </p>
-                        )}
-                        <div className="flex items-center">
-                          {sym?.position === "prefix" && sym.symbol && (
-                            <span className={`${locked ? lockedBadge : badge} border-r-0`}>{sym.symbol}</span>
+                        {innerHidden ? (
+                          <span className="text-[0.6rem] text-gray-300 italic">n/a</span>
+                        ) : (<>
+                          {isPackagingCost && (
+                            <p className="text-[0.6rem] text-gray-400 mb-0.5 truncate">
+                              {col.type ? `${col.type} - Cost/unit` : " "}
+                            </p>
                           )}
-                          <input
-                            type="number"
-                            value={locked ? "" : (col.rows?.[row] ?? "")}
-                            onChange={(e) => !locked && updateColumnRow(col.id, row, e.target.value)}
-                            placeholder="0"
-                            disabled={locked}
-                            className={locked ? lockedInput : baseInput}
-                          />
-                          {sym?.position === "suffix" && sym.symbol && (
-                            <span className={`${locked ? lockedBadge : badge} border-l-0`}>{sym.symbol}</span>
-                          )}
-                        </div>
+                          <div className="flex items-center">
+                            {sym?.position === "prefix" && sym.symbol && (
+                              <span className={`${locked ? lockedBadge : badge} border-r-0`}>{sym.symbol}</span>
+                            )}
+                            <input
+                              type="number"
+                              value={locked ? "" : (col.rows?.[row] ?? "")}
+                              onChange={(e) => !locked && updateColumnRow(col.id, row, e.target.value)}
+                              placeholder="0"
+                              disabled={locked}
+                              className={locked ? lockedInput : baseInput}
+                            />
+                            {sym?.position === "suffix" && sym.symbol && (
+                              <span className={`${locked ? lockedBadge : badge} border-l-0`}>{sym.symbol}</span>
+                            )}
+                          </div>
+                        </>)}
                       </td>
                     );
                   })}

@@ -78,7 +78,7 @@ export default function ProjectDetails({
   const [fillRateRowId,   setFillRateRowId]   = useState<number | null>(null);
   const [convOpen,        setConvOpen]        = useState(false);
   const [convPrefill,     setConvPrefill]     = useState<ConversionPrefill | undefined>();
-  const { moqErrors, effectiveColumns } = useProject();
+  const { moqErrors, effectiveColumns, allMoqResults, perMoqSummaryRows } = useProject();
 
   const UNIT_OPTS = ["g", "oz", "lb", "kg", "mg"] as const;
 
@@ -266,9 +266,9 @@ export default function ProjectDetails({
           <button onClick={addMoqRow} className={addRowBtn}><Plus size={10} strokeWidth={2.5} />Add Row</button>
         </div>
         <div className="overflow-x-auto -mx-1 px-1">
-          <div className="min-w-80">
-            <div className="grid grid-cols-4 gap-2 pb-2 border-b border-gray-100 mb-2.5">
-              {["# of Units", "Units / Inner", "Inners / Master", "# of Pallets"].map((col) => (
+          <div className="min-w-96">
+            <div className="grid grid-cols-5 gap-2 pb-2 border-b border-gray-100 mb-2.5">
+              {["# of Units", "Units / Inner", "Inners / Master", "# of Pallets", "Cost/g"].map((col) => (
                 <span key={col} className={colHead}>{col}</span>
               ))}
             </div>
@@ -280,9 +280,27 @@ export default function ProjectDetails({
                 const rowErr     = moqErrors.find((e) => e.rowId === row.id);
                 const hasRateOverrides = row.fillRateOverrides &&
                   Object.values(row.fillRateOverrides).some(v => v !== "");
+
+                // Auto-calculated pallet count from this row's summary (outbound cost / fee per pallet)
+                const moqResult    = allMoqResults.find(r => r.moqRow.id === row.id);
+                const moqSRows     = perMoqSummaryRows.get(row.id) ?? [];
+                const palletSRow   = moqSRows.find(r => r.label === "Pallets & Fees");
+                const outFee       = parseFloat(formData.outboundFee) || 0;
+                const autoPallets  = (palletSRow && outFee > 0)
+                  ? Math.round(palletSRow.ourCosts / outFee)
+                  : null;
+
+                // Cost/gram = total our cost / (qty × unitWeightG)
+                const GRAMS_PER_DISP: Record<string,number> = {g:1,oz:28.3495,lb:453.592,kg:1000,mg:0.001};
+                const unitWeightG  = (parseFloat(formData.unitWeight)||0) *
+                  (GRAMS_PER_DISP[formData.unitWeightUnit ?? "g"] ?? 1);
+                const costPerGram  = (moqResult && qty > 0 && unitWeightG > 0)
+                  ? moqResult.totalOurCost / (qty * unitWeightG)
+                  : null;
+
                 return (
                 <div key={row.id} className="space-y-1">
-                  <div className="grid grid-cols-4 gap-2 items-center">
+                  <div className="grid grid-cols-5 gap-2 items-center">
                     <input
                       type="number"
                       value={row.individualUnits}
@@ -315,8 +333,8 @@ export default function ProjectDetails({
                         type="number"
                         value={row.pallets ?? ""}
                         onChange={(e) => updateMoqRow(row.id, "pallets", e.target.value)}
-                        placeholder="auto"
-                        className={`${cellInputBase} flex-1 min-w-0`}
+                        placeholder={autoPallets !== null ? String(autoPallets) : "auto"}
+                        className={`${cellInputBase} flex-1 min-w-0 ${!row.pallets && autoPallets !== null ? "text-gray-400" : ""}`}
                       />
                       <button
                         onClick={() => setPalletToolRowId(row.id)}
@@ -345,6 +363,13 @@ export default function ProjectDetails({
                       {moqRows.length > 1 && (
                         <button onClick={() => removeMoqRow(row.id)} className="shrink-0 text-gray-300 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
                       )}
+                    </div>
+                    {/* Cost/gram — read-only derived */}
+                    <div className="flex items-center h-8 px-2 rounded-md border border-gray-100 bg-gray-50 text-[0.65rem] text-gray-500 font-mono">
+                      {costPerGram !== null
+                        ? `$${costPerGram.toFixed(4)}`
+                        : <span className="text-gray-300 italic">—</span>
+                      }
                     </div>
                   </div>
                   {/* Per-field error messages */}
