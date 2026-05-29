@@ -40,6 +40,10 @@ export default function QuotePage() {
   const [moqPpuInputs, setMoqPpuInputs] = useState<Record<number, string>>({});
   const [moqLastEdited, setMoqLastEdited] = useState<Record<number, "margin" | "ppu">>({});
 
+  // ── What If state ────────────────────────────────────────────────────────────
+  // Keyed by moqRow.id; undefined = use default (original ppu)
+  const [whatIfPpus, setWhatIfPpus] = useState<Record<number, string>>({});
+
   const activeSummaryRows  = perMoqSummaryRows.get(activeSummaryMoq) ?? summaryRows;
   const activeMoqResult    = allMoqResults.find(r => r.moqRow.id === activeSummaryMoq);
 
@@ -96,6 +100,29 @@ export default function QuotePage() {
     }
     return merged;
   }, [moqMargins, moqLastEdited, moqPpuInputs, allMoqResults]);
+
+  // ── What If derived rows ──────────────────────────────────────────────────
+  const whatIfRows = useMemo(() =>
+    allMoqResults.map((r) => {
+      const inputStr = whatIfPpus[r.moqRow.id];
+      const adjPPU   = inputStr !== undefined && inputStr !== "" ? parseFloat(inputStr) : r.ppu;
+      const isCustom = inputStr !== undefined && inputStr !== "" && !isNaN(adjPPU) && adjPPU !== r.ppu;
+      const marginPct = adjPPU > 0 && r.ppuCost > 0 ? ((adjPPU - r.ppuCost) / adjPPU) * 100 : r.marginPct;
+      const revenue   = adjPPU * r.ppuDenominator;
+      const ourTotal  = r.totalOurCost;
+      return { r, adjPPU, marginPct, revenue, ourTotal, isCustom };
+    }),
+  [allMoqResults, whatIfPpus]);
+
+  const wiTotalRevenue  = whatIfRows.reduce((s, w) => s + w.revenue,  0);
+  const wiTotalOur      = whatIfRows.reduce((s, w) => s + w.ourTotal, 0);
+  const wiAvgMargin     = wiTotalRevenue > 0 ? ((wiTotalRevenue - wiTotalOur) / wiTotalRevenue) * 100 : 0;
+
+  // Active-MOQ what-if (for the compact Excel-style table below Cost Summary)
+  const activeWhatIf = whatIfRows.find(w => w.r.moqRow.id === activeSummaryMoq);
+
+  const marginColor = (pct: number) =>
+    pct >= 65 ? "text-green-700" : pct >= 50 ? "text-amber-600" : "text-red-600";
 
   const quoteArgs = {
     brandId: selectedBrand, moqResults: allMoqResults, moqMargins: resolvedMoqMargins,
@@ -327,6 +354,51 @@ export default function QuotePage() {
                       <td className="py-1.5 px-3 text-right text-xs text-gray-300">—</td>
                     </tr>
                   )}
+                  {/* ── What If (compact, active MOQ) ── */}
+                  {activeWhatIf && activeSummaryRows.length > 0 && (
+                    <>
+                      <tr className="border-t border-dashed border-amber-300 bg-amber-50/40">
+                        <td colSpan={5} className="py-1 px-3 text-[0.6rem] font-bold text-amber-700 uppercase tracking-widest">
+                          What If Analysis
+                        </td>
+                      </tr>
+                      <tr className="bg-amber-50/30">
+                        <td className="py-1.5 px-3 text-xs text-gray-600">Adjusted Sale Price $$</td>
+                        <td colSpan={2} className="py-1 px-3">
+                          <div className="flex items-center gap-1 justify-end">
+                            <span className="text-xs text-gray-400">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={whatIfPpus[activeSummaryMoq] ?? activeWhatIf.r.ppu.toFixed(4)}
+                              onChange={(e) => setWhatIfPpus(prev => ({ ...prev, [activeSummaryMoq]: e.target.value }))}
+                              className="w-24 h-6 px-2 text-xs text-right border border-amber-300 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium"
+                            />
+                            {whatIfPpus[activeSummaryMoq] !== undefined && (
+                              <button
+                                onClick={() => setWhatIfPpus(prev => { const n = { ...prev }; delete n[activeSummaryMoq]; return n; })}
+                                className="text-gray-300 hover:text-gray-500 text-[0.7rem] leading-none"
+                                title="Reset"
+                              >↺</button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-1.5 px-3" />
+                        <td className={`py-1.5 px-3 text-right text-xs font-semibold bg-[#FEF2F2] ${marginColor(activeWhatIf.marginPct)}`}>
+                          {fmtPct(activeWhatIf.marginPct)}
+                        </td>
+                      </tr>
+                      <tr className="border-t border-amber-200 bg-amber-50/50">
+                        <td className="py-1.5 px-3 text-xs font-bold text-gray-800 italic">Totals</td>
+                        <td className="py-1.5 px-3 text-right text-xs font-bold text-gray-800">{fmt(activeWhatIf.ourTotal)}</td>
+                        <td className="py-1.5 px-3 text-right text-xs font-bold text-gray-800 bg-[#FEF2F2]">{fmt(activeWhatIf.revenue)}</td>
+                        <td className="py-1.5 px-3 text-right text-xs font-bold text-gray-800">{fmt(activeWhatIf.revenue - activeWhatIf.ourTotal)}</td>
+                        <td className={`py-1.5 px-3 text-right text-xs font-bold bg-[#FEF2F2] ${marginColor(activeWhatIf.marginPct)}`}>
+                          {fmtPct(activeWhatIf.marginPct)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                 </>
               )}
             </tbody>
@@ -448,6 +520,83 @@ export default function QuotePage() {
             </tbody>
           </table>
         </div>
+
+        {/* ── What If Analysis (all MOQs) ── */}
+        {allMoqResults.length > 0 && !allMoqResults.every(r => r.totalCustomerPrice === 0) && (
+          <div className="border border-amber-200 rounded-sm overflow-x-auto mb-4">
+            <div className="bg-amber-50/60 border-b border-amber-200 px-3 py-2 flex items-center gap-3">
+              <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide">What If Analysis</span>
+              <span className="text-[0.6rem] text-amber-600">— adjust sale price to see impact on margin and revenue</span>
+              {Object.keys(whatIfPpus).length > 0 && (
+                <button
+                  onClick={() => setWhatIfPpus({})}
+                  className="ml-auto text-[0.6rem] font-semibold text-amber-700 hover:text-amber-900 border border-amber-300 bg-white hover:bg-amber-50 px-2 h-5 rounded transition-colors"
+                >
+                  Reset All
+                </button>
+              )}
+            </div>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900">MOQ</th>
+                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900">Case Pack</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900">Cost PPU</th>
+                  <th className="py-2 px-3 text-center text-[0.6rem] font-semibold text-amber-700 uppercase tracking-wider border-b-2 border-gray-900">Adjusted PPU</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900 bg-[#FEF2F2]">Margin %</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900 bg-[#FEF2F2]">Total Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {whatIfRows.map(({ r, marginPct, revenue, isCustom }) => (
+                  <tr key={r.moqRow.id} className="border-b border-gray-100 hover:bg-amber-50/20">
+                    <td className="py-1.5 px-3 text-xs text-gray-700">{parseInt(r.moqRow.moq).toLocaleString()}</td>
+                    <td className="py-1.5 px-3 text-xs text-gray-700">{r.casePack}pk</td>
+                    <td className="py-1.5 px-3 text-right text-xs text-gray-500">{r.ppuCost > 0 ? fmt(r.ppuCost) : "—"}</td>
+                    <td className="py-1 px-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-xs text-gray-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={whatIfPpus[r.moqRow.id] ?? r.ppu.toFixed(4)}
+                          onChange={(e) => setWhatIfPpus(prev => ({ ...prev, [r.moqRow.id]: e.target.value }))}
+                          className="w-24 h-6 px-2 text-xs text-right border border-amber-300 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium"
+                        />
+                        {isCustom && (
+                          <button
+                            onClick={() => setWhatIfPpus(prev => { const n = { ...prev }; delete n[r.moqRow.id]; return n; })}
+                            className="text-gray-300 hover:text-gray-600 text-sm leading-none"
+                            title="Reset to original"
+                          >↺</button>
+                        )}
+                      </div>
+                    </td>
+                    <td className={`py-1.5 px-3 text-right text-xs font-semibold bg-[#FEF2F2] ${marginColor(marginPct)}`}>
+                      {fmtPct(marginPct)}
+                    </td>
+                    <td className="py-1.5 px-3 text-right text-xs font-semibold text-gray-800 bg-[#FEF2F2]">
+                      {fmt(revenue)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-gray-900 bg-amber-50">
+                  <td className="py-2 px-3 text-xs font-bold text-gray-900 italic" colSpan={2}>TOTALS</td>
+                  <td className="py-2 px-3 text-right text-xs text-gray-400">—</td>
+                  <td className="py-2 px-3 text-right text-xs font-bold text-gray-900">
+                    Avg Margin: <span className={marginColor(wiAvgMargin)}>{fmtPct(wiAvgMargin)}</span>
+                  </td>
+                  <td className={`py-2 px-3 text-right text-xs font-bold bg-[#FEF2F2] ${marginColor(wiAvgMargin)}`}>
+                    {fmtPct(wiAvgMargin)}
+                  </td>
+                  <td className="py-2 px-3 text-right text-xs font-bold text-gray-900 bg-[#FEF2F2]">
+                    {fmt(wiTotalRevenue)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* ── Lead Time ── */}
         {summaryTableRows.some(r => r.leadTimeWeeks != null) && (
