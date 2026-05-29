@@ -12,7 +12,7 @@ interface QuoteListItem {
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function NavbarSaveButton() {
-  const { moqRows, columns, formData, saveState, markSaved, clearSave, loadQuoteState } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand, saveState, markSaved, clearSave, loadQuoteState } = useProject();
   const { savedQuoteId, savedQuoteName, hasUnsavedChanges } = saveState;
 
   const [modalOpen,    setModalOpen]    = useState(false);
@@ -43,7 +43,7 @@ export default function NavbarSaveButton() {
       .finally(() => setLoadingList(false));
   }, [modalOpen]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData });
+  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand });
 
   // Auto-save (PUT) when quote already has an ID
   const handleAutoSave = async () => {

@@ -3,7 +3,7 @@ import { FileText } from "lucide-react";
 import Navbar from "@/components/navbar/Navbar";
 import DatePicker from "@/components/ui/DatePicker";
 import { useProject } from "@/lib/ProjectContext";
-import { BRANDS, BrandId, CustomerInfo, QuotePreview, buildQuotePreviews, buildCustomQtyPreview } from "@/lib/generateQuotePDF";
+import { QuotePreview, buildQuotePreviews, buildCustomQtyPreview } from "@/lib/generateQuotePDF";
 import PdfPreviewModal from "@/components/quote/PdfPreviewModal";
 import SaveQuoteButton from "@/components/quote/SaveQuoteButton";
 import excelLogo     from "@/assets/excel.png";
@@ -16,13 +16,11 @@ const fmt        = (v: number) => v.toLocaleString("en-US", { style: "currency",
 const fmtPct     = (v: number) => `${v.toFixed(1)}%`;
 const calcMargin = (price: number, cost: number) => price > 0 ? ((price - cost) / price) * 100 : 0;
 
-const inputCls = "h-7 w-full px-2 text-xs text-gray-900 border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300";
 const labelCls = "text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-0.5";
 
 export default function QuotePage() {
-  const { summaryRows, summaryTableRows, ppuUnits, allMoqResults, perMoqSummaryRows, computeForQty, formData, setFormField, moqRows, columns, hasMoqErrors } = useProject();
+  const { summaryRows, summaryTableRows, ppuUnits, allMoqResults, perMoqSummaryRows, computeForQty, formData, setFormField, moqRows, columns, hasMoqErrors, customer, selectedBrand } = useProject();
 
-  const [selectedBrand,    setSelectedBrand]    = useState<BrandId>("brewglitter");
   const [generating,       setGenerating]       = useState(false);
   const [previews,         setPreviews]         = useState<QuotePreview[] | null>(null);
   const [activeSummaryMoq, setActiveSummaryMoq] = useState<number>(() => moqRows[0]?.id ?? 0);
@@ -30,17 +28,6 @@ export default function QuotePage() {
   const [xlsxModalOpen,    setXlsxModalOpen]    = useState(false);
   const [xlsxGenerating,   setXlsxGenerating]   = useState(false);
   const [bufferUnit,        setBufferUnit]        = useState<"days" | "weeks">("days");
-
-  const [customer, setCustomer] = useState<CustomerInfo>({
-    customer:        "Bartesian",
-    customerId:      "13421-25",
-    name:            "Will Heinzmann",
-    phone:           "(616) 916-4057",
-    email:           "will@bartesian.com",
-    salesRep:        "Greg Portnoy",
-    productName:     "4oz Sachets",
-    projectOverview: "",
-  });
 
   // ── Interstitial pricing ──────────────────────────────────────────────────
   const [customQty,        setCustomQty]        = useState("");
@@ -92,9 +79,6 @@ export default function QuotePage() {
     : 0;
   const custTotal    = custPPU * (parsedQty || 1);
   const hasCustomAdj = hasMargin || hasPpuAdj;
-
-  const setField = (field: keyof CustomerInfo, value: string) =>
-    setCustomer((prev) => ({ ...prev, [field]: value }));
 
   const resolvedMoqMargins = useMemo(() => {
     const merged: Record<number, string> = {};
@@ -275,62 +259,6 @@ export default function QuotePage() {
               <img src={crmLogo} alt="CRM" className="w-3 h-3 object-contain" />
               CRM
             </button>
-          </div>
-        </div>
-
-        {/* ── Brand + Customer info ── */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="border border-gray-100 rounded-sm p-4">
-            <p className="text-xs font-semibold text-gray-900 mb-3">Brand / Company</p>
-            <div className="flex flex-wrap gap-2">
-              {BRANDS.map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => setSelectedBrand(b.id)}
-                  className={`h-7 px-3 text-[0.7rem] font-semibold rounded-full border transition-all whitespace-nowrap ${
-                    selectedBrand === b.id ? "text-white border-transparent shadow-sm" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                  }`}
-                  style={selectedBrand === b.id ? { backgroundColor: b.accent, borderColor: b.accent } : {}}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="border border-gray-100 rounded-sm p-4">
-            <p className="text-xs font-semibold text-gray-900 mb-3">Customer Info</p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {([
-                ["customer",    "Company"],
-                ["customerId",  "Customer ID"],
-                ["name",        "Contact Name"],
-                ["phone",       "Phone"],
-                ["email",       "Email"],
-                ["salesRep",    "Sales Rep"],
-                ["productName", "Product Name"],
-              ] as [keyof CustomerInfo, string][]).map(([field, label]) => (
-                <div key={field}>
-                  <p className={labelCls}>{label}</p>
-                  <input
-                    type="text"
-                    value={customer[field]}
-                    onChange={(e) => setField(field, e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-2">
-              <p className={labelCls}>Project Overview (leave blank to auto-generate)</p>
-              <textarea
-                value={customer.projectOverview}
-                onChange={(e) => setField("projectOverview", e.target.value)}
-                rows={2}
-                className="w-full px-2 py-1.5 text-xs text-gray-900 border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300 resize-none"
-                placeholder="Auto-generated from project data if left blank…"
-              />
-            </div>
           </div>
         </div>
 

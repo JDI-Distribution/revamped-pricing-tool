@@ -19,7 +19,7 @@ type Tab     = "new" | "update";
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function SaveQuoteButton({ quotePageState, disabled = false, disabledReason }: Props) {
-  const { moqRows, columns, formData } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand } = useProject();
 
   const [open,       setOpen]       = useState(false);
   const [tab,        setTab]        = useState<Tab>("new");
@@ -51,7 +51,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
       .finally(() => setLoadingList(false));
   }, [open]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData, ...quotePageState });
+  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, ...quotePageState });
 
   // Duplicate name check (client-side against fetched list)
   const duplicateEntry = quoteName.trim()

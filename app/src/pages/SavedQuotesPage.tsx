@@ -4,6 +4,7 @@ import { Trash2, RefreshCw, X, Check, AlertCircle, Pencil } from "lucide-react";
 import Navbar from "@/components/navbar/Navbar";
 import { useProject } from "@/lib/ProjectContext";
 import { MoqRow, Column, ProjectFormData } from "@/lib/types";
+import { CustomerInfo, BrandId } from "@/lib/generateQuotePDF";
 import { computeDetailSections } from "@/lib/calculations";
 
 const BASE = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/quotes";
@@ -19,8 +20,8 @@ interface QuoteDetail {
   moqRows: MoqRow[];
   columns: Column[];
   formData: ProjectFormData;
-  customer?: { customer?: string; name?: string; productName?: string };
-  selectedBrand?: string;
+  customer?: CustomerInfo;
+  selectedBrand?: BrandId;
 }
 
 type ToastState = { type: "success" | "error"; message: string } | null;
@@ -140,7 +141,7 @@ export default function SavedQuotesPage() {
       const data = await res.json();
       const state = parseQuoteData(data.quote_data);
       if (!state) throw new Error("Quote data is missing required fields");
-      loadQuoteState({ moqRows: state.moqRows, columns: state.columns, formData: state.formData }, id, name);
+      loadQuoteState({ moqRows: state.moqRows, columns: state.columns, formData: state.formData, customer: state.customer, selectedBrand: state.selectedBrand }, id, name);
       showToast("success", `Loaded "${name}"`);
       navigate("/");
     } catch (err) {

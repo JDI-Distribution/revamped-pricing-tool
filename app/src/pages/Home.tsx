@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/navbar/Navbar";
+import ProjectInfoSection from "@/components/project/ProjectInfoSection";
 import ProjectDetails from "@/components/project/ProjectDetails";
 import ColumnsSection from "@/components/project/ColumnsSection";
 import SummaryTables from "@/components/project/SummaryTables";
@@ -55,6 +56,7 @@ export default function Home() {
       <div className="flex flex-col md:hidden flex-1 overflow-auto">
         {/* Inputs */}
         <div>
+          <ProjectInfoSection />
           <ProjectDetails
             expanded={false}
             moqRows={moqRows}
@@ -111,6 +113,7 @@ export default function Home() {
 
         {/* Left column */}
         <div className="flex-1 overflow-auto min-w-0">
+          <ProjectInfoSection />
           <ProjectDetails
             expanded={expanded}
             moqRows={moqRows}
