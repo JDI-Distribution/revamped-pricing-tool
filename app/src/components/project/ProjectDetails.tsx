@@ -82,6 +82,12 @@ export default function ProjectDetails({
   const [moqOpen,         setMoqOpen]         = useState(true);
   const { moqErrors, effectiveColumns, allMoqResults, perMoqSummaryRows, packagingSummaryRows, setPackagingSummaryRows } = useProject();
 
+  const hasCustomPackagingUnits = (moqRowId: number) =>
+    packagingSummaryRows.some(r =>
+      r.manualUnits?.[String(moqRowId)] !== undefined &&
+      r.manualUnits[String(moqRowId)] !== ""
+    );
+
   const UNIT_OPTS = ["g", "oz", "lb", "kg", "mg"] as const;
 
   // When the unit dropdown changes, auto-convert the current value to the new unit
@@ -415,6 +421,9 @@ export default function ProjectDetails({
                     )}
                     {hasRateOverrides && (
                       <p className="text-[0.6rem] text-[#e8473f] font-medium">⚙ custom rates</p>
+                    )}
+                    {hasCustomPackagingUnits(row.id) && (
+                      <p className="text-[0.6rem] text-amber-600 font-medium">⚠ custom pkg units</p>
                     )}
                   </div>
                 </div>

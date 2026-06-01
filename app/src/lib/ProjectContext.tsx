@@ -185,9 +185,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const setCustomerField = (field: keyof CustomerInfo, value: string) =>
     setCustomer((prev) => ({ ...prev, [field]: value }));
 
+  // Helper: look up a manual units override from packagingSummaryRows for a
+  // given column (matched by summaryId) and moqRow id. Returns undefined when
+  // no override is set, so the caller can fall back to auto-derived values.
+  const manualUnitsFor = (col: Column, moqRowId: number): string | undefined => {
+    if (!col.summaryId) return undefined;
+    const sRow = packagingSummaryRows.find(r => r.id === col.summaryId);
+    const val  = sRow?.manualUnits?.[String(moqRowId)];
+    return val !== undefined && val !== "" ? val : undefined;
+  };
+
   // Derive units for every column from the active MOQ row.
   // Individual/FinalKit → moq qty; Inner → ceil(qty / unitsPerInner);
   // Shipper → ceil(inners / innersPerMaster) if innersPerMaster > 0, else 0.
+  // When a Packaging Summary manual override exists for this MOQ, it wins.
   const scaledColumns = useMemo(() => {
     const base   = moqRows[0];
     const active = moqRows.find((r) => r.id === activeMoqId) ?? base;
@@ -200,6 +211,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const shippers      = innersPerMaster > 0 ? Math.ceil(inners / innersPerMaster) : 0;
 
     return columns.map((col) => {
+      const manual = manualUnitsFor(col, active.id);
+      if (manual !== undefined) return { ...col, units: manual };
       switch (col.level) {
         case "Individual Units":
         case "Final Kit Units":
@@ -212,7 +225,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           return col;
       }
     });
-  }, [columns, moqRows, activeMoqId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns, moqRows, activeMoqId, packagingSummaryRows]);
 
   const { detailSections, summaryRows, summaryTableRows, ppuUnits } = useMemo(
     () => computeDetailSections(scaledColumns, moqRows, formData),
@@ -299,6 +313,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           const colWithRate  = (fillOverride !== undefined && fillOverride !== "")
             ? { ...col, rows: { ...col.rows, "Unit Fill Rate / min": fillOverride } }
             : col;
+          // Packaging Summary manual units override wins over MOQ-derived units
+          const summaryUnits = manualUnitsFor(colWithRate, row.id);
+          if (summaryUnits !== undefined) return { ...colWithRate, units: summaryUnits };
           if (colWithRate.level === "Individual Units" || colWithRate.level === "Final Kit Units") {
             return { ...colWithRate, units: String(rowQty) };
           }
@@ -343,7 +360,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
 
     return { allMoqResults: pricing, perMoqSummaryRows: summaryMap };
-  }, [effectiveColumns, moqRows, formData]);
+  }, [effectiveColumns, moqRows, formData, packagingSummaryRows]);
 
   // ── Interstitial pricing: compute costs for any arbitrary unit count ──────────
   // Substitutes qty into Individual/Final Kit columns, scales container columns
