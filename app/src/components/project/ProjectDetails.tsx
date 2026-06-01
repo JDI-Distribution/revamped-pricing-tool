@@ -1,7 +1,7 @@
 
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { MoqRow, ProjectFormData } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
 import PalletToolPopover from "@/components/project/PalletToolPopover";
@@ -78,6 +78,7 @@ export default function ProjectDetails({
   const [fillRateRowId,   setFillRateRowId]   = useState<number | null>(null);
   const [convOpen,        setConvOpen]        = useState(false);
   const [convPrefill,     setConvPrefill]     = useState<ConversionPrefill | undefined>();
+  const [moqOpen,         setMoqOpen]         = useState(true);
   const { moqErrors, effectiveColumns, allMoqResults, perMoqSummaryRows } = useProject();
 
   const UNIT_OPTS = ["g", "oz", "lb", "kg", "mg"] as const;
@@ -262,10 +263,17 @@ export default function ProjectDetails({
       {/* ── MOQ + Case Pack Configuration ───────────────────────── */}
       <div className={card}>
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-gray-900">MOQ + Case Pack Configuration</p>
-          <button onClick={addMoqRow} className={addRowBtn}><Plus size={10} strokeWidth={2.5} />Add Row</button>
+          <button
+            type="button"
+            onClick={() => setMoqOpen(o => !o)}
+            className="flex items-center gap-1.5 group"
+          >
+            <p className="text-xs font-semibold text-gray-900 group-hover:text-[#e8473f] transition-colors">MOQ + Case Pack Configuration</p>
+            {moqOpen ? <ChevronUp size={12} className="text-gray-400 group-hover:text-[#e8473f] transition-colors" /> : <ChevronDown size={12} className="text-gray-400 group-hover:text-[#e8473f] transition-colors" />}
+          </button>
+          {moqOpen && <button onClick={addMoqRow} className={addRowBtn}><Plus size={10} strokeWidth={2.5} />Add Row</button>}
         </div>
-        <div className="overflow-x-auto -mx-1 px-1">
+        {moqOpen && <div className="overflow-x-auto -mx-1 px-1">
           <div className="min-w-120">
             <div className="grid grid-cols-5 gap-2 pb-2 border-b border-gray-100 mb-2.5">
               {["# of Units", "Units / Inner", "Inners / Master", "# of Pallets", "Cost/g"].map((col) => (
@@ -407,7 +415,7 @@ export default function ProjectDetails({
               })}
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* ── Pallet Tool Popover ── */}
         {palletToolRowId !== null && (() => {
