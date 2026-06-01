@@ -7,6 +7,7 @@ import { useProject } from "@/lib/ProjectContext";
 import PalletToolPopover from "@/components/project/PalletToolPopover";
 import FillRateOverridePopover from "@/components/project/FillRateOverridePopover";
 import ConversionCalculator, { ConversionPrefill } from "@/components/ConversionCalculator";
+import PackagingSummarySection from "@/components/project/PackagingSummarySection";
 
 // Grams per display unit — for converting when the unit dropdown changes
 const GRAMS_PER: Record<string, number> = { g: 1, oz: 28.3495, lb: 453.592, kg: 1000, mg: 0.001 };
@@ -79,7 +80,7 @@ export default function ProjectDetails({
   const [convOpen,        setConvOpen]        = useState(false);
   const [convPrefill,     setConvPrefill]     = useState<ConversionPrefill | undefined>();
   const [moqOpen,         setMoqOpen]         = useState(true);
-  const { moqErrors, effectiveColumns, allMoqResults, perMoqSummaryRows } = useProject();
+  const { moqErrors, effectiveColumns, allMoqResults, perMoqSummaryRows, packagingSummaryRows, setPackagingSummaryRows } = useProject();
 
   const UNIT_OPTS = ["g", "oz", "lb", "kg", "mg"] as const;
 
@@ -165,6 +166,12 @@ export default function ProjectDetails({
 
       {/* ── Cards — responsive: single col on mobile, grid on desktop ── */}
       <div className={`transition-all duration-300 ${expanded ? "grid grid-cols-1 lg:grid-cols-3 gap-4 items-start" : "space-y-4 max-w-4xl"}`}>
+
+      {/* ── Packaging Summary ───────────────────────────────────── */}
+      <PackagingSummarySection
+        summaryRows={packagingSummaryRows}
+        setSummaryRows={setPackagingSummaryRows}
+      />
 
       {/* ── Customer Project Overview ────────────────────────────── */}
       <div className={card}>

@@ -150,7 +150,7 @@ const PRESETS: Record<string, PresetRow> = {
   "CoPacking - 20kg Bag":      p("Individual Units", "15","26","5",  "0.2",  "0",  "0", "1.6",  "5","7.3","5", "0"),
 };
 
-const PRESET_NAMES = Object.keys(PRESETS);
+export const PRESET_NAMES = Object.keys(PRESETS);
 
 export const emptyColumn = (): Column => ({
   id: Date.now() + Math.random(),
@@ -202,21 +202,31 @@ export default function ColumnsSection({
 
   const updateColumn = (id: number, field: keyof Column, value: string | boolean) =>
     setColumns((prev) =>
-      prev.map((col) => (col.id === id ? { ...col, [field]: value } : col))
+      prev.map((col) => {
+        if (col.id !== id) return col;
+        const dirty = col.summaryId != null ? { summaryDirty: true } : {};
+        return { ...col, ...dirty, [field]: value };
+      })
     );
 
   const updateColumnRow = (id: number, rowName: string, value: string) =>
     setColumns((prev) =>
-      prev.map((col) =>
-        col.id === id ? { ...col, rows: { ...col.rows, [rowName]: value } } : col
-      )
+      prev.map((col) => {
+        if (col.id !== id) return col;
+        const dirty = col.summaryId != null ? { summaryDirty: true } : {};
+        return { ...col, ...dirty, rows: { ...col.rows, [rowName]: value } };
+      })
     );
 
   // Apply a preset: sets type, level, tabs, and all row values
   const handlePresetChange = (id: number, presetName: string) => {
     if (presetName === "__custom__") {
       setColumns((prev) =>
-        prev.map((col) => col.id !== id ? col : { ...col, type: "", customType: true })
+        prev.map((col) => {
+          if (col.id !== id) return col;
+          const dirty = col.summaryId != null ? { summaryDirty: true } : {};
+          return { ...col, ...dirty, type: "", customType: true };
+        })
       );
       return;
     }
@@ -225,8 +235,10 @@ export default function ColumnsSection({
     setColumns((prev) =>
       prev.map((col) => {
         if (col.id !== id) return col;
+        const dirty = col.summaryId != null ? { summaryDirty: true } : {};
         return {
           ...col,
+          ...dirty,
           type:       presetName,
           customType: false,
           level:      preset.level,
@@ -260,9 +272,11 @@ export default function ColumnsSection({
     setColumns((prev) =>
       prev.map((col) => {
         if (col.id !== id) return col;
-        if (!defaults) return { ...col, level };
+        const dirty = col.summaryId != null ? { summaryDirty: true } : {};
+        if (!defaults) return { ...col, ...dirty, level };
         return {
           ...col,
+          ...dirty,
           level,
           efficiency: defaults.efficiency,
           labor:      defaults.labor,
@@ -337,6 +351,11 @@ export default function ColumnsSection({
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <p className="text-[0.6rem] font-medium text-gray-400">Level {index + 1}</p>
+                        {col.summaryDirty && (
+                          <span className="text-[0.55rem] font-semibold text-amber-500 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                            ✎ manually edited
+                          </span>
+                        )}
                         {isDerived && (
                           <span className="flex items-center gap-0.5 text-[0.55rem] font-semibold text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                             <Link2 size={8} />

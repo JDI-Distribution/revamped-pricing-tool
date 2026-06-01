@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useMemo, ReactNode } from "react";
 import { MoqRow, Column, ProjectFormData, SummaryRow, SummaryTableRow, DetailSection } from "./types";
 import { computeDetailSections } from "./calculations";
 import { BrandId, CustomerInfo } from "./generateQuotePDF";
+import { PackagingSummaryRow } from "@/components/project/PackagingSummarySection";
 
 const initialMoqRows: MoqRow[] = [
   { id: 1, moq: "6600",  individualUnits: "6600",  unitsPerInner: "24", innersPerMaster: "0" },
@@ -133,6 +134,9 @@ interface ProjectContextValue {
   setFormField: (field: keyof ProjectFormData, value: string) => void;
   activeMoqId:  number;
   setActiveMoqId: React.Dispatch<React.SetStateAction<number>>;
+  // Packaging Summary rows (drives one-way sync to Packaging & Packout columns)
+  packagingSummaryRows:    PackagingSummaryRow[];
+  setPackagingSummaryRows: React.Dispatch<React.SetStateAction<PackagingSummaryRow[]>>;
   // Customer / brand info (shared across pages)
   customer:     CustomerInfo;
   setCustomer:  React.Dispatch<React.SetStateAction<CustomerInfo>>;
@@ -156,7 +160,7 @@ interface ProjectContextValue {
   moqErrors:    MoqRowError[];
   hasMoqErrors: boolean;
   // Restore all project state from a saved quote snapshot
-  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId }, savedId?: string, savedName?: string) => void;
+  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingSummaryRows?: PackagingSummaryRow[] }, savedId?: string, savedName?: string) => void;
   // Save state — tracks whether current quote has been saved and if there are unsaved changes
   saveState:    SaveState;
   markSaved:    (id: string, name: string) => void;
@@ -173,6 +177,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [activeMoqId, setActiveMoqId] = useState<number>(initialMoqRows[0].id);
   const [customer, setCustomer] = useState<CustomerInfo>(initialCustomer);
   const [selectedBrand, setSelectedBrand] = useState<BrandId>(initialBrand);
+  const [packagingSummaryRows, setPackagingSummaryRows] = useState<PackagingSummaryRow[]>([]);
 
   const setFormField = (field: keyof ProjectFormData, value: string) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -454,8 +459,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   // Current snapshot — recomputed whenever project state changes
   const currentSnapshot = useMemo(
-    () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand }),
-    [moqRows, columns, formData, customer, selectedBrand],
+    () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, packagingSummaryRows }),
+    [moqRows, columns, formData, customer, selectedBrand, packagingSummaryRows],
   );
 
   // Detect unsaved changes whenever snapshot drifts from saved baseline
@@ -477,12 +482,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setLastSavedSnapshot("");
   };
 
-  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId }, savedId?: string, savedName?: string) => {
+  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingSummaryRows?: PackagingSummaryRow[] }, savedId?: string, savedName?: string) => {
     setMoqRows(state.moqRows);
     setColumns(state.columns);
     setFormData(state.formData);
-    if (state.customer)      setCustomer(state.customer);
-    if (state.selectedBrand) setSelectedBrand(state.selectedBrand);
+    if (state.customer)               setCustomer(state.customer);
+    if (state.selectedBrand)          setSelectedBrand(state.selectedBrand);
+    if (state.packagingSummaryRows)   setPackagingSummaryRows(state.packagingSummaryRows);
     setActiveMoqId(state.moqRows[0]?.id ?? 1);
     const snap = JSON.stringify(state);
     setLastSavedSnapshot(snap);
@@ -500,6 +506,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       columns, setColumns,
       formData, setFormField,
       activeMoqId, setActiveMoqId,
+      packagingSummaryRows, setPackagingSummaryRows,
       customer, setCustomer, setCustomerField,
       selectedBrand, setSelectedBrand,
       effectiveColumns,
