@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download, ChevronLeft, ChevronRight, Edit3, Check } from "lucide-react";
+import { X, Download, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { QuotePreview, CustomerInfo } from "@/lib/generateQuotePDF";
 
 interface Props {
@@ -45,36 +45,22 @@ type LtRow = { label: string; value: string };
 
 export default function PdfPreviewModal({ previews, onClose, onRegenerate, initialCustomer }: Props) {
   const [index,        setIndex]        = useState(0);
-  const [editMode,     setEditMode]     = useState(false);
   const [draft,        setDraft]        = useState<CustomerInfo | null>(null);
   const [ltRows,       setLtRows]       = useState<LtRow[]>([]);
   const [prRows,       setPrRows]       = useState<PricingRow[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [saved,        setSaved]        = useState(false);
   const [activeZone,   setActiveZone]   = useState<string | null>(null);
-  // Track last click on PDF overlay so we can suppress it as a scroll
   const clickCapRef = useRef<HTMLDivElement>(null);
 
   const current = previews[index];
   const ltSnap  = current?.leadTimeTable;
   const prSnap  = current?.pricingTable;
 
-  useEffect(() => () => {
-    setTimeout(() => previews.forEach(p => URL.revokeObjectURL(p.blobUrl)), 60_000);
-  }, [previews]);
-
+  // Seed edit state whenever the current preview changes (including on first open)
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") editMode ? setEditMode(false) : onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose, editMode]);
-
-  const enterEdit = () => {
-    setDraft(initialCustomer ? { ...initialCustomer } : {
-      customer: "", customerId: "", name: "", phone: "", email: "",
-      salesRep: "", productName: "", productCategory: "", projectOverview: "",
-    });
-    // Seed lead time rows from snapshot (col 0 = label, col 1 = value)
+    const customer = initialCustomer ?? { customer: "", customerId: "", name: "", phone: "", email: "", salesRep: "", productName: "", productCategory: "", projectOverview: "" };
+    setDraft({ ...customer });
     setLtRows(ltSnap?.body.map(row => ({
       label: row.cells[0]?.raw ?? "",
       value: row.cells[1]?.raw ?? "",
@@ -83,7 +69,6 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
       { label: "Estimated Start Date (week of)",      value: "" },
       { label: "Estimated Ship Ready Date (week of)", value: "" },
     ]);
-    // Seed pricing rows from snapshot (all 4 cols), exclude TOTALS (last row)
     const bodyRows = prSnap?.body ?? [];
     const editableRows = bodyRows.slice(0, bodyRows.length - 1);
     setPrRows(editableRows.map(row => ({
@@ -93,8 +78,17 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
       total: row.cells[3]?.raw ?? "",
     })));
     setSaved(false);
-    setEditMode(true);
-  };
+  }, [index, previews]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => {
+    setTimeout(() => previews.forEach(p => URL.revokeObjectURL(p.blobUrl)), 60_000);
+  }, [previews]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
 
   const setDraftField = (key: keyof CustomerInfo, val: string) =>
     setDraft(d => d ? { ...d, [key]: val } : d);
@@ -169,19 +163,13 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
   // ── Top bar ───────────────────────────────────────────────────────────────────
   const topBar = (
     <div className="shrink-0 h-12 bg-white border-b border-gray-100 flex items-center px-4 gap-3 shadow-sm z-10">
-      {editMode ? (
-        <button type="button" onClick={() => setEditMode(false)}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors shrink-0">
-          <ChevronLeft size={14} /> Back
-        </button>
-      ) : (
-        <button type="button" onClick={onClose}
-          className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors shrink-0">
-          <X size={15} />
-        </button>
-      )}
+      <button type="button" onClick={onClose}
+        className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors shrink-0">
+        <X size={15} />
+      </button>
 
-      {!editMode && (
+      {/* MOQ tabs */}
+      {previews.length > 1 && (
         <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
           {previews.map((p, i) => (
             <button key={p.filename} type="button" onClick={() => setIndex(i)}
@@ -193,14 +181,14 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
           ))}
         </div>
       )}
-      {editMode && (
+      {previews.length === 1 && (
         <span className="text-xs font-semibold text-gray-800 flex-1 min-w-0 truncate">
-          Edit Quote <span className="font-normal text-gray-400 text-[0.62rem]">— click any PDF section to jump to it</span>
+          Edit Quote <span className="font-normal text-gray-400 text-[0.62rem]">— click a section strip on the PDF to jump to it</span>
         </span>
       )}
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
-        {!editMode && previews.length > 1 && (
+        {previews.length > 1 && (
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setIndex(i => Math.max(0, i - 1))} disabled={index === 0}
               className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md text-gray-500 hover:border-[#e8473f] hover:text-[#e8473f] disabled:opacity-30 transition-colors">
@@ -213,14 +201,8 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
             </button>
           </div>
         )}
-        {!editMode && onRegenerate && (
-          <button type="button" onClick={enterEdit}
-            className="flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold border border-gray-200 rounded-lg text-gray-700 hover:border-teal-500 hover:text-teal-600 transition-colors">
-            <Edit3 size={11} /> Edit Details
-          </button>
-        )}
-        {editMode && (
-          <button type="button" onClick={handleApply} disabled={regenerating || !onRegenerate}
+        {onRegenerate && (
+          <button type="button" onClick={handleApply} disabled={regenerating}
             className={`flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold rounded-lg transition-colors disabled:opacity-40 ${
               saved ? "bg-teal-500 text-white" : "border border-teal-500 text-teal-600 hover:bg-teal-50"
             }`}>
@@ -231,7 +213,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
           className="flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold bg-[#e8473f] hover:bg-[#d43f37] text-white rounded-lg transition-colors">
           <Download size={11} /> Download
         </button>
-        {!editMode && previews.length > 1 && (
+        {previews.length > 1 && (
           <button type="button" onClick={() => previews.forEach(p => triggerDownload(p))}
             className="flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold border border-gray-200 rounded-lg text-gray-700 hover:border-[#e8473f] hover:text-[#e8473f] transition-colors">
             All {previews.length}
@@ -241,29 +223,16 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
     </div>
   );
 
-  // ── Preview only ──────────────────────────────────────────────────────────────
-  if (!editMode) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-black/60 backdrop-blur-sm">
-        {topBar}
-        <div className="flex-1 bg-gray-200 flex items-center justify-center p-4">
-          <iframe key={current.blobUrl} src={current.blobUrl}
-            className="w-full max-w-3xl h-full bg-white shadow-2xl" style={{ minHeight: 0 }} />
-        </div>
-      </div>
-    );
-  }
-
   if (!draft) return null;
 
-  // ── Edit mode ─────────────────────────────────────────────────────────────────
+  // ── Always open in edit+preview mode ──────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60 backdrop-blur-sm">
       {topBar}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ── Left: edit panel ── */}
-        <div className="w-120 shrink-0 bg-white border-r border-gray-100 flex flex-col shadow-xl overflow-hidden">
+        {/* ── Left: edit panel (50%) ── */}
+        <div className="flex-1 bg-white border-r border-gray-100 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
 
           <div className="px-4 py-3 border-b border-gray-100 bg-teal-600 shrink-0">
             <p className="text-xs font-bold text-white">Quote Details</p>
@@ -284,7 +253,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
             <div>
               <SecHead id="sec-customer" label="Customer" active={activeZone === "sec-customer"} />
               <div className="space-y-2">
-                <F label="Company"><input className={inp} value={draft.customer} onChange={e => setDraftField("customer", e.target.value)} /></F>
+                <F label="Account Name"><input className={inp} value={draft.customer} onChange={e => setDraftField("customer", e.target.value)} /></F>
                 <F label="Customer ID"><input className={inp} value={draft.customerId} onChange={e => setDraftField("customerId", e.target.value)} /></F>
                 <F label="Contact Name"><input className={inp} value={draft.name} onChange={e => setDraftField("name", e.target.value)} /></F>
                 <F label="Phone"><input className={inp} value={draft.phone} onChange={e => setDraftField("phone", e.target.value)} /></F>
@@ -388,7 +357,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
               <iframe key={current.blobUrl} src={current.blobUrl}
                 className="absolute inset-0 w-full h-full border-0" />
 
-              {/* Click-capture layer: thin strip at left edge, full height, lets scroll through */}
+              {/* Section jump strips — prominent left-edge tabs */}
               <div ref={clickCapRef} className="absolute inset-0 pointer-events-none">
                 {ZONES.map(z => {
                   const isActive = activeZone === z.id;
@@ -399,17 +368,19 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                       onClick={() => jumpTo(z.id)}
                       style={{
                         position: "absolute",
-                        left: 0, width: 18,
+                        left: 0, width: 28,
                         top: `${(z.y0 / PDF_H) * 100}%`,
                         height: `${((z.y1 - z.y0) / PDF_H) * 100}%`,
                         pointerEvents: "auto",
                       }}
-                      className={`flex items-center justify-center transition-all ${
-                        isActive ? "bg-teal-500/80" : "bg-teal-600/30 hover:bg-teal-500/60"
+                      className={`flex items-center justify-center transition-all border-r-2 ${
+                        isActive
+                          ? "bg-teal-500 border-teal-300"
+                          : "bg-teal-700/60 border-teal-500/40 hover:bg-teal-600/80"
                       }`}
                       title={`Jump to ${z.id.replace("sec-", "")}`}
                     >
-                      <span style={{ writingMode: "vertical-rl", fontSize: 7, color: "white", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", opacity: isActive ? 1 : 0.7 }}>
+                      <span style={{ writingMode: "vertical-rl", fontSize: 8, color: "white", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", textShadow: "0 1px 2px rgba(0,0,0,0.4)" }}>
                         {z.id.replace("sec-", "")}
                       </span>
                     </button>

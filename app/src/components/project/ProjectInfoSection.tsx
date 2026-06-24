@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useProject } from "@/lib/ProjectContext";
-import { RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
 import { BRANDS } from "@/lib/generateQuotePDF";
 import CompanySearchInput from "./CompanySearchInput";
 
@@ -26,8 +25,6 @@ function GroupDivider({ label }: { label: string }) {
 export default function ProjectInfoSection() {
   const { customer, setCustomerField, selectedBrand, setSelectedBrand, projectType, setProjectType } = useProject();
   const [open, setOpen] = useState(true);
-  const { notRequired } = useSectionRequired();
-  const isNR = !!notRequired["section-project-info"];
 
   return (
     <div id="section-project-info" className="bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mt-4 mb-4 overflow-hidden max-w-4xl">
@@ -37,14 +34,13 @@ export default function ProjectInfoSection() {
         <div className="flex items-center gap-2 mb-1">
           <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 group">
             <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">Project Info</span>
-            {open && !isNR
+            {open
               ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
               : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
           </button>
-          <div className="ml-auto shrink-0"><RequiredToggle sectionId="section-project-info" /></div>
         </div>
 
-        {open && !isNR && (
+        {open && (
           <div className="max-w-4xl">
             {/* Project Type */}
             <div className="flex gap-5 mt-3 mb-1">
@@ -69,7 +65,7 @@ export default function ProjectInfoSection() {
             <GroupDivider label="Customer Info" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
               <div>
-                <label className={labelCls}>Company</label>
+                <label className={labelCls}>Account Name</label>
                 <CompanySearchInput />
               </div>
               <div>

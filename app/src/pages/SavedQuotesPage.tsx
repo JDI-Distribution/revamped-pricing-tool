@@ -151,7 +151,7 @@ export default function SavedQuotesPage() {
       const data = await res.json();
       const state = parseQuoteData(data.quote_data);
       if (!state) throw new Error("Quote data is missing required fields");
-      loadQuoteState({ moqRows: state.moqRows, columns: state.columns, formData: state.formData, customer: state.customer, selectedBrand: state.selectedBrand, packagingLevels: state.packagingLevels, projectType: state.projectType, coPackingState: state.coPackingState, coPackingProcesses: state.coPackingProcesses }, id, name);
+      loadQuoteState({ moqRows: state.moqRows, columns: state.columns, formData: state.formData, customer: state.customer, selectedBrand: state.selectedBrand, packagingLevels: state.packagingLevels, projectType: state.projectType, coPackingState: state.coPackingState, coPackingProcesses: state.coPackingProcesses, crmAccountId: state.crmAccountId, crmContactId: state.crmContactId }, id, name);
       showToast("success", `Loaded "${name}"`);
       navigate("/");
     } catch (err) {

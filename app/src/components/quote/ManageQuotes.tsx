@@ -71,11 +71,21 @@ export default function ManageQuotes() {
       if (!state?.moqRows || !state?.columns || !state?.formData) {
         throw new Error("Quote data is missing required fields");
       }
+      console.log("[ManageQuotes] raw packagingLevels from DB:", JSON.stringify(state.packagingLevels?.map((l: {id:string;customLevelName:string;packagingType:string}) => ({ id: l.id, customLevelName: l.customLevelName, packagingType: l.packagingType }))));
       loadQuoteState({
-        moqRows:  state.moqRows  as MoqRow[],
-        columns:  state.columns  as Column[],
-        formData: state.formData as ProjectFormData,
-      });
+        moqRows:           state.moqRows        as MoqRow[],
+        columns:           state.columns        as Column[],
+        formData:          state.formData       as ProjectFormData,
+        customer:          state.customer,
+        selectedBrand:     state.selectedBrand,
+        packagingLevels:   state.packagingLevels,
+        projectType:       state.projectType,
+        coPackingState:    state.coPackingState,
+        additionalFees:    state.additionalFees,
+        coPackingProcesses: state.coPackingProcesses,
+        crmAccountId:      state.crmAccountId,
+        crmContactId:      state.crmContactId,
+      }, id, name);
       setOpen(false);
       showToast("success", `Loaded "${name}"`);
     } catch (err) {

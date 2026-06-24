@@ -225,7 +225,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels }:
                 </th>
                 {packagingLevels.map((lvl, index) => {
                   const isCollapsed = !!collapsedCols[lvl.id];
-                  const levelLabel = effectiveTypeName(lvl) || `Level ${index + 1}`;
+                  const levelLabel = lvl.packagingLevel || lvl.customLevelName || effectiveTypeName(lvl) || `Level ${index + 1}`;
                   return (
                     <th key={lvl.id}
                       className="px-2 py-2 text-left text-[0.65rem] font-bold text-white bg-gray-800 border-b border-l border-gray-700"

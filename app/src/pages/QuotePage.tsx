@@ -36,6 +36,7 @@ export default function QuotePage() {
     customer, selectedBrand,
     resolvedMoqMargins,
     whatIfPpus,
+    moqMargins, moqPpuInputs, moqLastEdited, costPpuOverrides,
     packagingLevels,
     additionalFees,
     scenarioA, scenarioB, saveScenario, clearScenarios,
@@ -411,7 +412,7 @@ export default function QuotePage() {
               {generating ? "Generating…" : projectType === "copacking" ? "Preview & Export" : allMoqResults.length > 0 ? `Preview & Export (${allMoqResults.length})` : "Preview & Export"}
             </button>
             <SaveQuoteButton
-              quotePageState={{ customer, selectedBrand, moqMargins: resolvedMoqMargins, moqPpuInputs: {}, moqLastEdited: {} }}
+              quotePageState={{ customer, selectedBrand, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, additionalFees }}
               disabled={projectType === "standard" && hasMoqErrors}
               disabledReason={hasMoqErrors ? "Fix MOQ configuration errors before saving" : undefined}
             />

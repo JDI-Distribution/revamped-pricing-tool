@@ -340,43 +340,6 @@ export function computeDetailSections(
 
   const colResults = colResults_pre;
 
-  // ── Blending (co-packing mode only — ignored when blendingEnabled is absent/false) ──
-  const blendingEnabled = formData.blendingEnabled === "true";
-  let blendingOur      = 0;
-  let blendingCustomer = 0;
-  let blendingSection: DetailSection | null = null;
-  if (blendingEnabled) {
-    const blendUnits    = n(formData.blendingUnits) || 1;
-    const blendOverage  = n(formData.blendingOverage);
-    const blendRate     = n(formData.blendingUnitsPerMin) || 1;
-    const blendEffBuf   = n(formData.blendingEfficiencyBuffer);
-    const blendWage     = n(formData.blendingWageRate) || 30;
-    const blendMarkup   = n(formData.blendingLaborMarkup);
-    const blendMinHrs   = n(formData.blendingMinLaborHrs);
-    const blendDesc     = formData.blendingDescription || "Blending";
-
-    const req     = blendUnits * (1 + blendOverage);
-    const effRate = blendRate * (1 - blendEffBuf);
-    const calcH   = effRate > 0 ? (req / effRate) / 60 : 0;
-    const billedH = blendMinHrs > 0 && calcH < blendMinHrs ? blendMinHrs : calcH;
-    const minNote = blendMinHrs > 0 && calcH < blendMinHrs
-      ? ` (min ${blendMinHrs.toFixed(2)} hrs applied)` : "";
-
-    blendingOur      = billedH * blendWage;
-    blendingCustomer = blendingOur * (1 + blendMarkup);
-
-    blendingSection = {
-      title:      blendDesc + minNote,
-      overageReq: blendOverage > 0 ? blendOverage * 100 : null,
-      rows: [
-        { label: "Batches",        projectDetails: blendUnits,       projectCosts: null,           isCurrency: false },
-        { label: "Est. Labor Hrs", projectDetails: billedH || null,  projectCosts: null,           isCurrency: false },
-        { label: "Blending Cost",  projectDetails: blendingCustomer, projectCosts: blendingOur,    isCurrency: true  },
-      ],
-      totalCustomerCost: blendingCustomer,
-      totalOurCost:      blendingOur,
-    };
-  }
 
   // ── Detail sections ────────────────────────────────────────────
   const materialSection: DetailSection = {
@@ -420,22 +383,33 @@ export function computeDetailSections(
 
   const detailSections: DetailSection[] = [
     materialSection,
-    ...(blendingSection ? [blendingSection] : []),
     ...colResults.map((r) => r.section),
     palletSection,
   ];
+
+  // Per-test line items for summary (split out of Materials)
+  const testLineItemsForSummary = testingEnabled
+    ? testingRows.filter(row => (row.cost ?? 0) > 0).map(row => {
+        const testName = row.testType === "Custom" ? (row.customTestName || "Custom") : row.testType;
+        const our      = (row.cost ?? 0) * (row.numSkus ?? numSkus);
+        const cx       = our * (1 + testingMarkup / 100);
+        return { label: `Testing – ${testName}`, our, cx };
+      })
+    : [];
+
+  // Materials row excludes testing (testing gets its own rows)
+  const matOnlyOur = materialOurTotal - totalTestingOur;
+  const matOnlyCx  = materialCustomerTotal - totalTestingCustomer;
 
   // ── Summary rows ───────────────────────────────────────────────
   const summaryRows: SummaryRow[] = [
     ...(setupFeeOur > 0 || setupFeeCustomer > 0
       ? [{ label: "Setup / QA Fee", customerPrice: setupFeeCustomer, ourCosts: setupFeeOur }]
       : []),
-    ...(materialCustomerTotal > 0
-      ? [{ label: "Materials", customerPrice: materialCustomerTotal, ourCosts: materialOurTotal }]
+    ...(matOnlyCx > 0
+      ? [{ label: "Materials", customerPrice: matOnlyCx, ourCosts: matOnlyOur }]
       : []),
-    ...(blendingCustomer > 0 || blendingOur > 0
-      ? [{ label: formData.blendingDescription || "Blending", customerPrice: blendingCustomer, ourCosts: blendingOur }]
-      : []),
+    ...testLineItemsForSummary.map(t => ({ label: t.label, customerPrice: t.cx, ourCosts: t.our })),
     ...colResults
       .filter((r) => r.customerTotalCost > 0 || r.ourTotalCost > 0)
       .map((r) => ({ label: r.summaryLabel, customerPrice: r.customerTotalCost, ourCosts: r.ourTotalCost })),
@@ -447,11 +421,10 @@ export function computeDetailSections(
   // ── Summary table rows ─────────────────────────────────────────
   const summaryTableRows: SummaryTableRow[] = [
     ...(setupFeeOur > 0 || setupFeeCustomer > 0
-      ? [{  
+      ? [{
           label:         "Setup / QA Fee",
           throughput:    null,
           leadTimeWeeks: null,
-          // Setup is a flat fee for 1 event — PPU = setupFeeCustomer / 1 = setupFeeCustomer
           costPerUnit:   setupFeeCustomer || null,
           totalWeight:   null,
           totalUnits:    null,
@@ -463,34 +436,30 @@ export function computeDetailSections(
       label:         "Materials",
       throughput:    null,
       leadTimeWeeks: null,
-      // PPU = materialCustomerTotal / primary delivered units (not overage-inflated)
-      costPerUnit:   totalBaseUnits > 0 ? materialCustomerTotal / totalBaseUnits : null,
+      costPerUnit:   totalBaseUnits > 0 ? matOnlyCx / totalBaseUnits : null,
       totalWeight:   reqGrams || null,
-      // totalUnits = delivered (base) qty, not overage-inflated
       totalUnits:    totalBaseUnits || null,
-      totalCost:     materialOurTotal || null,
-      totalPrice:    materialCustomerTotal || null,
+      totalCost:     matOnlyOur || null,
+      totalPrice:    matOnlyCx || null,
     },
-    ...(blendingCustomer > 0 || blendingOur > 0 ? [{
-      label:         formData.blendingDescription || "Blending",
+    ...testLineItemsForSummary.map(t => ({
+      label:         t.label,
       throughput:    null,
       leadTimeWeeks: null,
       costPerUnit:   null,
       totalWeight:   null,
       totalUnits:    null,
-      totalCost:     blendingOur || null,
-      totalPrice:    blendingCustomer || null,
-    } satisfies SummaryTableRow] : []),
+      totalCost:     t.our || null,
+      totalPrice:    t.cx || null,
+    } satisfies SummaryTableRow)),
     ...colResults.map((r) => r.summaryTableRow),
     ...(palletCustomerTotal > 0 || palletOurTotal > 0
       ? [{
           label:         "Pallets & Fees",
           throughput:    null,
           leadTimeWeeks: null,
-          // PPU = customerTotal / outbound pallets
           costPerUnit:   totalPallets > 0 ? palletCustomerTotal / totalPallets : null,
           totalWeight:   null,
-          // totalUnits = outbound pallets delivered to customer
           totalUnits:    totalPallets || null,
           totalCost:     palletOurTotal || null,
           totalPrice:    palletCustomerTotal || null,

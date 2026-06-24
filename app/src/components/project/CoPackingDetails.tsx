@@ -555,8 +555,8 @@ export default function CoPackingDetails() {
         );
       })()}
 
-      {/* ── Blending (optional) ── */}
-      {(() => {
+      {/* Blending section removed */}
+      {false && (() => {
         const BATCH_SIZE_UNITS = ["kg", "g", "lbs", "oz", "L", "mL"] as const;
         const recipe: BlendIngredient[] = s.blendingRecipe ?? [];
         const batches      = s.blendingUnits > 0 ? s.blendingUnits : 1;

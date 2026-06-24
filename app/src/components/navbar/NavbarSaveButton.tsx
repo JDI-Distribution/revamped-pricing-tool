@@ -12,7 +12,7 @@ interface QuoteListItem {
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function NavbarSaveButton() {
-  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, saveState, markSaved, clearSave, loadQuoteState } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, additionalFees, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, saveState, markSaved, clearSave, loadQuoteState } = useProject();
   const { savedQuoteId, savedQuoteName, hasUnsavedChanges } = saveState;
 
   const [modalOpen,    setModalOpen]    = useState(false);
@@ -43,7 +43,7 @@ export default function NavbarSaveButton() {
       .finally(() => setLoadingList(false));
   }, [modalOpen]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId });
+  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, additionalFees, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides });
 
   // Auto-save (PUT) when quote already has an ID
   const handleAutoSave = async () => {

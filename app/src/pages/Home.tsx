@@ -588,7 +588,6 @@ export default function Home() {
     { id: "section-project-info",       label: "Project Info",       visible: true },
     { id: "section-raw-materials",      label: "Raw Materials",      visible: true },
     { id: "section-testing",            label: "Testing",            visible: true },
-    { id: "section-blending",           label: "Blending",           visible: true },
     { id: "section-processes",          label: "Processes",          visible: true },
     { id: "section-packaging-summary",  label: "Pkg Configuration",  visible: true },
     { id: "section-palletization",      label: "Palletization",      visible: true },

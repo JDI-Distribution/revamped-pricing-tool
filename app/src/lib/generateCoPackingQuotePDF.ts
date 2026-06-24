@@ -66,11 +66,6 @@ function fmtQty(qty: number, unit: string): string {
   return `${Math.round(qty).toLocaleString()} ${unit}`;
 }
 
-// Format a decimal amount to 2 places (matches Blending recipe display)
-function fmtAmt(n: number): string {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 export interface CoPackingPdfArgs {
   brandId:             BrandId;
   customer:            CustomerInfo;
@@ -315,28 +310,13 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     ]);
   }
 
-  // Blending (only if enabled)
-  const blendingResult = coPackingResults.find(r => r.label.toLowerCase() === "blending");
-  if (s.blendingEnabled && blendingResult) {
-    const blendDesc = s.blendingDescription?.trim() || "3-Component Blend";
-    const minApplied = s.blendingMinLaborHrs > 0;
-    const ppu = blendingResult.deliveredQty > 0 ? blendingResult.customerPrice / blendingResult.deliveredQty : 0;
-    const desc = minApplied
-      ? `Blending – ${blendDesc}\n(min ${s.blendingMinLaborHrs.toFixed(2)} hrs applied)`
-      : `Blending – ${blendDesc}`;
-    body.push([
-      desc,
-      fmtQty(blendingResult.deliveredQty, "batches"),
-      fmtPPU(ppu),
-      fmt(blendingResult.customerPrice),
-    ]);
-  }
+
 
   // Packaging levels — one row per coPackingColumn / packaging summary row with non-zero customer total
   const ADMIN_LABELS = ["inbound", "setup", "pallet", "overhead", "minimum labor", "minimum job"];
   const levelResults = coPackingResults.filter(r => {
     const lbl = r.label.toLowerCase();
-    return !ADMIN_LABELS.some(a => lbl.includes(a)) && lbl !== "blending";
+    return !ADMIN_LABELS.some(a => lbl.includes(a));
   });
   for (const r of levelResults) {
     if (r.customerPrice <= 0) continue;
@@ -437,73 +417,6 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   doc.line(L, totalRowY + ROW_H, L + W, totalRowY + ROW_H);
 
   y = totalRowY + ROW_H + 10;
-
-  // ── Blending Recipe Breakdown (only if enabled, with a recipe) ────────────
-  if (s.blendingEnabled && s.blendingRecipe?.length) {
-    const batches     = s.blendingUnits > 0 ? s.blendingUnits : 1;
-    const batchSize   = s.blendingBatchSize ?? 0;
-    const batchUnit   = s.blendingBatchSizeUnit || "kg";
-    const overageMult = 1 + (s.blendingOverage ?? 0);
-
-    const recipeBody = s.blendingRecipe.map(ing => {
-      const pct           = ing.percentage ?? 0;
-      const totalBase     = batchSize > 0 ? (pct / 100) * batchSize * batches : 0;
-      const totalRequired = totalBase * overageMult;
-      return [
-        ing.name || "—",
-        `${pct.toFixed(2)}%`,
-        batchSize > 0 ? `${fmtAmt(totalRequired)} ${batchUnit}` : "—",
-      ];
-    });
-
-    const pctSum         = s.blendingRecipe.reduce((acc, ing) => acc + (ing.percentage ?? 0), 0);
-    const totalRequired  = batchSize > 0 ? batchSize * batches * overageMult : 0;
-    recipeBody.push([
-      "Total",
-      `${pctSum.toFixed(2)}%`,
-      batchSize > 0 ? `${fmtAmt(totalRequired)} ${batchUnit}` : "—",
-    ]);
-
-    const recipeTableHeight = (recipeBody.length + 1) * 8 + 14;
-    checkPageBreak(recipeTableHeight);
-
-    sf("bold", 10.5); doc.setTextColor(...gray);
-    doc.text("Blending Recipe Breakdown", L, y + 5);
-    y += 8;
-    if (s.blendingOverage > 0) {
-      sf("italic", 8); doc.setTextColor(140, 140, 140);
-      doc.text(`Totals include ${(s.blendingOverage * 100).toFixed(0)}% overage`, L, y + 3);
-      y += 5;
-    }
-
-    autoTable(doc, {
-      startY: y, margin: { left: L, right: L },
-      head: [["Ingredient", "% of Batch", `Total Required (${batchUnit})`]],
-      body: recipeBody,
-      styles: {
-        font: "helvetica", fontSize: 9.5,
-        cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
-        textColor: gray, lineColor: ltGray, lineWidth: 0.2,
-        fillColor: [255,255,255],
-        minCellHeight: 7,
-      },
-      headStyles: { fontStyle: "bold", fillColor: [255,255,255], textColor: gray },
-      alternateRowStyles: { fillColor: rowGray },
-      columnStyles: {
-        0: { halign: "left",  cellWidth: "auto" },
-        1: { halign: "right", cellWidth: 28 },
-        2: { halign: "right", cellWidth: 40 },
-      },
-      didParseCell: (data) => {
-        if (data.row.index === recipeBody.length - 1) {
-          data.cell.styles.fontStyle = "bold";
-        }
-      },
-      tableLineColor: ltGray, tableLineWidth: 0.2,
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 10;
-  }
 
   // ── Section 7 — Footer ────────────────────────────────────────────────────
 

@@ -146,16 +146,19 @@ app.get("/crm/search-accounts", async (req, res) => {
     const headers = { ...credentials.headers };
     const base = "https://www.zohoapis.com/crm/v2";
 
+    const accountCriteria = encodeURIComponent(`(Account_Name:contains:${query})`);
     const accountRes = await fetch(
-      `${base}/Accounts/search?criteria=(Account_Name:starts_with:${encodeURIComponent(query)})&fields=Account_Name,Auto_Account_Record,Phone,id`,
+      `${base}/Accounts/search?criteria=${accountCriteria}&fields=Account_Name,Auto_Account_Record,Phone,id`,
       { headers }
     );
     const accountData = await accountRes.json();
+    console.log("Account search response:", JSON.stringify(accountData).slice(0, 500));
     const accounts = accountData?.data ?? [];
 
     const results = await Promise.all(accounts.slice(0, 6).map(async (account) => {
+      const contactCriteria = encodeURIComponent(`(Account_Name:equals:${account.Account_Name})`);
       const contactRes = await fetch(
-        `${base}/Contacts/search?criteria=(Account_Name:equals:${encodeURIComponent(account.Account_Name)})&fields=Full_Name,Email,Phone,id&per_page=1`,
+        `${base}/Contacts/search?criteria=${contactCriteria}&fields=Full_Name,Email,Phone,id&per_page=1`,
         { headers }
       );
       const contactData = await contactRes.json();
@@ -173,8 +176,8 @@ app.get("/crm/search-accounts", async (req, res) => {
 
     res.json({ data: results });
   } catch (err) {
-    console.error("CRM search error:", err);
-    res.json({ data: [] });
+    console.error("CRM search error:", err.message, err.stack);
+    res.json({ data: [], error: err.message });
   }
 });
 

@@ -301,7 +301,7 @@ interface ProjectContextValue {
   saveScenario: (slot: 'A' | 'B', name: string) => void;
   clearScenarios: () => void;
   // Restore all project state from a saved quote snapshot
-  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[] }, savedId?: string, savedName?: string) => void;
+  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[]; crmAccountId?: string; crmContactId?: string }, savedId?: string, savedName?: string) => void;
   // Save state — tracks whether current quote has been saved and if there are unsaved changes
   saveState:    SaveState;
   markSaved:    (id: string, name: string) => void;
@@ -609,19 +609,78 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setLastSavedSnapshot("");
   };
 
-  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[] }, savedId?: string, savedName?: string) => {
+  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[]; crmAccountId?: string; crmContactId?: string; moqMargins?: Record<number, string>; moqPpuInputs?: Record<number, string>; moqLastEdited?: Record<number, "margin" | "ppu">; whatIfPpus?: Record<number, string>; costPpuOverrides?: Record<number, string> }, savedId?: string, savedName?: string) => {
+    // Reconstruct packagingLevels from legacy columns when missing (quotes saved before packagingLevels was added)
+    const resolvedLevels: PackagingLevel[] = (() => {
+      if (state.packagingLevels && state.packagingLevels.length > 0) {
+        return state.packagingLevels.map(l => ({ ...l, manualCharges: l.manualCharges ?? [] }));
+      }
+      if (state.columns && state.columns.length > 0) {
+        return state.columns.map((col, i) => ({
+          ...defaultPackagingLevel(),
+          id: String(col.id ?? (Date.now() + i)),
+          customLevelName: col.level || `Level ${i + 1}`,
+          packagingType:   col.type || "",
+          customTypeName:  col.customType ? (col.type || "") : "",
+          units:           parseFloat(col.units) || 0,
+          isAutoUnits:     false,
+          costPerUnit:     parseFloat(col.rows?.["costPerUnit"] ?? col.rows?.["unitCost"] ?? "0") || 0,
+          overageRate:     parseFloat(col.rows?.["overageRate"] ?? "15") || 15,
+          efficiencyBuffer: parseFloat(col.rows?.["efficiencyBuffer"] ?? col.efficiency ?? "20") || 20,
+          laborMarkup:     parseFloat(col.rows?.["laborMarkup"] ?? col.labor ?? "35") || 35,
+          wageRate:        parseFloat(col.rows?.["wageRate"] ?? "26") || 26,
+          fillRatePerMin:  parseFloat(col.rows?.["fillRatePerMin"] ?? "12") || 12,
+          packagingWeightG: parseFloat(col.rows?.["packagingWeightG"] ?? "0") || 0,
+          numStaff:        parseFloat(col.rows?.["numStaff"] ?? "1") || 1,
+          hrsPerShift:     parseFloat(col.rows?.["hrsPerShift"] ?? "7") || 7,
+          workingDays:     parseFloat(col.rows?.["workingDays"] ?? "5") || 5,
+          manualCharges:   [],
+        }));
+      }
+      return initialPackagingLevels;
+    })();
+    const resolvedFormData = { ...state.formData, numIntakePallets: state.formData.numIntakePallets ?? "1" };
+    const resolvedCustomer = state.customer ?? initialCustomer;
+    const resolvedBrand = state.selectedBrand ?? initialBrand;
+    const resolvedProjectType = state.projectType ?? "standard";
+    const resolvedCoPackingState = state.coPackingState ?? initialCoPackingState;
+    const resolvedAdditionalFees = state.additionalFees ?? initialAdditionalFees;
+    const resolvedProcesses = state.coPackingProcesses ?? [];
+
     setMoqRows(state.moqRows);
-    setPackagingLevels(state.packagingLevels && state.packagingLevels.length > 0
-      ? state.packagingLevels.map(l => ({ ...l, manualCharges: l.manualCharges ?? [] }))
-      : initialPackagingLevels);
-    setFormData({ ...state.formData, numIntakePallets: state.formData.numIntakePallets ?? "1" });
-    if (state.customer)             setCustomer(state.customer);
-    if (state.selectedBrand)        setSelectedBrand(state.selectedBrand);
-    if (state.projectType)          setProjectType(state.projectType);
-    if (state.coPackingState)       setCoPackingStateRaw(state.coPackingState);
-    if (state.additionalFees)       setAdditionalFees(state.additionalFees);
-    if (state.coPackingProcesses)   setCoPackingProcesses(state.coPackingProcesses);
+    setPackagingLevels(resolvedLevels);
+    setFormData(resolvedFormData);
+    setCustomer(resolvedCustomer);
+    setSelectedBrand(resolvedBrand);
+    setProjectType(resolvedProjectType);
+    setCoPackingStateRaw(resolvedCoPackingState);
+    setAdditionalFees(resolvedAdditionalFees);
+    setCoPackingProcesses(resolvedProcesses);
     setActiveMoqId(state.moqRows[0]?.id ?? 1);
+    if (state.crmAccountId   !== undefined) setCrmAccountId(state.crmAccountId);
+    if (state.crmContactId   !== undefined) setCrmContactId(state.crmContactId);
+    if (state.moqMargins     !== undefined) setMoqMargins(state.moqMargins);
+    if (state.moqPpuInputs   !== undefined) setMoqPpuInputs(state.moqPpuInputs);
+    if (state.moqLastEdited  !== undefined) setMoqLastEdited(state.moqLastEdited);
+    if (state.whatIfPpus     !== undefined) setWhatIfPpus(state.whatIfPpus);
+    if (state.costPpuOverrides !== undefined) setCostPpuOverrides(state.costPpuOverrides);
+
+    // Write loaded state to localStorage immediately so a page refresh restores this quote
+    try {
+      localStorage.setItem("jdi_draft_v1", JSON.stringify({
+        moqRows: state.moqRows,
+        packagingLevels: resolvedLevels,
+        formData: resolvedFormData,
+        customer: resolvedCustomer,
+        selectedBrand: resolvedBrand,
+        crmAccountId: state.crmAccountId ?? "",
+        crmContactId: state.crmContactId ?? "",
+        projectType: resolvedProjectType,
+        coPackingState: resolvedCoPackingState,
+        additionalFees: resolvedAdditionalFees,
+        coPackingProcesses: resolvedProcesses,
+      }));
+    } catch { /* ignore */ }
     const snap = JSON.stringify(state);
     setLastSavedSnapshot(snap);
     setSaveState({

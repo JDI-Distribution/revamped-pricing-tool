@@ -176,6 +176,24 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
   const startDate     = formData.startDate ? new Date(formData.startDate + "T00:00:00") : today;
   const shipDate      = addBusinessDays(startDate, leadTimeWeeks * 5);
 
+  // Auto-generate project overview from packaging levels when user left it blank
+  const autoOverview = (() => {
+    const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
+    const rows = summaryTableRows.filter(r => !r.isLeadTimeSummary && (r.totalUnits ?? 0) > 0);
+    if (rows.length === 0) return "";
+    const parts: string[] = [];
+    const primary = rows[0];
+    const primaryUnits = fmt(primary.totalUnits ?? 0);
+    const productName = customer.productName || primaryProductName || "product";
+    parts.push(`${primaryUnits} Units, ${productName}`);
+    rows.slice(1).forEach(row => {
+      const u = fmt(row.totalUnits ?? 0);
+      parts.push(`packed into ${u} ${row.label}`);
+    });
+    const ltStr = leadTimeWeeks > 0 ? ` Lead time is approx ${Math.round(leadTimeWeeks)} wks.` : "";
+    return parts.join(". ") + `. Shipping/freight not included.${ltStr}`;
+  })();
+
   // Accent colour
   const [ar, ag, ab] = hexToRgb(brand.accent);
 
@@ -289,7 +307,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const unitSizeG = parseFloat(formData.unitWeight || "0") || 0;
     const unitLabel = formData.unitWeightUnit || "g";
     const prodFields: [string, string][] = [
-      ["Product Name:",            primaryProductName || customer.productName || "—"],
+      ["Product Name:",            customer.productName || primaryProductName || "—"],
       [`Unit / Ea Size (${unitLabel}):`, unitSizeG > 0 ? String(unitSizeG) : "—"],
       ["Product Category:",        customer.productCategory || "—"],
     ];
@@ -351,7 +369,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     // ── Section 5 — Project Overview Box ─────────────────────────────────────
     y = (doc as any).lastAutoTable.finalY + 8;
-    const overviewText = customer.projectOverview || "";
+    const overviewText = customer.projectOverview || autoOverview;
 
     const ovPrefix  = "Project Overview:  ";
     sf("bold", 10); doc.setTextColor(ar, ag, ab);
@@ -417,13 +435,13 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const materialRow = summaryRows.find(sr => sr.label.toLowerCase().includes("material"));
     const palletRow   = summaryRows.find(sr => sr.label.toLowerCase().includes("pallet"));
 
-    // Packaging level rows from summaryTableRows (excludes materials, pallets, setup, lead time)
+    // Packaging level rows from summaryTableRows (excludes materials, pallets, setup, lead time, testing)
     const colItems = summaryTableRows.filter(str =>
       !str.isLeadTimeSummary &&
       !str.label.toLowerCase().includes("material") &&
       !str.label.toLowerCase().includes("pallet") &&
       !str.label.toLowerCase().includes("setup") &&
-      !str.label.toLowerCase().includes("blending")
+      !str.label.toLowerCase().startsWith("testing –")
     );
     const palletSTR = summaryTableRows.find(str => str.label.toLowerCase().includes("pallet") && !str.isLeadTimeSummary);
     const primaryCol = colItems[0];
@@ -436,36 +454,21 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         fmtPPU(setupRow.customerPrice), fmt(setupRow.customerPrice)]);
     }
 
-    // Row 2: Combined "Product Filling, Handling & Intake" = raw material cost + primary level labor
-    // Intake fee and testing are broken out as their own rows below
+    // Row 2: Combined "Product Filling, Handling & Intake" = raw material cost (excl. testing) + primary level labor
     {
-      const testEnabled = formData.testingEnabled !== "false";
-      const testRows    = formData.testingRows ?? [];
-      const testMarkup  = parseFloat(formData.testingMarkup ?? "0") || 0;
-      const nSkus       = parseInt(formData.numSkus ?? "1", 10) || 1;
-
-      const testLineItems = testEnabled
-        ? testRows.filter(row => (row.cost ?? 0) > 0).map(row => {
-            const name = row.testType === "Custom" ? (row.customTestName || "Custom") : row.testType;
-            const cx   = (row.cost ?? 0) * nSkus * (1 + testMarkup / 100);
-            return { name, cx };
-          })
-        : [];
-      const totalTestingCx = testLineItems.reduce((s, t) => s + t.cx, 0);
-
-      // Compute intake total from formData (same formula as calculations.ts)
+      // Compute intake total from formData
       const intakeFee    = parseFloat(formData.intakeFee ?? "0") || 0;
       const intakeMarkup = parseFloat(formData.intakeFeeMarkup ?? "0") || 0;
       const nPallets     = parseFloat(formData.numIntakePallets ?? formData.numPallets ?? "0") || 0;
       const intakeCx     = intakeFee * nPallets * (1 + intakeMarkup / 100);
 
-      // matCx = materialRow total minus testing and intake (which get their own rows)
-      const matCx     = (materialRow?.customerPrice ?? 0) - totalTestingCx - intakeCx;
+      // materialRow now excludes testing (testing has its own summaryTableRows entries)
+      const matCx     = (materialRow?.customerPrice ?? 0) - intakeCx;
       const primCx    = primaryCol?.totalPrice ?? 0;
       const combTotal = matCx + primCx;
       const combDeliv = primaryDelivQty > 0 ? primaryDelivQty : 1;
       const combPPU   = combDeliv > 0 ? combTotal / combDeliv : 0;
-      const primName  = primaryCol?.label || primaryProductName || customer.productName || "Primary Fill";
+      const primName  = primaryCol?.label || customer.productName || primaryProductName || "Primary Fill";
       body.push([
         `Product Filling, Handling & Intake (receiving, inspection, staging) - ${primName}`,
         Math.round(combDeliv).toLocaleString(),
@@ -483,17 +486,20 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
           fmt(intakeCx),
         ]);
       }
+    }
 
-      // Per-test line items
-      for (const t of testLineItems) {
-        const ppu = nSkus > 0 ? t.cx / nSkus : 0;
-        body.push([
-          `Testing & Documentation – ${t.name}`,
-          `${nSkus} SKUs`,
-          fmtPPU(ppu),
-          fmt(t.cx),
-        ]);
-      }
+    // Testing rows — each test from summaryTableRows as its own line item
+    const testingSTRs = summaryTableRows.filter(str => str.label.toLowerCase().startsWith("testing –"));
+    const nSkus = parseInt(formData.numSkus ?? "1", 10) || 1;
+    for (const t of testingSTRs) {
+      const cx  = t.totalPrice ?? 0;
+      const ppu = nSkus > 0 ? cx / nSkus : 0;
+      body.push([
+        `Testing & Documentation – ${t.label.replace(/^testing\s*[–-]\s*/i, "")}`,
+        `${nSkus} SKUs`,
+        fmtPPU(ppu),
+        fmt(cx),
+      ]);
     }
 
     // Rows 3+: All packaging levels beyond the primary fill, in order
@@ -617,7 +623,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       : String(Math.round(primaryDelivQty) || r.moqRow.moq || "0");
     const filename = [
       clean(customer.customer),
-      clean(primaryProductName || customer.productName),
+      clean(customer.productName || primaryProductName),
       unitsOrMoq,
       dateStr,
     ].join("_") + ".pdf";

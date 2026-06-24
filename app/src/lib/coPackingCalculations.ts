@@ -40,17 +40,6 @@ function calculateProcessHours(
   }
 }
 
-// ── Labor calc helper ────────────────────────────────────────────────────────
-// Returns billed hours, applying per-section minimum labor if set.
-function billedHrs(
-  calcHrs:    number,
-  minLaborHrs: number,
-): { billed: number; minimumApplied: boolean } {
-  const min = minLaborHrs ?? 0;
-  if (min > 0 && calcHrs < min) return { billed: min, minimumApplied: true };
-  return { billed: calcHrs, minimumApplied: false };
-}
-
 // ── Core calc engine ─────────────────────────────────────────────────────────
 // Accepts an optional units override for scaled-pricing tiers.
 export function computeCoPackingResults(
@@ -117,28 +106,6 @@ export function computeCoPackingResults(
     ppu:           s.setupFeeCustomer,
   });
 
-  // ── 3. Blending (optional) ───────────────────────────────────────────────
-  let blendOur = 0;
-  if (s.blendingEnabled) {
-    const blendReq  = s.blendingUnits * (1 + s.blendingOverage);
-    const blendRate = s.blendingUnitsPerMin * (1 - s.blendingEfficiencyBuffer);
-    const calcH     = blendRate > 0 ? (blendReq / blendRate) / 60 : 0;
-    const { billed, minimumApplied } = billedHrs(calcH, s.blendingMinLaborHrs ?? 0);
-    blendOur          = billed * s.blendingWageRate;
-    const blendCx     = blendOur * (1 + s.blendingLaborMarkup);
-    const blendPPU    = s.blendingUnits > 0 ? blendCx / s.blendingUnits : 0;
-    const minNote     = minimumApplied ? ` (min ${(s.blendingMinLaborHrs ?? 0).toFixed(2)} hrs applied)` : "";
-    results.push({
-      label:         "Blending",
-      description:   (s.blendingDescription || "Blending") + minNote,
-      deliveredQty:  s.blendingUnits,
-      requiredQty:   blendReq,
-      ourCost:       blendOur,
-      customerPrice: blendCx,
-      ppu:           blendPPU,
-    });
-  }
-
   // ── 3b. Processes — co-packing labor steps ───────────────────────────────
   let processesLaborOur = 0;
 
@@ -189,7 +156,7 @@ export function computeCoPackingResults(
 
   // ── Addition 3 — Overhead ─────────────────────────────────────────────────
   if (s.overheadEnabled) {
-    const totalLaborOur = blendOur + processesLaborOur;
+    const totalLaborOur = processesLaborOur;
     const ovhVarOur  = totalLaborOur * (s.overheadRate ?? 0.15);
     const ovhVarCx   = ovhVarOur    * (1 + (s.overheadMarkup ?? 0.20));
     const ovhFixOur  = s.fixedOverheadFee ?? 0;
@@ -208,39 +175,6 @@ export function computeCoPackingResults(
     });
   }
 
-  // ── Addition 4 — Global Minimum Labor Adjustment ──────────────────────────
-  const globalMin = s.globalMinLaborHrs ?? 0;
-  if (globalMin > 0) {
-    // Sum calculated hours for each section that had work
-    const blendCalcH  = s.blendingEnabled ? (() => {
-      const req  = s.blendingUnits * (1 + s.blendingOverage);
-      const rate = s.blendingUnitsPerMin * (1 - s.blendingEfficiencyBuffer);
-      return rate > 0 ? (req / rate) / 60 : 0;
-    })() : 0;
-    // Process-level min is handled per-process above; global min applies to blending only for now
-    const totalCalcH = blendCalcH;
-    if (totalCalcH < globalMin) {
-      const deficit = globalMin - totalCalcH;
-      // Average wage rate / markup across active sections
-      const rates:   number[] = [];
-      const markups: number[] = [];
-      if (s.blendingEnabled) { rates.push(s.blendingWageRate ?? 0); markups.push(s.blendingLaborMarkup); }
-      const avgWage   = rates.length   ? rates.reduce((a, b) => a + b, 0)   / rates.length   : 0;
-      const avgMarkup = markups.length ? markups.reduce((a, b) => a + b, 0) / markups.length : 0;
-      const adjOur = deficit * avgWage;
-      const adjCx  = adjOur * (1 + avgMarkup);
-      const adjPPU = units > 0 ? adjCx / units : 0;
-      results.push({
-        label:         "Minimum Labor Adjustment",
-        description:   `Global min ${globalMin.toFixed(2)} hrs (calculated: ${totalCalcH.toFixed(2)} hrs)`,
-        deliveredQty:  units,
-        requiredQty:   units,
-        ourCost:       adjOur,
-        customerPrice: adjCx,
-        ppu:           adjPPU,
-      });
-    }
-  }
 
   return results;
 }
