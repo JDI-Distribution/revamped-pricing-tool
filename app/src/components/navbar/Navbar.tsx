@@ -46,7 +46,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="w-full bg-white border-b border-gray-100 relative z-30">
+      <nav className="w-full bg-white border-b border-gray-100 sticky top-0 z-30">
         {/* ── Main bar ── */}
         <div className="px-4 md:px-6 py-3 flex items-center gap-4 md:gap-12">
           {/* Logo */}
@@ -58,19 +58,26 @@ export default function Navbar() {
           <ul className="hidden md:flex items-center gap-8 lg:gap-12">
             {navLinks.map((link) => (
               <li key={link.href}>
-                <Link
-                  to={link.drawer ? "#" : link.href}
-                  onClick={(e) => handleNavClick(link.drawer, e)}
-                  className={`${linkCls} ${
-                    link.drawer === "margin" && marginOpen
-                      ? "border-[#e8473f] text-gray-900"
-                      : pathname === link.href && !link.drawer
+                {link.drawer ? (
+                  <button
+                    type="button"
+                    onClick={(e) => handleNavClick(link.drawer, e)}
+                    className={`${linkCls} ${
+                      (link.drawer === "margin" && marginOpen) || (link.drawer === "conversion" && conversionOpen)
                         ? "border-[#e8473f] text-gray-900"
                         : ""
-                  }`}
-                >
-                  {link.label}
-                </Link>
+                    }`}
+                  >
+                    {link.label}
+                  </button>
+                ) : (
+                  <Link
+                    to={link.href}
+                    className={`${linkCls} ${pathname === link.href ? "border-[#e8473f] text-gray-900" : ""}`}
+                  >
+                    {link.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>
@@ -112,7 +119,6 @@ export default function Navbar() {
 
           {/* Mobile: Save + action + hamburger */}
           <div className="flex items-center gap-2 ml-auto md:hidden">
-            <NavbarSaveButton />
             {isQuotePage || isSavedPage ? (
               <Link
                 to="/"
@@ -133,6 +139,7 @@ export default function Navbar() {
               </Link>
             )}
             <button
+              type="button"
               onClick={() => setMenuOpen((o) => !o)}
               className="flex items-center justify-center w-11 h-11 text-gray-600 hover:text-gray-900 transition-colors"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -148,17 +155,29 @@ export default function Navbar() {
             <ul className="flex flex-col py-2">
               {navLinks.map((link) => (
                 <li key={link.href}>
-                  <Link
-                    to={link.drawer ? "#" : link.href}
-                    onClick={(e) => { setMenuOpen(false); handleNavClick(link.drawer, e); }}
-                    className={`flex items-center px-5 py-3.5 text-sm font-medium transition-colors ${
-                      (link.drawer === "margin" && marginOpen) || (pathname === link.href && !link.drawer)
-                        ? "text-[#e8473f] bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
+                  {link.drawer ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { setMenuOpen(false); handleNavClick(link.drawer, e); }}
+                      className={`w-full text-left flex items-center px-5 py-3.5 text-sm font-medium transition-colors ${
+                        (link.drawer === "margin" && marginOpen) || (link.drawer === "conversion" && conversionOpen)
+                          ? "text-[#e8473f] bg-red-50"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {link.label}
+                    </button>
+                  ) : (
+                    <Link
+                      to={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={`flex items-center px-5 py-3.5 text-sm font-medium transition-colors ${
+                        pathname === link.href ? "text-[#e8473f] bg-red-50" : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
               <li>

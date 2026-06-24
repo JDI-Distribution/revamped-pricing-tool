@@ -258,13 +258,15 @@ export default function ConversionCalculator({ open, onClose, prefill }: Props) 
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
+  if (!open) return null;
+
   return (
     <div
-      className={`fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className={`relative w-full md:max-w-[600px] max-h-[90vh] bg-white rounded-lg shadow-2xl flex flex-col transition-all duration-200 ${open ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+        className="relative w-full md:max-w-[600px] max-h-[90vh] bg-white rounded-lg shadow-2xl flex flex-col"
       >
         {/* Sticky header */}
         <div className="shrink-0 px-5 py-4 border-b border-gray-100 flex items-start justify-between">
@@ -272,7 +274,7 @@ export default function ConversionCalculator({ open, onClose, prefill }: Props) 
             <h2 className="text-sm font-bold text-gray-900">Unit Conversion Calculator</h2>
             <p className="text-[0.65rem] text-gray-400 mt-0.5">Convert between weight and volume units</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors mt-0.5">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors mt-0.5">
             <X size={18} />
           </button>
         </div>

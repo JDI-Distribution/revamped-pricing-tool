@@ -23,16 +23,11 @@ function toGrams(value: number, unit: string): number {
   return value * (GRAMS_PER_UNIT[unit] ?? 1);
 }
 
-/** Markup formula: CustomerPrice = OurCost * (1 + markupPct/100). Used for raw material and packaging markups. */
-function applyMarkup(ourCost: number, markupPct: number): number {
-  return ourCost * (1 + markupPct / 100);
-}
 
 function computeColumn(
   col: Column,
   index: number,
   unitWeightG: number,
-  ppuDenominator: number,
 ): {
   section: DetailSection;
   summaryTableRow: SummaryTableRow;
@@ -137,8 +132,9 @@ function computeColumn(
 
   const summaryLabel = col.type || col.level || `Column ${index + 1}`;
 
-  // PPU: every row uses ppuDenominator so individual PPUs sum to the total.
-  const costPerUnit = ppuDenominator > 0 ? customerTotalCost / ppuDenominator : null;
+  // PPU: each level's PPU = that level's customer total ÷ that level's own delivered qty.
+  // Using the global ppuDenominator here would be wrong — levels have different unit counts.
+  const costPerUnit = units > 0 ? customerTotalCost / units : null;
 
   const summaryTableRow: SummaryTableRow = {
     label:         summaryLabel,
@@ -150,7 +146,9 @@ function computeColumn(
       : n(col.rows?.["Packaging Weight (g)"]) > 0
         ? unitsReq * n(col.rows?.["Packaging Weight (g)"])
         : null,
-    totalUnits:    unitsReq || null,
+    // totalUnits = DELIVERED qty (what the customer receives), not overage-inflated unitsReq.
+    // PPU = customerTotalCost / totalUnits so they must use the same denominator.
+    totalUnits:    units || null,
     totalCost:     ourTotalCost || null,
     totalPrice:    customerTotalCost || null,
   };
@@ -170,6 +168,60 @@ function computeColumn(
   };
 }
 
+export interface ColumnOutputs {
+  unitsReq:          number;
+  effRate:           number;   // effective fill rate per min
+  perHr:             number;   // effective units per hour
+  totalHrsReq:       number;
+  totalMinReq:       number;
+  costPerMin:        number;   // labor cost per minute (our)
+  ourLaborCost:      number;   // totalHrsReq × wageRate
+  customerLaborCost: number;   // ourLaborCost × (1 + laborMarkup/100)
+  totalLabor:        number;   // alias for ourLaborCost (backward compat)
+  costPerUnit:       number;   // customer labor cost per delivered unit
+  pkgWeight:         number;   // total packaging weight in g
+  leadTimeDays:      number;
+  leadTimeWeeks:     number;
+}
+
+export function computeColumnOutputs(
+  fillRatePerMin:   number,
+  efficiencyBuffer: number,   // integer percent, e.g. 20 = 20%
+  wageRate:         number,   // total line wage rate (covers all staff cost)
+  numStaff:         number,   // used for lead time capacity only, not labor cost
+  hrsPerShift:      number,
+  _workingDays:     number,
+  packagingWeightG: number,
+  baseUnits:        number,
+  overageRate:      number,   // integer percent, e.g. 15 = 15%
+  _cpoCostPerUnit:  number,   // Cost/Unit entered in CPO section for this level
+  laborMarkup:      number,   // integer percent, e.g. 35 = 35%
+): ColumnOutputs {
+  const unitsReq    = Math.ceil(baseUnits * (1 + overageRate / 100));
+  const effRate     = fillRatePerMin > 0 && efficiencyBuffer < 100
+    ? fillRatePerMin * (1 - efficiencyBuffer / 100)
+    : fillRatePerMin;
+  const totalMinReq = effRate > 0 ? unitsReq / effRate : 0;
+  const totalHrsReq = totalMinReq / 60;
+  const perHr       = effRate * 60;
+  const costPerMin  = wageRate / 60;
+  // Total labor = ((hrs × wage) × markupFraction) + (wage × hrs)
+  //             = hrs × wage × (1 + laborMarkup/100)
+  const ourLaborCost      = totalHrsReq * wageRate;
+  const customerLaborCost = (ourLaborCost * (laborMarkup / 100)) + ourLaborCost;
+  const costPerUnit       = unitsReq > 0 ? customerLaborCost / unitsReq : 0;
+  // pkg weight uses base units (what the customer receives), not overage-inflated units
+  const pkgWeight         = baseUnits * packagingWeightG;
+  // staff multiplies available capacity per day → fewer production days
+  const productionDays = hrsPerShift > 0 && numStaff > 0
+    ? totalHrsReq / (hrsPerShift * numStaff)
+    : hrsPerShift > 0 ? totalHrsReq / hrsPerShift : 0;
+  const leadTimeWeeks = productionDays / 5;
+  const leadTimeDays  = productionDays;
+
+  return { unitsReq, effRate, perHr, totalHrsReq, totalMinReq, costPerMin, ourLaborCost, customerLaborCost, totalLabor: ourLaborCost, costPerUnit, pkgWeight, leadTimeDays, leadTimeWeeks };
+}
+
 export function computeDetailSections(
   columns: Column[],
   _moqRows: MoqRow[],
@@ -181,29 +233,34 @@ export function computeDetailSections(
   ppuUnits: number;
 } {
   const unitWeight          = toGrams(n(formData.unitWeight), formData.unitWeightUnit ?? "g");
-  const costPerGram         = n(formData.costPerGram);
+  const costPerGramInput     = n(formData.costPerGram);
   const numSkus             = n(formData.numSkus) || 1;
   const intakeFee           = n(formData.intakeFee);
+  const numIntakePallets    = n((formData as ProjectFormData).numIntakePallets ?? formData.numPallets);
   const numPallets          = n(formData.numPallets);
   const outboundFee         = n(formData.outboundFee);
-  const testingFee          = n(formData.testingFee);
-  const testingFeeMarkup    = n(formData.testingFeeMarkup);
+  const testingEnabled      = formData.testingEnabled !== "false";
+  const testingRows         = formData.testingRows ?? [];
+  const testingMarkup       = n(formData.testingMarkup);
   const setupFeeOur         = n(formData.setupFeeOur);
   const setupFeeCustomer    = n(formData.setupFeeCustomer);
   const ppuDenominator      = n(formData.ppuDenominator);
   const ppuUnits            = ppuDenominator;
   // materialOverage is entered as an integer percent (e.g. 25 = 25%).
   const materialOverage          = n(formData.materialOverage);
-  const rawMaterialMarginPct     = n(formData.rawMaterialMarkup);
+  const rawMaterialMarkupPct     = n(formData.rawMaterialMarkup);
   const intakeFeeMarkup          = n(formData.intakeFeeMarkup);
   const leftOverInventoryCost    = n(formData.leftOverInventoryCost);
   const leftOverInventoryAbsorb  = n(formData.leftOverInventoryAbsorb);
   const leadTimeBufferDays       = n(formData.leadTimeBufferDays);
 
   // ── Materials ──────────────────────────────────────────────────
-  // Only "Individual Units" columns contribute to raw material weight
+  // The first column is always the individual units level — use it for raw material weight.
+  // Fall back to name-match for legacy data where the first column might be labelled differently.
   const individualCols = columns.filter((col) => col.level === "Individual Units");
-  const totalBaseUnits = individualCols.reduce((sum, col) => sum + n(col.units), 0);
+  const totalBaseUnits = individualCols.length > 0
+    ? individualCols.reduce((sum, col) => sum + n(col.units), 0)
+    : n(columns[0]?.units ?? "0");
 
   // materialOverage is a standalone field (separate from per-column packout overage)
   const totalUnitsWithOverage = Math.ceil(totalBaseUnits * (1 + materialOverage / 100));
@@ -212,21 +269,23 @@ export function computeDetailSections(
   const reqOz    = reqGrams / 28.3495;
   const reqLbs   = reqGrams / 453.592;
 
-  // Raw material: markup formula
-  const rawMaterialOur      = reqGrams * costPerGram;
-  const rawMaterialCustomer = applyMarkup(rawMaterialOur, rawMaterialMarginPct);
+  // Excel formula: effectiveCostPerGram = (K9 + (1 - K11) * K10 / K27) * (K19 + 1)
+  // K9 = costPerGram input, K10 = leftOverCost, K11 = absorbPct/100, K27 = reqGrams, K19 = markupPct/100
+  const absorbFraction     = leftOverInventoryAbsorb / 100;
+  const unabsorbedLeftOver = reqGrams > 0 ? (1 - absorbFraction) * leftOverInventoryCost / reqGrams : 0;
+  const effectiveCostPerGram = (costPerGramInput + unabsorbedLeftOver) * (1 + rawMaterialMarkupPct / 100);
 
-  const intakeTotalOur      = intakeFee * numPallets;
+  const rawMaterialOur      = reqGrams * costPerGramInput;
+  const rawMaterialCustomer = reqGrams * effectiveCostPerGram;
+
+  const intakeTotalOur      = intakeFee * numIntakePallets;
   const intakeTotalCustomer = intakeTotalOur * (1 + intakeFeeMarkup / 100);
 
-  const testingFeeOur      = testingFee * numSkus;
-  const testingFeeCustomer = testingFee * (1 + testingFeeMarkup / 100) * numSkus;
+  const totalTestingOur        = testingEnabled ? testingRows.reduce((sum, row) => sum + (row.cost ?? 0) * (row.numSkus ?? numSkus), 0) : 0;
+  const totalTestingCustomer   = totalTestingOur * (1 + testingMarkup / 100);
 
-  // Left Over Inventory — absorbed portion is a pass-through line item
-  const leftOverAbsorbed      = leftOverInventoryCost * (leftOverInventoryAbsorb / 100);
-
-  const materialOurTotal      = rawMaterialOur + intakeTotalOur + testingFeeOur + leftOverAbsorbed;
-  const materialCustomerTotal = rawMaterialCustomer + intakeTotalCustomer + testingFeeCustomer + leftOverAbsorbed;
+  const materialOurTotal      = rawMaterialOur + intakeTotalOur + totalTestingOur;
+  const materialCustomerTotal = rawMaterialCustomer + intakeTotalCustomer + totalTestingCustomer;
 
   // ── Per-column results (needed for auto-pallet weight) ────────────────────────
   // Guard: Inner/Case units must never exceed the moq quantity.
@@ -249,23 +308,22 @@ export function computeDetailSections(
   });
 
   const colResults_pre = guardedColumns_pre.map((col, i) =>
-    computeColumn(col, i, unitWeight, ppuDenominator),
+    computeColumn(col, i, unitWeight),
   );
 
   // ── Pallets — auto-calculated from total project weight ───────────────────────
   const outboundFeeMarkup    = n(formData.outboundFeeMarkup);
   const palletBuffer         = n(formData.palletBuffer);
-  const maxPalletWeightLbs   = n(formData.maxPalletWeightLbs) || 1000;
+  const maxPalletWeightLbs   = n(formData.maxPalletWeightLbs) || 2000;
   const maxPalletWeightG     = maxPalletWeightLbs * 453.592;
 
-  // Sum all per-column packaging weights (units_req × packaging_weight_g)
+  // Sum packaging weights: delivered units (no overage) × per-unit packaging weight
+  // matches computeColumnOutputs pkgWeight = baseUnits * packagingWeightG
   const packagingWeightG = colResults_pre.reduce((sum, _r, i) => {
     const col = guardedColumns_pre[i];
     const pwg = n(col.rows?.["Packaging Weight (g)"]);
     if (pwg <= 0) return sum;
-    const over = n(col.rows?.["Overage Rate"]);
-    const uReq = n(col.units) * (1 + over / 100);
-    return sum + uReq * pwg;
+    return sum + n(col.units) * pwg;
   }, 0);
 
   const totalProjectWeightG  = reqGrams + packagingWeightG;
@@ -282,6 +340,44 @@ export function computeDetailSections(
 
   const colResults = colResults_pre;
 
+  // ── Blending (co-packing mode only — ignored when blendingEnabled is absent/false) ──
+  const blendingEnabled = formData.blendingEnabled === "true";
+  let blendingOur      = 0;
+  let blendingCustomer = 0;
+  let blendingSection: DetailSection | null = null;
+  if (blendingEnabled) {
+    const blendUnits    = n(formData.blendingUnits) || 1;
+    const blendOverage  = n(formData.blendingOverage);
+    const blendRate     = n(formData.blendingUnitsPerMin) || 1;
+    const blendEffBuf   = n(formData.blendingEfficiencyBuffer);
+    const blendWage     = n(formData.blendingWageRate) || 30;
+    const blendMarkup   = n(formData.blendingLaborMarkup);
+    const blendMinHrs   = n(formData.blendingMinLaborHrs);
+    const blendDesc     = formData.blendingDescription || "Blending";
+
+    const req     = blendUnits * (1 + blendOverage);
+    const effRate = blendRate * (1 - blendEffBuf);
+    const calcH   = effRate > 0 ? (req / effRate) / 60 : 0;
+    const billedH = blendMinHrs > 0 && calcH < blendMinHrs ? blendMinHrs : calcH;
+    const minNote = blendMinHrs > 0 && calcH < blendMinHrs
+      ? ` (min ${blendMinHrs.toFixed(2)} hrs applied)` : "";
+
+    blendingOur      = billedH * blendWage;
+    blendingCustomer = blendingOur * (1 + blendMarkup);
+
+    blendingSection = {
+      title:      blendDesc + minNote,
+      overageReq: blendOverage > 0 ? blendOverage * 100 : null,
+      rows: [
+        { label: "Batches",        projectDetails: blendUnits,       projectCosts: null,           isCurrency: false },
+        { label: "Est. Labor Hrs", projectDetails: billedH || null,  projectCosts: null,           isCurrency: false },
+        { label: "Blending Cost",  projectDetails: blendingCustomer, projectCosts: blendingOur,    isCurrency: true  },
+      ],
+      totalCustomerCost: blendingCustomer,
+      totalOurCost:      blendingOur,
+    };
+  }
+
   // ── Detail sections ────────────────────────────────────────────
   const materialSection: DetailSection = {
     title:      "Materials",
@@ -293,11 +389,15 @@ export function computeDetailSections(
       { label: "# of SKUs",           projectDetails: numSkus,                       projectCosts: null,                      isCurrency: false },
       { label: "# of Pallets",        projectDetails: numPallets || null,            projectCosts: null,                      isCurrency: false },
       { label: "Intake Fee / Pallet", projectDetails: intakeTotalCustomer || null,   projectCosts: intakeTotalOur || null,     isCurrency: true  },
-      { label: "Testing Fee / SKU",   projectDetails: testingFeeCustomer || null,    projectCosts: testingFeeOur || null,      isCurrency: true  },
+      ...(testingEnabled ? testingRows
+        .filter(row => (row.cost ?? 0) > 0)
+        .map(row => {
+          const testName = row.testType === "Custom" ? (row.customTestName || "Custom") : row.testType;
+          const our      = (row.cost ?? 0) * (row.numSkus ?? numSkus);
+          const customer = our * (1 + testingMarkup / 100);
+          return { label: `Testing – ${testName}`, projectDetails: customer || null, projectCosts: our || null, isCurrency: true } satisfies DetailRow;
+        }) : []),
       { label: "Raw Material Cost",   projectDetails: rawMaterialCustomer || null,   projectCosts: rawMaterialOur || null,     isCurrency: true  },
-      ...(leftOverAbsorbed > 0 ? [
-        { label: "Left Over Inventory", projectDetails: leftOverAbsorbed,            projectCosts: leftOverAbsorbed,           isCurrency: true  } satisfies DetailRow,
-      ] : []),
       { label: "Total Material Cost", projectDetails: materialCustomerTotal || null, projectCosts: materialOurTotal || null,   isCurrency: true  },
     ],
     totalCustomerCost: materialCustomerTotal,
@@ -320,6 +420,7 @@ export function computeDetailSections(
 
   const detailSections: DetailSection[] = [
     materialSection,
+    ...(blendingSection ? [blendingSection] : []),
     ...colResults.map((r) => r.section),
     palletSection,
   ];
@@ -331,6 +432,9 @@ export function computeDetailSections(
       : []),
     ...(materialCustomerTotal > 0
       ? [{ label: "Materials", customerPrice: materialCustomerTotal, ourCosts: materialOurTotal }]
+      : []),
+    ...(blendingCustomer > 0 || blendingOur > 0
+      ? [{ label: formData.blendingDescription || "Blending", customerPrice: blendingCustomer, ourCosts: blendingOur }]
       : []),
     ...colResults
       .filter((r) => r.customerTotalCost > 0 || r.ourTotalCost > 0)
@@ -347,7 +451,8 @@ export function computeDetailSections(
           label:         "Setup / QA Fee",
           throughput:    null,
           leadTimeWeeks: null,
-          costPerUnit:   ppuDenominator > 0 ? setupFeeCustomer / ppuDenominator : null,
+          // Setup is a flat fee for 1 event — PPU = setupFeeCustomer / 1 = setupFeeCustomer
+          costPerUnit:   setupFeeCustomer || null,
           totalWeight:   null,
           totalUnits:    null,
           totalCost:     setupFeeOur || null,
@@ -358,20 +463,34 @@ export function computeDetailSections(
       label:         "Materials",
       throughput:    null,
       leadTimeWeeks: null,
-      costPerUnit:   ppuDenominator > 0 ? materialCustomerTotal / ppuDenominator : null,
+      // PPU = materialCustomerTotal / primary delivered units (not overage-inflated)
+      costPerUnit:   totalBaseUnits > 0 ? materialCustomerTotal / totalBaseUnits : null,
       totalWeight:   reqGrams || null,
-      totalUnits:    totalUnitsWithOverage || null,
+      // totalUnits = delivered (base) qty, not overage-inflated
+      totalUnits:    totalBaseUnits || null,
       totalCost:     materialOurTotal || null,
       totalPrice:    materialCustomerTotal || null,
     },
+    ...(blendingCustomer > 0 || blendingOur > 0 ? [{
+      label:         formData.blendingDescription || "Blending",
+      throughput:    null,
+      leadTimeWeeks: null,
+      costPerUnit:   null,
+      totalWeight:   null,
+      totalUnits:    null,
+      totalCost:     blendingOur || null,
+      totalPrice:    blendingCustomer || null,
+    } satisfies SummaryTableRow] : []),
     ...colResults.map((r) => r.summaryTableRow),
     ...(palletCustomerTotal > 0 || palletOurTotal > 0
       ? [{
           label:         "Pallets & Fees",
           throughput:    null,
           leadTimeWeeks: null,
-          costPerUnit:   ppuDenominator > 0 ? palletCustomerTotal / ppuDenominator : null,
+          // PPU = customerTotal / outbound pallets
+          costPerUnit:   totalPallets > 0 ? palletCustomerTotal / totalPallets : null,
           totalWeight:   null,
+          // totalUnits = outbound pallets delivered to customer
           totalUnits:    totalPallets || null,
           totalCost:     palletOurTotal || null,
           totalPrice:    palletCustomerTotal || null,

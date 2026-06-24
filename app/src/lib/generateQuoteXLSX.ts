@@ -36,10 +36,13 @@ export interface XlsxExportArgs {
   selectedBrand:       BrandId;
   moqMargins:          Record<number, string>;
   selectedMoq:         MoqPricingRow;     // the MOQ the user chose in the selection modal
+  primaryProductName?: string;            // first packaging summary row type name
+  primaryDelivQty?:    number;            // primary delivered qty (for filename)
 }
 
 export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
-  const { formData, allMoqResults, perMoqSummaryRows, columns, customer, selectedBrand, moqMargins, selectedMoq } = args;
+  const { formData, allMoqResults, perMoqSummaryRows, columns, customer, moqMargins, selectedMoq,
+          primaryProductName = "", primaryDelivQty = 0 } = args;
 
   // 1. Fetch the template from /app/costing_template.xlsx
   const resp = await fetch("/app/costing_template.xlsx");
@@ -110,14 +113,14 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
   set("K5",  n(formData.numPallets));                            // # of pallets
   // K6 = # of Product SKUs (template uses K6, not K5 for SKUs based on inspection)
   set("K6",  n(formData.numSkus));                               // # of Product SKUs
-  set("K7",  n(formData.testingFee));                            // Testing fee per SKU
+  set("K7",  (formData.testingRows ?? []).reduce((sum, r) => sum + (r.cost ?? 0), 0)); // Total testing cost / SKU
   set("K9",  n(formData.costPerGram));                           // Cost per gram
   set("K10", n(formData.leftOverInventoryCost));                 // Left over inventory cost
   set("K11", n(formData.leftOverInventoryAbsorb) / 100);         // Left over inventory absorb %
 
   // Markup section (rows 17-19)
   set("K17", n(formData.intakeFeeMarkup) / 100);                 // Intake fee markup %
-  set("K18", n(formData.testingFeeMarkup) / 100);                // Testing fee markup %
+  set("K18", n(formData.testingMarkup) / 100);                   // Testing markup %
   set("K19", n(formData.rawMaterialMarkup) / 100);               // Raw material markup %
 
   // ── M/N: Packaging 1 (Individual Units) inputs ───────────────────────────
@@ -214,11 +217,18 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
   const url    = URL.createObjectURL(blob);
   const a      = document.createElement("a");
 
-  const safeStr  = (s: string) => s.replace(/[^a-z0-9]/gi, "_");
-  const dateStr  = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const moqLabel = firstMoq?.moqRow.moq || formData.ppuDenominator || "0";
+  const safeStr = (s: string) => s.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
+  const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const units   = primaryDelivQty > 0
+    ? String(Math.round(primaryDelivQty))
+    : (firstMoq?.moqRow.moq || formData.ppuDenominator || "0");
   a.href         = url;
-  a.download     = `${safeStr(customer.customer)}_${safeStr(selectedBrand)}_${moqLabel}_${dateStr}.xlsx`;
+  a.download     = [
+    safeStr(customer.customer || "Customer"),
+    safeStr(primaryProductName || customer.productName || "Quote"),
+    units,
+    dateStr,
+  ].join("_") + ".xlsx";
   a.click();
   URL.revokeObjectURL(url);
 }

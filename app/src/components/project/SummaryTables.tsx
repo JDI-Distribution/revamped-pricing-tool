@@ -121,12 +121,12 @@ export default function SummaryTables({
           {activeLabel && <span className="text-[0.6rem] text-gray-400 truncate">{activeLabel}</span>}
           {comboViews.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap ml-auto">
-              <button onClick={() => setSelectedCombo("all")}
+              <button type="button" onClick={() => setSelectedCombo("all")}
                 className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors ${selectedCombo === "all" ? "bg-[#e8473f] text-white" : "text-gray-400 hover:text-gray-600"}`}>
                 All
               </button>
               {comboViews.map((cv, i) => (
-                <button key={cv.id} onClick={() => setSelectedCombo(cv.id)} title={cv.label}
+                <button type="button" key={cv.id} onClick={() => setSelectedCombo(cv.id)} title={cv.label}
                   className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors ${selectedCombo === cv.id ? "bg-[#e8473f] text-white" : "text-gray-400 hover:text-gray-600"}`}>
                   #{i + 1}
                 </button>

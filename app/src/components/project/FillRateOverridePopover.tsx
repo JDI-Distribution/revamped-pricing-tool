@@ -40,7 +40,7 @@ export default function FillRateOverridePopover({ row, columns, onSave, onClose 
             <p className="text-xs font-semibold text-gray-800">⚙ Fill Rate Overrides</p>
             <p className="text-[0.6rem] text-gray-400 mt-0.5">{moqQty.toLocaleString()} units row</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={14} />
           </button>
         </div>
@@ -64,7 +64,7 @@ export default function FillRateOverridePopover({ row, columns, onSave, onClose 
                   <span className="text-xs font-medium text-gray-700 truncate flex-1">{col.type || col.level}</span>
                   {isActive && (
                     <button
-                      onClick={() => set(col.id, "")}
+type="button"                       onClick={() => set(col.id, "")}
                       className="text-[0.55rem] text-gray-400 hover:text-red-400 transition-colors ml-2 shrink-0"
                     >
                       reset
@@ -105,13 +105,13 @@ export default function FillRateOverridePopover({ row, columns, onSave, onClose 
         {/* Actions */}
         <div className="flex gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50">
           <button
-            onClick={handleSave}
+type="button"             onClick={handleSave}
             className="flex-1 h-8 text-xs font-semibold text-white bg-[#e8473f] hover:bg-[#c73d36] rounded-lg transition-colors"
           >
             Save
           </button>
           <button
-            onClick={onClose}
+type="button"             onClick={onClose}
             className="h-8 px-3 text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg transition-colors"
           >
             Cancel

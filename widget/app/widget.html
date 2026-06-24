@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="https://js.zohostatic.com/zohocrm/javascript/zcrmjssdk/1.0/zocrmsdk.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #createQuoteBtn {
+      background: linear-gradient(180deg, #F47B3A 0%, #E8601C 100%);
+      color: white;
+      border: 1px solid #C94E10;
+      padding: 7px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.01em;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    #createQuoteBtn:hover {
+      background: linear-gradient(180deg, #F58A4E 0%, #E86A2A 100%);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    #createQuoteBtn:active {
+      background: linear-gradient(180deg, #E8601C 0%, #D4540F 100%);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+    }
+    #createQuoteBtn:disabled {
+      background: linear-gradient(180deg, #ccc 0%, #bbb 100%);
+      border-color: #aaa;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    #createQuoteBtn .icon { font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <button id="createQuoteBtn">
+    Create Quote
+  </button>
+
+  <script>
+    ZOHO.embeddedApp.on('PageLoad', async function(data) {
+      const recordId = data.EntityId
+      const btn = document.getElementById('createQuoteBtn')
+
+      btn.addEventListener('click', async () => {
+        btn.disabled = true
+        btn.innerHTML = '<span>⏳</span> Loading...'
+
+        try {
+          // Fetch the deal record
+          const dealResponse = await ZOHO.CRM.API.getRecord({
+            Entity: 'Deals',
+            RecordID: recordId
+          })
+          const deal = dealResponse.data[0]
+
+          const accountName = deal.Account_Name?.name ?? ''
+          const dealName    = deal.Deal_Name ?? ''
+          const amount      = deal.Amount ?? ''
+
+          // Try to fetch contact roles
+          let contactName = ''
+          let email       = ''
+          let phone       = ''
+          let contactId   = ''
+
+          try {
+            const contactRoles = await ZOHO.CRM.API.getRelatedRecords({
+              Entity: 'Deals',
+              RecordID: recordId,
+              RelatedList: 'Contact_Roles',
+              page: 1,
+              per_page: 1
+            })
+            const contact = contactRoles?.data?.[0]
+            if (contact) {
+              contactName = contact.Full_Name ?? ''
+              email       = contact.Email ?? ''
+              phone       = contact.Phone ?? ''
+              contactId   = contact.id ?? ''
+            }
+          } catch (e) {
+            // No contact roles — that's fine, continue
+          }
+
+          // Build URL with prefilled params
+          const params = new URLSearchParams()
+          if (accountName) params.set('company',     accountName)
+          if (contactName) params.set('contactName', contactName)
+          if (email)       params.set('email',       email)
+          if (phone)       params.set('phone',       phone)
+          if (contactId)   params.set('crmContactId', contactId)
+          if (recordId)    params.set('crmDealId',   recordId)
+          if (dealName)    params.set('crmDealName', dealName)
+          params.set('source', 'crm')
+
+          const url = 'https://jdi-pricing-tool-914416811.development.catalystserverless.com/app/?' + params.toString()
+
+          window.open(url, '_blank')
+
+          // Reset button
+          btn.disabled = false
+          btn.innerHTML = '<span class="icon">📋</span> Create Quote'
+
+        } catch (err) {
+          console.error('Widget error:', err)
+          btn.disabled = false
+          btn.innerHTML = '<span class="icon">📋</span> Create Quote'
+          alert('Could not load deal data. Please try again.')
+        }
+      })
+    })
+
+    ZOHO.embeddedApp.init()
+  </script>
+
+</body>
+</html>

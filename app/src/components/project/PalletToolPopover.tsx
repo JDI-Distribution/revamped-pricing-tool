@@ -28,7 +28,8 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
   const ipm           = n(row.innersPerMaster);
   const shippers      = ipm > 0 ? Math.ceil(inners / ipm) : 0;
 
-  const unitWeightG     = n(formData.unitWeight) * (GRAMS_PER_UNIT[formData.unitWeightUnit ?? "g"] ?? 1);
+  const unitWeightRaw   = n(formData.unitWeight);
+  const unitWeightG     = unitWeightRaw * (GRAMS_PER_UNIT[formData.unitWeightUnit ?? "g"] ?? 1);
   const materialOverage = n(formData.materialOverage);
   const rawUnits        = Math.ceil(moqQty * (1 + materialOverage / 100));
   const rawGrams        = rawUnits * unitWeightG;
@@ -53,7 +54,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
   const totalLbs     = rawLbs + packagingLbs;
 
   // maxWeight input stored in lbs internally; displayed in current unit
-  const defaultMaxLbs = n(formData.maxPalletWeightLbs) || 1000;
+  const defaultMaxLbs = n(formData.maxPalletWeightLbs) || 2000;
   const [maxWeightLbs, setMaxWeightLbs] = useState(defaultMaxLbs);
   const [buffer,       setBuffer]       = useState(n(formData.palletBuffer));
 
@@ -98,7 +99,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
                 </button>
               ))}
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
               <X size={14} />
             </button>
           </div>
@@ -181,13 +182,13 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
         {/* Actions */}
         <div className="flex gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50">
           <button
-            onClick={() => onUse(total)}
+type="button"             onClick={() => onUse(total)}
             className="flex-1 h-8 text-xs font-semibold text-white bg-[#e8473f] hover:bg-[#c73d36] rounded-lg transition-colors"
           >
             Use {total} Pallets
           </button>
           <button
-            onClick={onClose}
+type="button"             onClick={onClose}
             className="h-8 px-3 text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg transition-colors"
           >
             Close

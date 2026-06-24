@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { MoqPricingRow } from "./ProjectContext";
-import { SummaryRow, SummaryTableRow } from "./types";
+import { SummaryRow, SummaryTableRow, TestingRow } from "./types";
 
 // Resolve base path: Catalyst hosts at /app/, local dev serves from /
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -23,36 +23,67 @@ export const BRANDS = [
 export type BrandId = typeof BRANDS[number]["id"];
 
 export interface CustomerInfo {
-  customer:        string;
-  customerId:      string;
-  name:            string;
-  phone:           string;
-  email:           string;
-  salesRep:        string;
-  productName:     string;
-  projectOverview: string;
+  customer:         string;
+  customerId:       string;
+  name:             string;
+  phone:            string;
+  email:            string;
+  salesRep:         string;
+  productName:      string;
+  productCategory:  string;
+  projectOverview:  string;
+  // Optional overrides for PDF table content (set by PDF editor, not persisted to project)
+  ltOverrides?:        string[];              // [weeks, startDate, shipDate] — value col (col 1)
+  // Per-row overrides for pricing table (excludes TOTALS). Each entry = [desc, qty, ppu, total]
+  lineItemOverrides?:  (string | null)[][];   // lineItemOverrides[rowIdx][colIdx 0-3]
+}
+
+export interface AutoTableSnapshot {
+  body: { cells: { x: number; y: number; width: number; height: number; raw: string }[] }[];
+  finalY: number;
 }
 
 export interface QuotePreview {
-  filename:  string;
-  blobUrl:   string;
-  moqLabel:  string;
-  packLabel: string;
-  doc:       jsPDF;
+  filename:        string;
+  blobUrl:         string;
+  moqLabel:        string;
+  packLabel:       string;
+  doc:             jsPDF;
+  leadTimeTable?:  AutoTableSnapshot;
+  pricingTable?:   AutoTableSnapshot;
+  overviewBox?:    { xMm: number; yMm: number; wMm: number; hMm: number; prefixWMm: number };
 }
 
 type QuoteArgs = {
   brandId:          BrandId;
   moqResults:       MoqPricingRow[];
   moqMargins:       Record<number, string>;
+  whatIfPpus?:      Record<number, string>;
   summaryRows:      SummaryRow[];
   summaryTableRows: SummaryTableRow[];
-  formData:         { startDate: string; leadTimeBufferDays: string; ppuDenominator: string; outboundFee: string; outboundFeeMarkup: string; palletBuffer: string };
+  deliveredQtys?:   number[];
+  primaryProductName?: string;
+  formData:         {
+    startDate: string; leadTimeBufferDays: string; ppuDenominator: string;
+    outboundFee: string; outboundFeeMarkup: string; palletBuffer: string;
+    unitWeight?: string; unitWeightUnit?: string;
+    testingEnabled?: string; testingRows?: TestingRow[]; testingMarkup?: string; numSkus?: string;
+    intakeFee?: string; intakeFeeMarkup?: string; numPallets?: string; numIntakePallets?: string;
+  };
   customer:         CustomerInfo;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+// PPU formatter: 4 decimal places for values < $1, 2 for values >= $1
+function fmtPPU(v: number): string {
+  if (!isFinite(v)) return "$0.00";
+  if (Math.abs(v) < 1) {
+    return v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  }
+  return v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
@@ -102,13 +133,41 @@ async function loadImageAsDataUrl(src: string): Promise<{ dataUrl: string; width
   });
 }
 
+// ── Synthesise a base-quote MoqPricingRow from summary data (used when no MOQ rows) ──
+function syntheticBaseRow(summaryRows: SummaryRow[], ppuDenominator: number): MoqPricingRow {
+  const totalCustomer = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
+  const totalOur      = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
+  const denom         = ppuDenominator > 0 ? ppuDenominator : 1;
+  const ppu           = totalCustomer / denom;
+  const ppuCost       = totalOur / denom;
+  return {
+    // id: 0 matches the key used by the Price Adjustment fallback row (whatIfPpus[0])
+    moqRow: { id: 0, moq: "Base", individualUnits: String(denom), unitsPerInner: "0", innersPerMaster: "0" },
+    casePack:           "—",
+    totalCustomerPrice: totalCustomer,
+    totalOurCost:       totalOur,
+    ppuDenominator:     denom,
+    ppu,
+    ppuCost,
+    marginDollars:      totalCustomer - totalOur,
+    marginPct:          totalCustomer > 0 ? ((totalCustomer - totalOur) / totalCustomer) * 100 : 0,
+  };
+}
+
 // ── Core builder ──────────────────────────────────────────────────────────────
-async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: string; moqLabel: string; packLabel: string }[]> {
-  const { brandId, moqResults, moqMargins, summaryRows, summaryTableRows, formData, customer } = args;
+async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: string; moqLabel: string; packLabel: string; leadTimeTable?: AutoTableSnapshot; pricingTable?: AutoTableSnapshot; overviewBox?: QuotePreview["overviewBox"] }[]> {
+  const { brandId, moqMargins, whatIfPpus = {}, summaryRows, summaryTableRows,
+          deliveredQtys = [], primaryProductName = "", formData, customer } = args;
+  // When no MOQ rows, generate a single "Base Quote" PDF from summary data
+  const moqResults = args.moqResults.length > 0
+    ? args.moqResults
+    : [syntheticBaseRow(summaryRows, parseFloat(formData.ppuDenominator) || 1)];
   const brand      = BRANDS.find((b) => b.id === brandId)!;
   const quoteId    = generateQuoteId();
   const today      = new Date();
   const logoDataUrl = await loadImageAsDataUrl(LOGO_SRCS[brand.id]);
+  // Fix 1: log logo load failures so they're visible in console
+  if (!logoDataUrl) console.error(`[PDF] Logo failed to load for brand "${brand.id}" from ${LOGO_SRCS[brand.id]}`);
 
   // Lead time — pick the longest non-summary week value
   const indivRow      = summaryTableRows.find(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary && r.leadTimeWeeks > 0);
@@ -120,14 +179,27 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
   // Accent colour
   const [ar, ag, ab] = hexToRgb(brand.accent);
 
-  const results: { doc: jsPDF; filename: string; moqLabel: string; packLabel: string }[] = [];
+  const results: { doc: jsPDF; filename: string; moqLabel: string; packLabel: string; leadTimeTable?: AutoTableSnapshot; pricingTable?: AutoTableSnapshot; overviewBox?: QuotePreview["overviewBox"] }[] = [];
 
   for (const r of moqResults) {
+    // Fix 4: Price Adjustment (whatIfPpus) takes priority over moqMargins
+    const wiPpuStr   = whatIfPpus[r.moqRow.id];
+    const wiPpu      = wiPpuStr !== undefined && wiPpuStr !== "" ? parseFloat(wiPpuStr) : 0;
     const marginStr  = moqMargins[r.moqRow.id] ?? "";
     const marginVal  = parseFloat(marginStr);
     const hasMargin  = marginStr !== "" && !isNaN(marginVal) && marginVal < 100;
-    const custPPU    = hasMargin ? r.ppuCost / (1 - marginVal / 100) : r.ppu;
+    const custPPU    = wiPpu > 0 ? wiPpu
+                     : hasMargin ? r.ppuCost / (1 - marginVal / 100)
+                     : r.ppu;
     const totalRevenue = custPPU * r.ppuDenominator;
+
+    const moqQty         = parseFloat(r.moqRow.moq || "0") || 0;
+    const primaryDelivQty = (deliveredQtys.length > 0 && deliveredQtys[0] > 0)
+      ? deliveredQtys[0]
+      : moqQty;
+    // totalPPU uses ppuDenominator basis (same as Price Adjustment input), not primaryDelivQty,
+    // so the TOTALS PPU matches what the user typed in the price adjustment field.
+    const totalPPU = custPPU;
 
     const doc   = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
@@ -189,6 +261,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     let y = HDR_BOT + 5;
     const CUST_H = 30;
     doc.setDrawColor(...ltGray);
+    doc.setLineWidth(0.3);
     doc.rect(L, y, W, CUST_H);
 
     const custFields: [string, string][] = [
@@ -198,7 +271,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       ["Phone:",       customer.phone      || "—"],
       ["Email:",       customer.email      || "—"],
     ];
-    const LBL_W = 26; // width reserved for bold label
+    const LBL_W = 26;
     custFields.forEach(([label, val], i) => {
       const cy = y + 5 + i * 5;
       sf("bold", 10); doc.setTextColor(...gray);
@@ -206,22 +279,45 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       sf("normal", 10);
       doc.text(val, L + 3 + LBL_W, cy);
     });
-
-    // Quote ID — right side, larger text
     sf("bold", 10); doc.setTextColor(...gray);
     doc.text("Quote ID:", R - 55, y + 8);
     sf("bold", 12); doc.setTextColor(...gray);
     doc.text(quoteId, R - 3, y + 8, { align: "right" });
 
-    // ── Section 3 — Lead Time Table ───────────────────────────────────────────
+    // ── Section 3 — Product Name / Description Block ──────────────────────────
     y += CUST_H + 5;
+    const unitSizeG = parseFloat(formData.unitWeight || "0") || 0;
+    const unitLabel = formData.unitWeightUnit || "g";
+    const prodFields: [string, string][] = [
+      ["Product Name:",            primaryProductName || customer.productName || "—"],
+      [`Unit / Ea Size (${unitLabel}):`, unitSizeG > 0 ? String(unitSizeG) : "—"],
+      ["Product Category:",        customer.productCategory || "—"],
+    ];
+    const PROD_H = 5 + prodFields.length * 5 + 3;
+    doc.setDrawColor(...ltGray);
+    doc.setLineWidth(0.3);
+    doc.rect(L, y, W, PROD_H);
+    sf("bold", 9); doc.setTextColor(...ltGray);
+    doc.text("Product Name / Description", L + 3, y + 4);
+    const PLBL_W = 38;
+    prodFields.forEach(([label, val], i) => {
+      const py = y + 9 + i * 5;
+      sf("bold", 10); doc.setTextColor(...gray);
+      doc.text(label, L + 3, py);
+      sf("normal", 10);
+      doc.text(val, L + 3 + PLBL_W, py);
+    });
+
+    // ── Section 4 — Lead Time Table ───────────────────────────────────────────
+    y += PROD_H + 5;
+    const ltOv = customer.ltOverrides ?? [];
     autoTable(doc, {
       startY: y, margin: { left: L, right: L },
       head: [["Lead Time / Delivery Dates", "Delivery Dates"]],
       body: [
-        ["Estimated Lead Time (in weeks)",        leadTimeWeeks > 0 ? leadTimeWeeks.toFixed(2) : "—"],
-        ["Estimated Start Date (week of)",        fmtDate(startDate)],
-        ["Estimated Ship Ready Date (week of)",   fmtDate(shipDate)],
+        ["Estimated Lead Time (in weeks)",         ltOv[0] ?? (leadTimeWeeks > 0 ? leadTimeWeeks.toFixed(2) : "—")],
+        ["Estimated Start Date (week of)",         ltOv[1] ?? fmtDate(startDate)],
+        ["Estimated Ship Ready Date (week of)",    ltOv[2] ?? fmtDate(shipDate)],
       ],
       styles: {
         font: "helvetica", fontSize: 10,
@@ -230,7 +326,6 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         fillColor: [255,255,255],
       },
       headStyles: { fontStyle: "bold", fillColor: [255,255,255], textColor: gray },
-      // Alternating row backgrounds
       alternateRowStyles: { fillColor: rowGray },
       columnStyles: {
         0: { halign: "left",  cellWidth: "auto" },
@@ -238,57 +333,214 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       },
       tableLineColor: ltGray, tableLineWidth: 0.2,
     });
+    const leadTimeSnapshot: AutoTableSnapshot = {
+      body: (doc as any).lastAutoTable.body.map((row: any) => ({
+        cells: Object.values(row.cells).map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height, raw: String(c.raw ?? "") })),
+      })),
+      finalY: (doc as any).lastAutoTable.finalY,
+    };
 
-    // ── Section 4 — Line Items / Pricing Table ────────────────────────────────
-    y = (doc as any).lastAutoTable.finalY + 5;
+    // ── Page-break helper ─────────────────────────────────────────────────────
+    const MARGIN_BOTTOM = 15; // mm to reserve at bottom before forcing new page
+    const checkPageBreak = (neededMm: number) => {
+      if (y + neededMm > pageH - MARGIN_BOTTOM) {
+        doc.addPage();
+        y = 15;
+      }
+    };
 
-    const moqQty  = parseFloat(r.moqRow.moq || "0") || 0;
-    const innerQt = parseFloat(r.moqRow.unitsPerInner || "0") || 0;
+    // ── Section 5 — Project Overview Box ─────────────────────────────────────
+    y = (doc as any).lastAutoTable.finalY + 8;
+    const overviewText = customer.projectOverview || "";
 
-    const setupRow  = summaryRows.find(sr => sr.label.toLowerCase().includes("setup"));
-    const palletRow = summaryRows.find(sr => sr.label.toLowerCase().includes("pallet"));
-    // Packaging columns — exclude materials, pallets, setup, lead-time summaries
-    const colItems  = summaryTableRows.filter(str =>
+    const ovPrefix  = "Project Overview:  ";
+    sf("bold", 10); doc.setTextColor(ar, ag, ab);
+    const ovPrefixW = doc.getTextWidth(ovPrefix);
+    const ovWrapped = overviewText
+      ? doc.splitTextToSize(overviewText, W - 8 - ovPrefixW)
+      : [""];
+    const overviewH = Math.max(15, 8 + ovWrapped.length * 5);
+
+    // Pricing summary callout — drawn directly below the overview box, gives the
+    // reader the bottom line up front and points them to the itemized table below.
+    const summaryPrefix = "Pricing Summary:  ";
+    sf("bold", 10);
+    const summaryPrefixW = doc.getTextWidth(summaryPrefix);
+    sf("normal", 10);
+    const summaryLine = `Total Project Cost ${fmt(totalRevenue)}  (${fmtPPU(totalPPU)} / unit)  —  see itemized breakdown below for details.`;
+    const summaryWrapped = doc.splitTextToSize(summaryLine, W - 8 - summaryPrefixW);
+    const SUMMARY_H = Math.max(14, 6 + summaryWrapped.length * 5);
+
+    // Reserve room for the overview box, the summary callout, AND the pricing
+    // table header + a few rows — so nothing gets orphaned onto the next page.
+    const PRICING_TABLE_MIN_H = 50;
+    checkPageBreak(overviewH + 2 + SUMMARY_H + 4 + PRICING_TABLE_MIN_H);
+
+    doc.setFillColor(255, 253, 231);
+    doc.setDrawColor(...ltGray);
+    doc.setLineWidth(0.3);
+    doc.rect(L, y, W, overviewH, "FD");
+
+    // Capture overview box coordinates for PDF editor overlay
+    sf("bold", 10); doc.setTextColor(ar, ag, ab);
+    const ovPrefixWCaptured = doc.getTextWidth(ovPrefix);
+    const overviewBoxSnapshot = {
+      xMm: L + 4 + ovPrefixWCaptured, yMm: y + 3,
+      wMm: W - 8 - ovPrefixWCaptured, hMm: overviewH - 6,
+      prefixWMm: ovPrefixWCaptured,
+    };
+
+    doc.text(ovPrefix, L + 4, y + 6);
+    sf("normal", 10); doc.setTextColor(...gray);
+    if (overviewText) {
+      doc.text(ovWrapped[0], L + 4 + ovPrefixW, y + 6);
+      if (ovWrapped.length > 1) doc.text(ovWrapped.slice(1), L + 4, y + 11);
+    }
+
+    // ── Pricing Summary callout ───────────────────────────────────────────────
+    y += overviewH + 5;
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...ltGray);
+    doc.setLineWidth(0.3);
+    doc.rect(L, y, W, SUMMARY_H, "FD");
+
+    sf("bold", 10); doc.setTextColor(ar, ag, ab);
+    doc.text(summaryPrefix, L + 4, y + 8);
+    sf("normal", 10); doc.setTextColor(...gray);
+    doc.text(summaryWrapped[0], L + 4 + summaryPrefixW, y + 8);
+    if (summaryWrapped.length > 1) doc.text(summaryWrapped.slice(1), L + 4, y + 13);
+
+    // ── Section 6 — Pricing Table ─────────────────────────────────────────────
+    y += SUMMARY_H + 5;
+
+    const setupRow    = summaryRows.find(sr => sr.label.toLowerCase().includes("setup"));
+    const materialRow = summaryRows.find(sr => sr.label.toLowerCase().includes("material"));
+    const palletRow   = summaryRows.find(sr => sr.label.toLowerCase().includes("pallet"));
+
+    // Packaging level rows from summaryTableRows (excludes materials, pallets, setup, lead time)
+    const colItems = summaryTableRows.filter(str =>
       !str.isLeadTimeSummary &&
       !str.label.toLowerCase().includes("material") &&
       !str.label.toLowerCase().includes("pallet") &&
-      !str.label.toLowerCase().includes("setup")
+      !str.label.toLowerCase().includes("setup") &&
+      !str.label.toLowerCase().includes("blending")
     );
+    const palletSTR = summaryTableRows.find(str => str.label.toLowerCase().includes("pallet") && !str.isLeadTimeSummary);
+    const primaryCol = colItems[0];
 
-    const body: (string | number)[][] = [];
+    const body: string[][] = [];
+
+    // Row 1: Setup
     if (setupRow) {
-      body.push(["Project Setup, Line Dial-In & Quality Assurance", "1", fmt(setupRow.customerPrice), fmt(setupRow.customerPrice)]);
+      body.push(["Project Setup, Line Dial-In & Quality Assurance", "1",
+        fmtPPU(setupRow.customerPrice), fmt(setupRow.customerPrice)]);
     }
-    colItems.forEach((col) => {
-      const qty = col.totalUnits != null ? Math.round(col.totalUnits).toLocaleString() : "0";
-      const ppu = col.costPerUnit != null && col.costPerUnit > 0 ? fmt(col.costPerUnit) : "$0.00";
-      const tot = col.totalPrice  != null && col.totalPrice  > 0 ? fmt(col.totalPrice)  : "$0.00";
-      body.push([col.label, qty, ppu, tot]);
-    });
-    const innerCount = innerQt > 0 ? Math.ceil(moqQty / innerQt) : 0;
-    const innerRow   = summaryRows.find(sr => sr.label.toLowerCase().includes("inner") || sr.label.toLowerCase().includes("case"));
-    if (innerRow || innerCount > 0) {
-      const iPPU = innerCount > 0 && innerRow ? innerRow.customerPrice / innerCount : 0;
+
+    // Row 2: Combined "Product Filling, Handling & Intake" = raw material cost + primary level labor
+    // Intake fee and testing are broken out as their own rows below
+    {
+      const testEnabled = formData.testingEnabled !== "false";
+      const testRows    = formData.testingRows ?? [];
+      const testMarkup  = parseFloat(formData.testingMarkup ?? "0") || 0;
+      const nSkus       = parseInt(formData.numSkus ?? "1", 10) || 1;
+
+      const testLineItems = testEnabled
+        ? testRows.filter(row => (row.cost ?? 0) > 0).map(row => {
+            const name = row.testType === "Custom" ? (row.customTestName || "Custom") : row.testType;
+            const cx   = (row.cost ?? 0) * nSkus * (1 + testMarkup / 100);
+            return { name, cx };
+          })
+        : [];
+      const totalTestingCx = testLineItems.reduce((s, t) => s + t.cx, 0);
+
+      // Compute intake total from formData (same formula as calculations.ts)
+      const intakeFee    = parseFloat(formData.intakeFee ?? "0") || 0;
+      const intakeMarkup = parseFloat(formData.intakeFeeMarkup ?? "0") || 0;
+      const nPallets     = parseFloat(formData.numIntakePallets ?? formData.numPallets ?? "0") || 0;
+      const intakeCx     = intakeFee * nPallets * (1 + intakeMarkup / 100);
+
+      // matCx = materialRow total minus testing and intake (which get their own rows)
+      const matCx     = (materialRow?.customerPrice ?? 0) - totalTestingCx - intakeCx;
+      const primCx    = primaryCol?.totalPrice ?? 0;
+      const combTotal = matCx + primCx;
+      const combDeliv = primaryDelivQty > 0 ? primaryDelivQty : 1;
+      const combPPU   = combDeliv > 0 ? combTotal / combDeliv : 0;
+      const primName  = primaryCol?.label || primaryProductName || customer.productName || "Primary Fill";
       body.push([
-        "Inners (case packs) - Total",
-        String(innerCount || 0),
-        iPPU > 0 ? fmt(iPPU) : "$0.00",
-        innerRow ? fmt(innerRow.customerPrice) : "$0.00",
+        `Product Filling, Handling & Intake (receiving, inspection, staging) - ${primName}`,
+        Math.round(combDeliv).toLocaleString(),
+        fmtPPU(combPPU),
+        fmt(combTotal),
+      ]);
+
+      // Intake fee line item
+      if (intakeCx > 0) {
+        const intakePPU = nPallets > 0 ? intakeCx / nPallets : 0;
+        body.push([
+          "Intake Fee / Pallet",
+          nPallets > 0 ? String(Math.round(nPallets)) : "—",
+          fmtPPU(intakePPU),
+          fmt(intakeCx),
+        ]);
+      }
+
+      // Per-test line items
+      for (const t of testLineItems) {
+        const ppu = nSkus > 0 ? t.cx / nSkus : 0;
+        body.push([
+          `Testing & Documentation – ${t.name}`,
+          `${nSkus} SKUs`,
+          fmtPPU(ppu),
+          fmt(t.cx),
+        ]);
+      }
+    }
+
+    // Rows 3+: All packaging levels beyond the primary fill, in order
+    // deliveredQtys is index-aligned to colItems: [0]=primary, [1]=second, etc.
+    colItems.slice(1).forEach((col, i) => {
+      const colItemsIdx = i + 1;
+      const delivQty   = (deliveredQtys.length > colItemsIdx && deliveredQtys[colItemsIdx] > 0)
+        ? deliveredQtys[colItemsIdx]
+        : (col.totalUnits ?? 0);
+      const totalPrice = col.totalPrice ?? 0;
+      const ppu        = delivQty > 0 && totalPrice > 0 ? totalPrice / delivQty : 0;
+      body.push([
+        `${col.label} - Total`,
+        delivQty > 0 ? Math.round(delivQty).toLocaleString() : "—",
+        fmtPPU(ppu),
+        fmt(totalPrice),
+      ]);
+    });
+
+    // Pallets
+    if (palletRow) {
+      const nPal   = palletSTR?.totalUnits != null && palletSTR.totalUnits > 0
+        ? Math.round(palletSTR.totalUnits) : 0;
+      const palCx  = palletRow.customerPrice;
+      const palPPU = nPal > 0 ? palCx / nPal : 0;
+      body.push([
+        "Palletization & Outbound Staging",
+        nPal > 0 ? String(nPal) : "—",
+        fmtPPU(palPPU),
+        fmt(palCx),
       ]);
     }
-    if (palletRow) {
-      // Derive pallet count from outbound fee (auto-calculated, not stored in formData).
-      const outFee = parseFloat(formData.outboundFee || "0") || 0;
-      const outMkp = parseFloat(formData.outboundFeeMarkup || "0") || 0;
-      const feePerPallet = outFee > 0 ? outFee * (1 + outMkp / 100) : 0;
-      const nPal = (feePerPallet > 0 && palletRow.customerPrice > 0)
-        ? Math.round(palletRow.customerPrice / feePerPallet)
-        : 0;
-      const palPPU = nPal > 0 ? fmt(palletRow.customerPrice / nPal) : "$0.00";
-      body.push(["Palletization & Outbound Staging", nPal > 0 ? String(nPal) : "—", palPPU, fmt(palletRow.customerPrice)]);
+
+    // Apply user-edited cell overrides to line item rows (all before TOTALS)
+    const liOv = customer.lineItemOverrides ?? [];
+    if (liOv.length > 0) {
+      body.forEach((row, ri) => {
+        const rowOv = liOv[ri];
+        if (!rowOv) return;
+        rowOv.forEach((val, ci) => { if (val !== null && val !== undefined && val !== "") row[ci] = val; });
+      });
     }
-    // TOTALS row — bold 11pt
-    body.push(["TOTALS", "", custPPU > 0 ? fmt(custPPU) : "—", fmt(totalRevenue)]);
+
+    // TOTALS row — use adjusted PPU/revenue when set; allow Total cell override from editor
+    const totalsRowOv = liOv[body.length]; // sentinel appended by editor at index = body.length
+    const totalsTotal = (totalsRowOv?.[3] && totalsRowOv[3] !== "") ? totalsRowOv[3] : fmt(totalRevenue);
+    body.push(["TOTALS", "", fmtPPU(totalPPU), totalsTotal]);
     const totalsIdx = body.length - 1;
 
     autoTable(doc, {
@@ -306,7 +558,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       columnStyles: {
         0: { halign: "left",  cellWidth: "auto" },
         1: { halign: "right", cellWidth: 28 },
-        2: { halign: "right", cellWidth: 26 },
+        2: { halign: "right", cellWidth: 28 },
         3: { halign: "right", cellWidth: 28 },
       },
       willDrawCell: (data) => {
@@ -318,66 +570,60 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       },
       tableLineColor: ltGray, tableLineWidth: 0.2,
     });
+    const pricingSnapshot: AutoTableSnapshot = {
+      body: (doc as any).lastAutoTable.body.map((row: any) => ({
+        cells: Object.values(row.cells).map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height, raw: String(c.raw ?? "") })),
+      })),
+      finalY: (doc as any).lastAutoTable.finalY,
+    };
 
-    // ── Section 5 — Project Overview Box ─────────────────────────────────────
-    y = (doc as any).lastAutoTable.finalY + 5;
-    const overviewText = customer.projectOverview ||
-      `${moqQty.toLocaleString()} units. MOQ ${r.moqRow.moq}, ${r.casePack} case pack. Shipping/freight not included. Lead time is approx ${leadTimeWeeks > 0 ? leadTimeWeeks.toFixed(1) : "—"} wks.`;
+    // ── Section 7 — Footer ────────────────────────────────────────────────────
+    y = (doc as any).lastAutoTable.finalY + 10;
 
-    const prefix    = "Project Overview:  ";
-    sf("bold", 10); doc.setTextColor(ar, ag, ab);
-    const prefixW   = doc.getTextWidth(prefix);
-    const bodyWrapped = doc.splitTextToSize(overviewText, W - 8 - prefixW);
-    // Total box height: top pad + first line + any continuation lines + bottom pad
-    const overviewH = 8 + Math.max(bodyWrapped.length - 1, 0) * 5;
+    // Pre-compute footer text sizes to know if we need a page break
+    const disclaimer = "Quote Disclaimer: This document is a quotation only and does not constitute a formal offer, contract, or order. Prices and terms are subject to change without notice and are valid only for the period specified (14 days from the date hereof). All quotes are subject to product availability, credit approval, and our standard Terms and Conditions (available upon request or at your website). Acceptance of this quote requires written confirmation and may be subject to final review.";
+    sf("italic", 8); doc.setTextColor(90, 90, 90);
+    const disclaimerLines = doc.splitTextToSize(disclaimer, W);
+    const disclaimerH = disclaimerLines.length * 3.8 + 2;
 
-    // Yellow/cream fill
-    doc.setFillColor(255, 253, 231);  // #FFFDE7
-    doc.setDrawColor(...ltGray);
-    doc.setLineWidth(0.3);
-    doc.rect(L, y, W, overviewH, "FD");
-
-    // "Project Overview:" in brand accent, bold
-    sf("bold", 10); doc.setTextColor(ar, ag, ab);
-    doc.text(prefix, L + 4, y + 6);
-
-    // Body text in dark gray, normal weight, same line
-    sf("normal", 10); doc.setTextColor(...gray);
-    doc.text(bodyWrapped[0], L + 4 + prefixW, y + 6);
-    if (bodyWrapped.length > 1) {
-      doc.text(bodyWrapped.slice(1), L + 4, y + 11);
-    }
-
-    // ── Section 6 — Cancellation Policy ──────────────────────────────────────
-    y += overviewH + 6;
     const cancelPolicy = "All wholesale and bulk orders are final and non-cancellable upon approval. No refunds, returns, cancellations, or modifications will be accepted thereafter.";
     const cancelPrefix = "Cancellation Policy:  ";
     sf("bold", 10); doc.setTextColor(...gray);
-    doc.text(cancelPrefix, L, y);
     const cpW = doc.getTextWidth(cancelPrefix);
     sf("normal", 10);
     const cancelLines = doc.splitTextToSize(cancelPolicy, W - cpW);
+    const cancelH = Math.max(cancelLines.length, 1) * 5 + 2;
+
+    const footerH = cancelH + 6 + disclaimerH;
+    checkPageBreak(footerH);
+
+    // Cancellation Policy first
+    sf("bold", 10); doc.setTextColor(...gray);
+    doc.text(cancelPrefix, L, y);
+    sf("normal", 10);
     doc.text(cancelLines[0], L + cpW, y);
     if (cancelLines.length > 1) doc.text(cancelLines.slice(1), L, y + 5);
+    y += cancelH + 6;
 
-    // ── Section 7 — Disclaimer Footer ────────────────────────────────────────
-    const disclaimer = "Quote Disclaimer: This document is a quotation only and does not constitute a formal offer, contract, or order. Prices and terms are subject to change without notice and are valid only for the period specified (14 days from the date hereof). All quotes are subject to product availability, credit approval, and our standard Terms and Conditions (available upon request). Acceptance of this quote requires written confirmation and may be subject to final review.";
+    // Quote Disclaimer below
     sf("italic", 8); doc.setTextColor(90, 90, 90);
-    const disclaimerLines = doc.splitTextToSize(disclaimer, W);
-    doc.text(disclaimerLines, L, pageH - 6 - disclaimerLines.length * 3.8);
+    doc.text(disclaimerLines, L, y);
 
-    // ── Filename ──────────────────────────────────────────────────────────────
-    const safe = (s: string) => s.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
-    const safeMoq  = safe(r.moqRow.moq || "MOQ");
-    const safePack = r.casePack.replace(/[×\s]+/g, "x").replace(/[^a-zA-Z0-9_-]/g, "");
+    // ── Filename: {CompanyName}_{ProductName}_{Units}_{YYYY-MM-DD}.pdf ──────────
+    const clean = (s: string) => (s || "Unknown").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_\-]/g, "");
+    const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
+    const unitsOrMoq = moqResults.length > 1
+      ? moqResults.map(m => m.moqRow.moq || "0").join("-")
+      : String(Math.round(primaryDelivQty) || r.moqRow.moq || "0");
     const filename = [
-      safe(customer.customer   || "Customer"),
-      safe(customer.productName || "Product"),
-      safe(brand.label),
-      `${safeMoq}_${safePack}pk`,
+      clean(customer.customer),
+      clean(primaryProductName || customer.productName),
+      unitsOrMoq,
+      dateStr,
     ].join("_") + ".pdf";
+    console.log("[PDF] filename:", filename);
 
-    results.push({ doc, filename, moqLabel: r.moqRow.moq || "—", packLabel: r.casePack });
+    results.push({ doc, filename, moqLabel: r.moqRow.moq || "—", packLabel: r.casePack, leadTimeTable: leadTimeSnapshot, pricingTable: pricingSnapshot, overviewBox: overviewBoxSnapshot });
   }
 
   return results;
@@ -386,10 +632,10 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 // ── Preview: returns blob URLs (no download) ──────────────────────────────────
 export async function buildQuotePreviews(args: QuoteArgs): Promise<QuotePreview[]> {
   const docs = await buildDocs(args);
-  return docs.map(({ doc, filename, moqLabel, packLabel }) => {
+  return docs.map(({ doc, filename, moqLabel, packLabel, leadTimeTable, pricingTable, overviewBox }) => {
     const blob    = doc.output("blob");
     const blobUrl = URL.createObjectURL(blob);
-    return { filename, moqLabel, packLabel, blobUrl, doc };
+    return { filename, moqLabel, packLabel, blobUrl, doc, leadTimeTable, pricingTable, overviewBox };
   });
 }
 
@@ -447,8 +693,8 @@ export async function buildCustomQtyPreview(args: CustomQtyQuoteArgs): Promise<Q
     customer,
   });
 
-  const { doc, filename, moqLabel, packLabel } = docs[0];
+  const { doc, filename, moqLabel, packLabel, leadTimeTable, pricingTable, overviewBox } = docs[0];
   const blob    = doc.output("blob");
   const blobUrl = URL.createObjectURL(blob);
-  return { filename, moqLabel, packLabel, blobUrl, doc };
+  return { filename, moqLabel, packLabel, blobUrl, doc, leadTimeTable, pricingTable, overviewBox };
 }

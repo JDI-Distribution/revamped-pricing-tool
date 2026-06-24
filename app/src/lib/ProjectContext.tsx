@@ -1,17 +1,14 @@
 
 
-import { createContext, useContext, useState, useMemo, ReactNode } from "react";
-import { MoqRow, Column, ProjectFormData, SummaryRow, SummaryTableRow, DetailSection } from "./types";
+import { createContext, useContext, useState, useMemo, useEffect, ReactNode } from "react";
+import { MoqRow, Column, PackagingLevel, ProjectFormData, SummaryRow, SummaryTableRow, DetailSection, ProjectType, CoPackingState, CoPackingResult, AdditionalFeeRow, CoPackingScenario, CoPackingPackagingSummaryRow, CoPackingColumn, TestingRow, CoPackingProcess } from "./types";
 import { computeDetailSections } from "./calculations";
-import { BrandId, CustomerInfo } from "./generateQuotePDF";
-import { PackagingSummaryRow } from "@/components/project/PackagingSummarySection";
+import { computeCoPackingResults, computeCoPackingTotals } from "./coPackingCalculations";
+import { packagingLevelsToColumns } from "./packagingLevelsCompat";
 
-const initialMoqRows: MoqRow[] = [
-  { id: 1, moq: "6600",  individualUnits: "6600",  unitsPerInner: "24", innersPerMaster: "0" },
-  { id: 2, moq: "13200", individualUnits: "13200", unitsPerInner: "24", innersPerMaster: "0" },
-  { id: 3, moq: "26400", individualUnits: "26400", unitsPerInner: "24", innersPerMaster: "0" },
-  { id: 4, moq: "6600",  individualUnits: "6600",  unitsPerInner: "48", innersPerMaster: "0" },
-];
+import { BrandId, CustomerInfo } from "./generateQuotePDF";
+
+const initialMoqRows: MoqRow[] = [];
 
 const initialFormData: ProjectFormData = {
   unitWeight:              "113.4",
@@ -22,12 +19,16 @@ const initialFormData: ProjectFormData = {
   leftOverInventoryAbsorb: "0",
   intakeFee:               "195",
   numPallets:              "1",
+  numIntakePallets:        "1",
   outboundFee:             "350",
   outboundFeeMarkup:       "40",
-  maxPalletWeightLbs:      "1000",
-  palletBuffer:            "1",
-  testingFee:              "350",
-  testingFeeMarkup:        "30",
+  maxPalletWeightLbs:      "2000",
+  palletBuffer:            "0",
+  testingEnabled:          "true",
+  testingRows: [
+    { id: "1", testType: "FSQ, Administration, and Testing Documents", customTestName: "", cost: 350 },
+  ],
+  testingMarkup:           "20",
   setupFeeOur:             "598",
   setupFeeCustomer:        "1495",
   ppuDenominator:          "6600",
@@ -37,54 +38,66 @@ const initialFormData: ProjectFormData = {
   rawMaterialMarkup:       "300",
   intakeFeeMarkup:         "25",
   unitWeightUnit:          "g",
+  // Co-packing extras (inactive in standard mode)
+  rawMaterialSource:       "customer",
+  blendingEnabled:         "false",
+  blendingDescription:     "",
+  blendingUnits:           "1",
+  blendingOverage:         "0",
+  blendingUnitsPerMin:     "1",
+  blendingEfficiencyBuffer:"0.15",
+  blendingWageRate:        "30",
+  blendingLaborMarkup:     "0.35",
+  blendingMinLaborHrs:     "0",
 };
 
-const mkRows = (
-  overageRate: string, wageRate: string, unitsPerMin: string,
-  packagingCost: string, labelPrint: string, labelApplyRate: string,
-  packagingWeight: string, tabCost: string,
-  stations: string, hrsPerShift: string, workingDays: string
-) => ({
-  "Overage Rate":            overageRate,
-  "Wage Rate":               wageRate,
-  "Unit Fill Rate / min":    unitsPerMin,
-  "Packaging Cost / unit":   packagingCost,
-  "Label Print Cost / unit": labelPrint,
-  "Label Apply Rate / min":  labelApplyRate,
-  "Packaging Weight (g)":    packagingWeight,
-  "Tab Cost / unit":         tabCost,
-  "No. of Staff / Stations": stations,
-  "Hrs / Shift":             hrsPerShift,
-  "Working Days":            workingDays,
-});
 
-// Args: overageRate, wage, fillRate, packCost, labelPrint, labelApplyRate,
-//       packagingWeight(g), tabCost, stations, hrsPerShift, workingDays
-const initialColumns: Column[] = [
-  {
-    id: 1, level: "Individual Units", type: "4oz Sachets", units: "6600",
-    efficiency: "20", labor: "35", unitCost: "125", tabs: false,
-    rows: mkRows("15", "26", "12", "0.035", "0", "0", "1.6", "0", "5", "7.3", "5"),
-  },
-  {
-    id: 2, level: "Final Kit Units", type: "4oz Tins", units: "6600",
-    efficiency: "20", labor: "35", unitCost: "125", tabs: false,
-    rows: mkRows("3", "26", "15", "0.55", "0.2", "0", "71", "0", "3", "7.3", "5"),
-  },
-  {
-    id: 3, level: "Inner / Case", type: "Inners", units: "275",
-    efficiency: "20", labor: "35", unitCost: "125", tabs: false,
-    unitsPerInner: "24",
-    rows: mkRows("2", "26", "1", "0.2", "0", "0", "454", "0", "1", "7.3", "5"),
-  },
-  {
-    id: 4, level: "Shipper / Outer", type: "Shippers", units: "12",
-    efficiency: "25", labor: "35", unitCost: "125", tabs: false,
-    rows: mkRows("1", "26", "1", "0.2", "0", "0", "454", "0", "1", "7.3", "5"),
-  },
-];
+import { defaultPackagingLevel } from "@/components/project/PackagingLevels";
 
 const n = (s: string | undefined) => parseFloat(s || "0") || 0;
+
+const initialPackagingLevels: PackagingLevel[] = [
+  {
+    ...defaultPackagingLevel(),
+    customLevelName: "Individual Units",
+    packagingType: "4oz Sachets",
+    units: 6600, isAutoUnits: false,
+    overageRate: 15, efficiencyBuffer: 20, laborMarkup: 35, unitCostMarkup: 125,
+    wageRate: 26, fillRatePerMin: 12, packagingWeightG: 1.6,
+    numStaff: 5, hrsPerShift: 7.3, workingDays: 5,
+    costPerUnit: 0.035,
+  },
+  {
+    ...defaultPackagingLevel(),
+    customLevelName: "Final Kit Units",
+    packagingType: "4oz Tins",
+    units: 6600, isAutoUnits: false,
+    overageRate: 3, efficiencyBuffer: 20, laborMarkup: 35, unitCostMarkup: 125,
+    wageRate: 26, fillRatePerMin: 15, packagingWeightG: 71,
+    numStaff: 3, hrsPerShift: 7.3, workingDays: 5,
+    costPerUnit: 0.55, labelEnabled: true, labelPrintCost: 0.2,
+  },
+  {
+    ...defaultPackagingLevel(),
+    customLevelName: "Inners",
+    packagingType: "Inners",
+    units: 275, isAutoUnits: false,
+    overageRate: 2, efficiencyBuffer: 20, laborMarkup: 35, unitCostMarkup: 125,
+    wageRate: 26, fillRatePerMin: 1, packagingWeightG: 454,
+    numStaff: 1, hrsPerShift: 7.3, workingDays: 5,
+    costPerUnit: 0.2,
+  },
+  {
+    ...defaultPackagingLevel(),
+    customLevelName: "Shippers",
+    packagingType: "Shippers",
+    units: 12, isAutoUnits: false,
+    overageRate: 1, efficiencyBuffer: 25, laborMarkup: 35, unitCostMarkup: 125,
+    wageRate: 26, fillRatePerMin: 1, packagingWeightG: 454,
+    numStaff: 1, hrsPerShift: 7.3, workingDays: 5,
+    costPerUnit: 0.2,
+  },
+];
 
 export interface MoqPricingRow {
   moqRow:            MoqRow;
@@ -111,38 +124,146 @@ export interface SaveState {
   lastSavedAt:     Date | null;
 }
 
+const initialCoPackingPackagingSummaryRows: CoPackingPackagingSummaryRow[] = [
+  { id: "default-1", packagingLevel: "Individual Units", packagingType: "", units: 75000, isAutoUnits: false, costPerUnit: 0 },
+];
+
+const initialCoPackingColumns: CoPackingColumn[] = [
+  {
+    id: "default-1",
+    efficiencyBuffer: 0.20, laborMarkup: 0.35, unitCostMarkup: 1.25,
+    level: "Individual Units", type: "",
+    labelEnabled: false, labelPrintCost: 0, labelApplyRate: 0,
+    tabsEnabled: false, tabCostPerUnit: 0,
+    overageRate: 0.15, wageRate: 26, fillRatePerMin: 12,
+    packagingWeightG: 2, numStaff: 1, hrsPerShift: 7, workingDays: 5,
+  },
+];
+
+const initialCoPackingState: CoPackingState = {
+  // Project Overview
+  unitsDelivered:    75000,
+  sachetSizeG:       5,
+  unitSizeUnit:      "g",
+  sachetsPerInner:   30,
+  innersPerMaster:   20,
+  rawMaterialSource: "customer",
+  setupFeeCustomer:  3500,
+  setupFeeOurCost:   700,
+  setupFeeMargin:    0.80,
+  // Blending
+  blendingEnabled:            false,
+  blendingDescription:        "",
+  blendingUnits:              1,
+  blendingOverage:            0,
+  blendingUnitsPerMin:        1,
+  blendingEfficiencyBuffer:   0.15,
+  blendingWageRate:           30,
+  blendingLaborMarkup:        0.35,
+  blendingBatchSize:          0,
+  blendingBatchSizeUnit:      "kg",
+  blendingRecipe:             [],
+  // Inbound
+  inboundOverage:    0.15,
+  intakeFeePerPallet: 195,
+  inboundPallets:    5,
+  intakeMarkup:      0.25,
+  numSkus:           1,
+  testingMarkup:     0.20,
+  // Testing
+  testingEnabled: true,
+  testingRows: [
+    { id: "default-1", testType: "Certificate of Analysis (COA)", customTestName: "", cost: 350 },
+    { id: "default-2", testType: "Safety Data Sheet (SDS)",       customTestName: "", cost: 250 },
+  ],
+  // Packaging Summary + Packaging & Packout columns
+  coPackingPackagingSummaryRows: initialCoPackingPackagingSummaryRows,
+  coPackingColumns:              initialCoPackingColumns,
+  // Pallets
+  outboundPallets:      4,
+  outboundFeePerPallet: 195,
+  outboundMarkup:       0.30,
+  // Minimum Job Charge
+  minimumJobCharge: 0,
+  // JDI raw material fields
+  costPerGram:       0,
+  rawOverage:        0,
+  rawMaterialMarkup: 3.0,
+  // Addition 2 — Packaging Type
+  packagingType:   "retail",
+  // Addition 3 — Overhead
+  overheadEnabled:     false,
+  overheadRate:        0.15,
+  overheadMarkup:      0.20,
+  fixedOverheadFee:    0,
+  fixedOverheadMarkup: 0.20,
+  // Addition 4 — Minimum labor
+  blendingMinLaborHrs:    0,
+  globalMinLaborHrs:      0,
+  // Addition 5 — Pricing Tiers
+  tiersEnabled:  false,
+  pricingTiers:  [],
+  // Meta
+  pricingAssumptions: "",
+};
+
 const initialCustomer: CustomerInfo = {
-  customer:        "Bartesian",
-  customerId:      "13421-25",
-  name:            "Will Heinzmann",
-  phone:           "(616) 916-4057",
-  email:           "will@bartesian.com",
-  salesRep:        "Greg Portnoy",
-  productName:     "4oz Sachets",
-  projectOverview: "",
+  customer:         "Bartesian",
+  customerId:       "13421-25",
+  name:             "Will Heinzmann",
+  phone:            "(616) 916-4057",
+  email:            "will@bartesian.com",
+  salesRep:         "Greg Portnoy",
+  productName:      "4oz Sachets",
+  productCategory:  "",
+  projectOverview:  "",
 };
 
 const initialBrand: BrandId = "brewglitter";
 
+const initialAdditionalFees: AdditionalFeeRow[] = [
+  { id: "default-1", type: "Co-marketing and Return Fees", amount: 0, mode: "%" },
+  { id: "default-2", type: "EDI Transaction Fees",          amount: 0, mode: "$" },
+];
+
 interface ProjectContextValue {
+  // Project type selector
+  projectType:    ProjectType;
+  setProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
+  // Co-packing state (flat single object)
+  coPackingState:    CoPackingState;
+  setCoPackingField: <K extends keyof CoPackingState>(field: K, value: CoPackingState[K]) => void;
+  // Co-packing processes (labor steps)
+  coPackingProcesses:    CoPackingProcess[];
+  setCoPackingProcesses: React.Dispatch<React.SetStateAction<CoPackingProcess[]>>;
+  // Derived co-packing results
+  coPackingResults: CoPackingResult[];
+  coPackingTotals:  { totalOur: number; totalCustomer: number; margin: number };
   // Raw state
   moqRows:      MoqRow[];
   setMoqRows:   React.Dispatch<React.SetStateAction<MoqRow[]>>;
+  // Packaging levels — unified source of truth (replaces columns + packagingSummaryRows)
+  packagingLevels:    PackagingLevel[];
+  setPackagingLevels: React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
+  // Derived columns (for internal calc compatibility — do not expose to UI)
   columns:      Column[];
   setColumns:   React.Dispatch<React.SetStateAction<Column[]>>;
   formData:     ProjectFormData;
   setFormField: (field: keyof ProjectFormData, value: string) => void;
+  setTestingRows: (rows: TestingRow[]) => void;
   activeMoqId:  number;
   setActiveMoqId: React.Dispatch<React.SetStateAction<number>>;
-  // Packaging Summary rows (drives one-way sync to Packaging & Packout columns)
-  packagingSummaryRows:    PackagingSummaryRow[];
-  setPackagingSummaryRows: React.Dispatch<React.SetStateAction<PackagingSummaryRow[]>>;
   // Customer / brand info (shared across pages)
   customer:     CustomerInfo;
   setCustomer:  React.Dispatch<React.SetStateAction<CustomerInfo>>;
   setCustomerField: (field: keyof CustomerInfo, value: string) => void;
   selectedBrand:    BrandId;
   setSelectedBrand: React.Dispatch<React.SetStateAction<BrandId>>;
+  // CRM linkage (Zoho CRM account/contact ids — session-only)
+  crmAccountId:    string;
+  setCrmAccountId: React.Dispatch<React.SetStateAction<string>>;
+  crmContactId:    string;
+  setCrmContactId: React.Dispatch<React.SetStateAction<string>>;
   // columns + auto-generated derived columns from MOQ pack sizes
   effectiveColumns: Column[];
   // Derived — active MOQ
@@ -159,8 +280,28 @@ interface ProjectContextValue {
   // MOQ row validation errors (derived from moqRows)
   moqErrors:    MoqRowError[];
   hasMoqErrors: boolean;
+  // Additional Costs & Fees (standard mode, internal only)
+  additionalFees:    AdditionalFeeRow[];
+  setAdditionalFees: React.Dispatch<React.SetStateAction<AdditionalFeeRow[]>>;
+  // Price adjustment state (MOQ Pricing Table + Price Adjustment on Home; used by PDF on Quote page)
+  moqMargins:    Record<number, string>;
+  setMoqMargins: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  moqPpuInputs:  Record<number, string>;
+  setMoqPpuInputs: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  moqLastEdited: Record<number, "margin" | "ppu">;
+  setMoqLastEdited: React.Dispatch<React.SetStateAction<Record<number, "margin" | "ppu">>>;
+  whatIfPpus:    Record<number, string>;
+  setWhatIfPpus: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  costPpuOverrides:    Record<number, string>;
+  setCostPpuOverrides: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  resolvedMoqMargins: Record<number, string>;
+  // Addition 6 — Scenario comparison
+  scenarioA: CoPackingScenario | null;
+  scenarioB: CoPackingScenario | null;
+  saveScenario: (slot: 'A' | 'B', name: string) => void;
+  clearScenarios: () => void;
   // Restore all project state from a saved quote snapshot
-  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingSummaryRows?: PackagingSummaryRow[] }, savedId?: string, savedName?: string) => void;
+  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[] }, savedId?: string, savedName?: string) => void;
   // Save state — tracks whether current quote has been saved and if there are unsaved changes
   saveState:    SaveState;
   markSaved:    (id: string, name: string) => void;
@@ -170,121 +311,78 @@ interface ProjectContextValue {
 const ProjectContext = createContext<ProjectContextValue | null>(null);
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const [moqRows,  setMoqRows]  = useState<MoqRow[]>(initialMoqRows);
-  const [columns,  setColumns]  = useState<Column[]>(initialColumns);
+  // Rehydrate from localStorage on first render
+  const _draft = (() => {
+    try { return JSON.parse(localStorage.getItem("jdi_draft_v1") ?? "{}"); } catch { return {}; }
+  })();
 
-  const [formData, setFormData] = useState<ProjectFormData>(initialFormData);
-  const [activeMoqId, setActiveMoqId] = useState<number>(initialMoqRows[0].id);
-  const [customer, setCustomer] = useState<CustomerInfo>(initialCustomer);
-  const [selectedBrand, setSelectedBrand] = useState<BrandId>(initialBrand);
-  const [packagingSummaryRows, setPackagingSummaryRows] = useState<PackagingSummaryRow[]>([]);
+  const [projectType, setProjectType] = useState<ProjectType>(_draft.projectType ?? "standard");
+  const [coPackingState, setCoPackingStateRaw] = useState<CoPackingState>(_draft.coPackingState ?? initialCoPackingState);
+  const [coPackingProcesses, setCoPackingProcesses] = useState<CoPackingProcess[]>(_draft.coPackingProcesses ?? []);
+
+  const [moqRows,  setMoqRows]  = useState<MoqRow[]>(_draft.moqRows ?? initialMoqRows);
+  const [packagingLevels, setPackagingLevels] = useState<PackagingLevel[]>(
+    _draft.packagingLevels && _draft.packagingLevels.length > 0
+      ? _draft.packagingLevels.map((l: PackagingLevel) => ({ ...l, manualCharges: l.manualCharges ?? [] }))
+      : initialPackagingLevels
+  );
+
+  const [formData, setFormData] = useState<ProjectFormData>(_draft.formData ? { ...initialFormData, ..._draft.formData } : initialFormData);
+  const [activeMoqId, setActiveMoqId] = useState<number>(1);
+  const [customer, setCustomer] = useState<CustomerInfo>(_draft.customer ?? initialCustomer);
+  const [selectedBrand, setSelectedBrand] = useState<BrandId>(_draft.selectedBrand ?? initialBrand);
+  const [crmAccountId, setCrmAccountId] = useState(_draft.crmAccountId ?? "");
+  const [crmContactId, setCrmContactId] = useState(_draft.crmContactId ?? "");
+  const [additionalFees, setAdditionalFees] = useState<AdditionalFeeRow[]>(_draft.additionalFees ?? initialAdditionalFees);
+  const [scenarioA, setScenarioA] = useState<CoPackingScenario | null>(null);
+  const [scenarioB, setScenarioB] = useState<CoPackingScenario | null>(null);
 
   const setFormField = (field: keyof ProjectFormData, value: string) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 
+  const setTestingRows = (rows: TestingRow[]) =>
+    setFormData((prev) => ({ ...prev, testingRows: rows }));
+
   const setCustomerField = (field: keyof CustomerInfo, value: string) =>
     setCustomer((prev) => ({ ...prev, [field]: value }));
 
-  // Helper: look up a manual units override from packagingSummaryRows for a
-  // given column (matched by summaryId) and moqRow id. Returns undefined when
-  // no override is set, so the caller can fall back to auto-derived values.
-  const manualUnitsFor = (col: Column, moqRowId: number): string | undefined => {
-    if (!col.summaryId) return undefined;
-    const sRow = packagingSummaryRows.find(r => r.id === col.summaryId);
-    const val  = sRow?.manualUnits?.[String(moqRowId)];
-    return val !== undefined && val !== "" ? val : undefined;
+  const setCoPackingField = <K extends keyof CoPackingState>(field: K, value: CoPackingState[K]) =>
+    setCoPackingStateRaw((prev) => ({ ...prev, [field]: value }));
+
+  const saveScenario = (slot: 'A' | 'B', name: string) => {
+    const scenario: CoPackingScenario = { name, state: coPackingState };
+    if (slot === 'A') setScenarioA(scenario);
+    else setScenarioB(scenario);
   };
 
-  // Derive units for every column from the active MOQ row.
-  // Individual/FinalKit → moq qty; Inner → ceil(qty / unitsPerInner);
-  // Shipper → ceil(inners / innersPerMaster) if innersPerMaster > 0, else 0.
-  // When a Packaging Summary manual override exists for this MOQ, it wins.
+  const clearScenarios = () => { setScenarioA(null); setScenarioB(null); };
+
+  const coPackingResults = useMemo(
+    () => computeCoPackingResults(coPackingState, coPackingProcesses),
+    [coPackingState, coPackingProcesses],
+  );
+
+  const coPackingTotals = useMemo(
+    () => computeCoPackingTotals(coPackingResults),
+    [coPackingResults],
+  );
+
+  // Derive Column[] from packagingLevels for the active MOQ.
+  // packagingLevelsToColumns handles unit derivation and maps all fields.
   const scaledColumns = useMemo(() => {
-    const base   = moqRows[0];
-    const active = moqRows.find((r) => r.id === activeMoqId) ?? base;
-    if (!base || !active) return columns;
-
-    const qty           = n(active.individualUnits) || n(active.moq) || 0;
-    const unitsPerInner = n(active.unitsPerInner)   || 0;
-    const inners        = unitsPerInner > 0 ? Math.ceil(qty / unitsPerInner) : 0;
-    const innersPerMaster = n(active.innersPerMaster) || 0;
-    const shippers      = innersPerMaster > 0 ? Math.ceil(inners / innersPerMaster) : 0;
-
-    return columns.map((col) => {
-      const manual = manualUnitsFor(col, active.id);
-      if (manual !== undefined) return { ...col, units: manual };
-      switch (col.level) {
-        case "Individual Units":
-        case "Final Kit Units":
-          return { ...col, units: qty > 0 ? String(qty) : col.units };
-        case "Inner / Case":
-          return { ...col, units: inners > 0 ? String(inners) : col.units };
-        case "Shipper / Outer":
-          return { ...col, units: String(shippers) };
-        default:
-          return col;
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns, moqRows, activeMoqId, packagingSummaryRows]);
+    const active = moqRows.find((r) => r.id === activeMoqId) ?? moqRows[0];
+    const qty          = active ? (n(active.individualUnits) || n(active.moq) || 0) : 0;
+    const upi          = active ? n(active.unitsPerInner)   : 0;
+    const ipm          = active ? n(active.innersPerMaster) : 0;
+    return packagingLevelsToColumns(packagingLevels, qty, upi, ipm);
+  }, [packagingLevels, moqRows, activeMoqId]);
 
   const { detailSections, summaryRows, summaryTableRows, ppuUnits } = useMemo(
     () => computeDetailSections(scaledColumns, moqRows, formData),
     [scaledColumns, moqRows, formData],
   );
 
-  // ── Auto-generate derived Inner columns from extra MOQ pack sizes ────────────
-  // For every unique unitsPerInner in moqRows beyond the base column's own pack,
-  // synthesise a derived column so the user doesn't need to fill it in manually.
-  const effectiveColumns = useMemo((): Column[] => {
-    const baseInner = columns.find(
-      (c) => c.level === "Inner / Case" && c.unitsPerInner && n(c.unitsPerInner) > 0,
-    );
-    if (!baseInner) return columns;
-
-    const basePack  = n(baseInner.unitsPerInner!);
-    const extraPacks = Array.from(
-      new Set(
-        moqRows
-          .map((r) => n(r.unitsPerInner))
-          .filter((p) => p > 0 && p !== basePack),
-      ),
-    );
-    if (extraPacks.length === 0) return columns;
-
-    const existingDerivedPacks = new Set(
-      columns.filter((c) => c.sourceId === baseInner.id).map((c) => n(c.unitsPerInner)),
-    );
-
-    const generated: Column[] = extraPacks
-      .filter((p) => !existingDerivedPacks.has(p))
-      .map((dstPack, i) => {
-        const ratio = dstPack / basePack;
-        return {
-          ...baseInner,
-          id:            -(i + 1),
-          type:          `Inners ${dstPack}pk`,
-          units:         n(baseInner.units) > 0
-            ? String(Math.ceil(n(baseInner.units) * (basePack / dstPack)))
-            : "",
-          sourceId:      baseInner.id,
-          unitsPerInner: String(dstPack),
-          rows: {
-            ...baseInner.rows,
-            "Unit Fill Rate / min": n(baseInner.rows?.["Unit Fill Rate / min"]) > 0
-              ? String(parseFloat((n(baseInner.rows["Unit Fill Rate / min"]) * ratio).toFixed(4)))
-              : "",
-          },
-        };
-      });
-
-    const result: Column[] = [];
-    for (const col of columns) {
-      result.push(col);
-      if (col.id === baseInner.id) result.push(...generated);
-    }
-    return result;
-  }, [columns, moqRows]);
+  const effectiveColumns = scaledColumns;
 
   // ── Per-MOQ pricing rows + per-MOQ summary line items ────────────────────────
   const { allMoqResults, perMoqSummaryRows } = useMemo(() => {
@@ -296,36 +394,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     for (const row of moqRows) {
       const rowPack         = n(row.unitsPerInner);
       const rowQty          = n(row.individualUnits) || n(row.moq) || 1;
-      const rowInners       = rowPack > 0 ? Math.ceil(rowQty / rowPack) : 0;
       const rowInnersPerMaster = n(row.innersPerMaster);
-      const rowShippers     = rowInnersPerMaster > 0 ? Math.ceil(rowInners / rowInnersPerMaster) : 0;
 
-      const rowColumns = effectiveColumns
-        .filter((col) => {
-          if (col.level !== "Inner / Case") return true;
-          const colPack = n(col.unitsPerInner);
-          if (colPack === 0) return true;
-          return colPack === rowPack;
-        })
+      // Derive columns for this specific MOQ row from packagingLevels
+      const rowColsBase = packagingLevelsToColumns(packagingLevels, rowQty, rowPack, rowInnersPerMaster);
+      const rowColumns = rowColsBase
         .map((col) => {
           // Apply per-MOQ fill rate override for this column if set
           const fillOverride = row.fillRateOverrides?.[col.id];
-          const colWithRate  = (fillOverride !== undefined && fillOverride !== "")
+          return (fillOverride !== undefined && fillOverride !== "")
             ? { ...col, rows: { ...col.rows, "Unit Fill Rate / min": fillOverride } }
             : col;
-          // Packaging Summary manual units override wins over MOQ-derived units
-          const summaryUnits = manualUnitsFor(colWithRate, row.id);
-          if (summaryUnits !== undefined) return { ...colWithRate, units: summaryUnits };
-          if (colWithRate.level === "Individual Units" || colWithRate.level === "Final Kit Units") {
-            return { ...colWithRate, units: String(rowQty) };
-          }
-          if (colWithRate.level === "Inner / Case") {
-            return { ...colWithRate, units: String(rowInners) };
-          }
-          if (colWithRate.level === "Shipper / Outer") {
-            return { ...colWithRate, units: String(rowShippers) };
-          }
-          return colWithRate;
         });
 
       const rowFormData = {
@@ -360,7 +439,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
 
     return { allMoqResults: pricing, perMoqSummaryRows: summaryMap };
-  }, [effectiveColumns, moqRows, formData, packagingSummaryRows]);
+  }, [effectiveColumns, moqRows, formData, packagingLevels]);
 
   // ── Interstitial pricing: compute costs for any arbitrary unit count ──────────
   // Substitutes qty into Individual/Final Kit columns, scales container columns
@@ -463,6 +542,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const hasMoqErrors = moqErrors.length > 0;
 
+  // ── Price adjustment state (shared: Home renders tables, QuotePage uses for PDF) ──
+  const [moqMargins,    setMoqMargins]    = useState<Record<number, string>>({});
+  const [moqPpuInputs,  setMoqPpuInputs]  = useState<Record<number, string>>({});
+  const [moqLastEdited, setMoqLastEdited] = useState<Record<number, "margin" | "ppu">>({});
+  const [whatIfPpus,       setWhatIfPpus]       = useState<Record<number, string>>({});
+  const [costPpuOverrides, setCostPpuOverrides] = useState<Record<number, string>>({});
+
+  const resolvedMoqMargins = useMemo(() => {
+    const merged: Record<number, string> = {};
+    for (const r of allMoqResults) {
+      const lastEdited = moqLastEdited[r.moqRow.id] ?? "margin";
+      if (lastEdited === "ppu") {
+        const ppuVal = parseFloat(moqPpuInputs[r.moqRow.id] ?? "");
+        if (!isNaN(ppuVal) && ppuVal > 0 && r.ppuCost > 0) {
+          merged[r.moqRow.id] = (((ppuVal - r.ppuCost) / ppuVal) * 100).toFixed(4);
+        }
+      } else {
+        const m = moqMargins[r.moqRow.id];
+        if (m !== undefined) merged[r.moqRow.id] = m;
+      }
+    }
+    return merged;
+  }, [moqMargins, moqLastEdited, moqPpuInputs, allMoqResults]);
+
   // ── Save state ────────────────────────────────────────────────
   const [saveState, setSaveState] = useState<SaveState>({
     savedQuoteId:    null,
@@ -476,9 +579,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   // Current snapshot — recomputed whenever project state changes
   const currentSnapshot = useMemo(
-    () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, packagingSummaryRows }),
-    [moqRows, columns, formData, customer, selectedBrand, packagingSummaryRows],
+    () => JSON.stringify({ moqRows, packagingLevels, formData, customer, selectedBrand, projectType, coPackingState, additionalFees, coPackingProcesses }),
+    [moqRows, packagingLevels, formData, customer, selectedBrand, projectType, coPackingState, additionalFees, coPackingProcesses],
   );
+
+  // Persist draft to localStorage on every state change
+  useEffect(() => {
+    try {
+      localStorage.setItem("jdi_draft_v1", JSON.stringify({ moqRows, packagingLevels, formData, customer, selectedBrand, crmAccountId, crmContactId, projectType, coPackingState, additionalFees, coPackingProcesses }));
+    } catch { /* quota exceeded or private browsing */ }
+  }, [currentSnapshot, crmAccountId, crmContactId]);
 
   // Detect unsaved changes whenever snapshot drifts from saved baseline
   useMemo(() => {
@@ -499,13 +609,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setLastSavedSnapshot("");
   };
 
-  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingSummaryRows?: PackagingSummaryRow[] }, savedId?: string, savedName?: string) => {
+  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[] }, savedId?: string, savedName?: string) => {
     setMoqRows(state.moqRows);
-    setColumns(state.columns);
-    setFormData(state.formData);
-    if (state.customer)               setCustomer(state.customer);
-    if (state.selectedBrand)          setSelectedBrand(state.selectedBrand);
-    if (state.packagingSummaryRows)   setPackagingSummaryRows(state.packagingSummaryRows);
+    setPackagingLevels(state.packagingLevels && state.packagingLevels.length > 0
+      ? state.packagingLevels.map(l => ({ ...l, manualCharges: l.manualCharges ?? [] }))
+      : initialPackagingLevels);
+    setFormData({ ...state.formData, numIntakePallets: state.formData.numIntakePallets ?? "1" });
+    if (state.customer)             setCustomer(state.customer);
+    if (state.selectedBrand)        setSelectedBrand(state.selectedBrand);
+    if (state.projectType)          setProjectType(state.projectType);
+    if (state.coPackingState)       setCoPackingStateRaw(state.coPackingState);
+    if (state.additionalFees)       setAdditionalFees(state.additionalFees);
+    if (state.coPackingProcesses)   setCoPackingProcesses(state.coPackingProcesses);
     setActiveMoqId(state.moqRows[0]?.id ?? 1);
     const snap = JSON.stringify(state);
     setLastSavedSnapshot(snap);
@@ -517,15 +632,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // columns is derived from packagingLevels; setColumns is a no-op shim kept
+  // for interfaces that still type-check against it (e.g. ColumnsSection removed, but
+  // generateQuoteXLSX may still reference it via context). Real edits go through setPackagingLevels.
+  const columns = scaledColumns;
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  const setColumns: React.Dispatch<React.SetStateAction<Column[]>> = () => {};
+
   return (
     <ProjectContext.Provider value={{
+      projectType, setProjectType,
+      coPackingState, setCoPackingField,
+      coPackingProcesses, setCoPackingProcesses,
+      coPackingResults,
+      coPackingTotals,
       moqRows, setMoqRows,
+      packagingLevels, setPackagingLevels,
       columns, setColumns,
       formData, setFormField,
+      setTestingRows,
       activeMoqId, setActiveMoqId,
-      packagingSummaryRows, setPackagingSummaryRows,
       customer, setCustomer, setCustomerField,
       selectedBrand, setSelectedBrand,
+      crmAccountId, setCrmAccountId,
+      crmContactId, setCrmContactId,
       effectiveColumns,
       scaledColumns,
       detailSections, summaryRows, summaryTableRows, ppuUnits,
@@ -533,6 +663,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       perMoqSummaryRows,
       computeForQty,
       moqErrors, hasMoqErrors,
+      additionalFees, setAdditionalFees,
+      moqMargins, setMoqMargins,
+      moqPpuInputs, setMoqPpuInputs,
+      moqLastEdited, setMoqLastEdited,
+      whatIfPpus, setWhatIfPpus,
+      costPpuOverrides, setCostPpuOverrides,
+      resolvedMoqMargins,
+      scenarioA, scenarioB, saveScenario, clearScenarios,
       loadQuoteState,
       saveState, markSaved, clearSave,
     }}>

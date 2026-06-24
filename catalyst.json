@@ -3,5 +3,9 @@
     "targets": ["quotes-api"],
     "ignore": [],
     "source": "functions"
+  },
+  "client": {
+    "targets": ["jdi-pricing-tool"],
+    "source": "client"
   }
 }

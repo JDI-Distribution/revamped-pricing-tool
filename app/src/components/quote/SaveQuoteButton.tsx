@@ -19,7 +19,7 @@ type Tab     = "new" | "update";
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function SaveQuoteButton({ quotePageState, disabled = false, disabledReason }: Props) {
-  const { moqRows, columns, formData, customer, selectedBrand } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses } = useProject();
 
   const [open,       setOpen]       = useState(false);
   const [tab,        setTab]        = useState<Tab>("new");
@@ -51,7 +51,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
       .finally(() => setLoadingList(false));
   }, [open]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, ...quotePageState });
+  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, ...quotePageState });
 
   // Duplicate name check (client-side against fetched list)
   const duplicateEntry = quoteName.trim()
@@ -136,6 +136,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
 
       {/* Trigger */}
       <button
+        type="button"
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
         title={disabledReason}
@@ -166,14 +167,14 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                     <p className="text-[0.7rem] text-white/70 mt-0.5">Save or update a quote</p>
                   </div>
                 </div>
-                <button onClick={close} className="text-white/60 hover:text-white transition-colors mt-0.5">
+                <button type="button" onClick={close} className="text-white/60 hover:text-white transition-colors mt-0.5">
                   <X size={18} />
                 </button>
               </div>
               {/* Tab switcher */}
               <div className="flex gap-1 bg-white/10 rounded-xl p-1 mb-0">
-                <button onClick={() => setTab("new")}    className={tabCls("new")}>Save as New</button>
-                <button onClick={() => setTab("update")} className={tabCls("update")}>Update Existing</button>
+                <button type="button" onClick={() => setTab("new")}    className={tabCls("new")}>Save as New</button>
+                <button type="button" onClick={() => setTab("update")} className={tabCls("update")}>Update Existing</button>
               </div>
             </div>
 
@@ -206,6 +207,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                       </p>
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={handleSaveNew}
                           disabled={saving}
                           className="flex-1 h-8 text-xs font-semibold text-amber-800 border border-amber-300 bg-white hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-40"
@@ -213,6 +215,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                           Save as New Copy
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
                             setUpdateId(duplicateEntry.id);
                             setTab("update");
@@ -228,12 +231,14 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                   {!duplicateEntry && (
                     <div className="flex gap-3 mt-5">
                       <button
+                        type="button"
                         onClick={close}
                         className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
                       >
                         Cancel
                       </button>
                       <button
+                        type="button"
                         onClick={handleSaveNew}
                         disabled={saving || !quoteName.trim()}
                         className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm shadow-[#e8473f]/30"
@@ -274,6 +279,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                       </p>
                     ) : filteredExisting.map((q) => (
                       <button
+                        type="button"
                         key={q.id}
                         onClick={() => setUpdateId(q.id)}
                         className={`w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 last:border-0 transition-colors ${
@@ -302,12 +308,14 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
 
                   <div className="flex gap-3 mt-4">
                     <button
+                      type="button"
                       onClick={close}
                       className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
+                      type="button"
                       onClick={handleUpdate}
                       disabled={saving || !updateId}
                       className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm shadow-[#e8473f]/30"

@@ -12,7 +12,7 @@ interface QuoteListItem {
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function NavbarSaveButton() {
-  const { moqRows, columns, formData, customer, selectedBrand, saveState, markSaved, clearSave, loadQuoteState } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, saveState, markSaved, clearSave, loadQuoteState } = useProject();
   const { savedQuoteId, savedQuoteName, hasUnsavedChanges } = saveState;
 
   const [modalOpen,    setModalOpen]    = useState(false);
@@ -43,7 +43,7 @@ export default function NavbarSaveButton() {
       .finally(() => setLoadingList(false));
   }, [modalOpen]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand });
+  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId });
 
   // Auto-save (PUT) when quote already has an ID
   const handleAutoSave = async () => {
@@ -129,7 +129,8 @@ export default function NavbarSaveButton() {
     loadQuoteState({
       moqRows: [],
       columns: [],
-      formData: formData, // keep formData or reset — keep for now
+      formData: formData,
+      projectType: "standard",
     });
     clearSave();
     setNewQuoteOpen(false);
@@ -159,18 +160,21 @@ export default function NavbarSaveButton() {
             <p className="text-xs text-gray-500 mb-5">Unsaved changes will be lost.</p>
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setNewQuoteOpen(false)}
                 className="flex-1 h-10 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={async () => { await handleAutoSave(); doNewQuote(); }}
                 className="flex-1 h-10 text-xs font-semibold text-[#e8473f] border-2 border-[#e8473f] rounded-xl hover:bg-red-50 transition-colors"
               >
                 Save first
               </button>
               <button
+                type="button"
                 onClick={doNewQuote}
                 className="flex-1 h-10 text-sm font-bold text-white bg-[#e8473f] rounded-xl hover:bg-[#d43f37] transition-colors"
               >
@@ -197,11 +201,11 @@ export default function NavbarSaveButton() {
               className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#e8473f] mb-4"
             />
             <div className="flex gap-3">
-              <button onClick={() => setRenameOpen(false)}
+              <button type="button" onClick={() => setRenameOpen(false)}
                 className="flex-1 h-10 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
-              <button onClick={handleRename} disabled={saving || !renameName.trim()}
+              <button type="button" onClick={handleRename} disabled={saving || !renameName.trim()}
                 className="flex-1 h-10 text-sm font-bold text-white bg-[#e8473f] disabled:opacity-40 rounded-xl hover:bg-[#d43f37] transition-colors">
                 {saving ? "Saving…" : "Rename"}
               </button>
@@ -226,7 +230,7 @@ export default function NavbarSaveButton() {
                     <p className="text-[0.7rem] text-white/70 mt-0.5">Name this quote to save it</p>
                   </div>
                 </div>
-                <button onClick={() => setModalOpen(false)} className="text-white/60 hover:text-white transition-colors">
+                <button type="button" onClick={() => setModalOpen(false)} className="text-white/60 hover:text-white transition-colors">
                   <X size={18} />
                 </button>
               </div>
@@ -245,11 +249,11 @@ export default function NavbarSaveButton() {
                 className="w-full h-11 px-4 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#e8473f] mb-4"
               />
               <div className="flex gap-3">
-                <button onClick={() => setModalOpen(false)}
+                <button type="button" onClick={() => setModalOpen(false)}
                   className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
-                <button onClick={handleSaveNew} disabled={saving || !quoteName.trim()}
+                <button type="button" onClick={handleSaveNew} disabled={saving || !quoteName.trim()}
                   className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] disabled:opacity-40 rounded-xl hover:bg-[#d43f37] transition-colors flex items-center justify-center gap-2">
                   {saving ? "Saving…" : <><Save size={15} /> Save</>}
                 </button>
@@ -260,7 +264,7 @@ export default function NavbarSaveButton() {
                 <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-2">Or update existing</p>
                 <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
                   {existing.slice(0, 8).map(q => (
-                    <button key={q.id}
+                    <button type="button" key={q.id}
                       onClick={async () => {
                         setSaving(true);
                         try {
@@ -290,6 +294,7 @@ export default function NavbarSaveButton() {
       <div className="flex items-center gap-1">
         {/* New Quote */}
         <button
+          type="button"
           onClick={handleNewQuote}
           title="New quote"
           className="h-8 px-2 flex items-center gap-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -303,6 +308,7 @@ export default function NavbarSaveButton() {
           // Known quote: show name + auto-save + rename
           <div className="flex items-center gap-0.5 h-8 border border-gray-200 rounded-lg overflow-hidden">
             <button
+              type="button"
               onClick={handleAutoSave}
               disabled={saving}
               title={hasUnsavedChanges ? "Save changes" : "Saved"}
@@ -315,6 +321,7 @@ export default function NavbarSaveButton() {
               )}
             </button>
             <button
+              type="button"
               onClick={() => { setRenameName(savedQuoteName ?? ""); setRenameOpen(true); }}
               title="Rename quote"
               className="flex items-center px-1.5 text-gray-300 hover:text-gray-600 border-l border-gray-200 h-full transition-colors"
@@ -325,6 +332,7 @@ export default function NavbarSaveButton() {
         ) : (
           // New quote: show Save button
           <button
+            type="button"
             onClick={() => setModalOpen(true)}
             disabled={saving}
             title="Save current quote"

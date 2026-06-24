@@ -1,3 +1,90 @@
+// ── Unified Packaging Level (replaces PackagingSummaryRow + Column for standard mode) ──
+export interface PackagingLevelOperation {
+  id:               string;
+  name:             string;
+  fillRatePerMin:   number;
+  wageRate:         number;
+  efficiencyBuffer: number; // integer percent, e.g. 20 = 20%
+}
+
+export interface RecipeIngredient {
+  id:         string;
+  name:       string;
+  percentage: number;
+  unit:       string; // 'g' | 'kg' | 'oz' | 'lbs' | 'L' | 'mL'
+}
+
+export interface CoPackingProcess {
+  id:                  string;
+  name:                string;
+  units:               number;
+  perOuter:            number;
+  isAutoUnits:         boolean;
+  overageRate:         number;      // integer percent, e.g. 15 = 15%
+  processSpeedValue:   number;      // numeric speed value
+  processSpeedUnit:    string;      // 'units / min' | 'units / hr' | 'kg / hr' | ...
+  batchSizeValue:      number;      // batch size in batchSizeUnit
+  batchSizeUnit:       string;      // 'g' | 'kg' | 'oz' | 'lbs' | 'L' | 'mL' | 'units' | 'batches'
+  laborRate:           number;      // $/hr (formerly wageRate)
+  laborMarkup:         number;      // integer percent, e.g. 30 = 30%
+  efficiencyBuffer:    number;      // integer percent, e.g. 15 = 15%
+  numStaff:            number;
+  hrsPerShift:         number;
+  workingDays:         number;
+  minLaborHrs:         number;
+  recipeIngredients:   RecipeIngredient[];
+  includedInPdf:       boolean;
+  showOperationsInPdf: boolean;
+  pdfLabel:            string;
+}
+
+export interface ManualCharge {
+  id:        string;
+  name:      string;
+  amount:    number;   // dollar amount
+  basis:     "per_unit" | "fixed";
+}
+
+export interface PackagingLevel {
+  id:               string;
+  packagingLevel:   string;
+  customLevelName:  string;
+  unitsRefId?:      string;  // id of a prior PackagingLevel whose units this inherits
+  // Set by CPO sync — the Required Qty computed from the CPO cascade. When present,
+  // PackagingLevels.tsx uses this as the "Units" value instead of the MOQ-derived auto units.
+  cpoRequiredQty?:  number;
+  packagingType:    string;
+  customTypeName:   string;
+  units:            number;   // 0 = auto-derived
+  perOuter:         number;   // units per parent level (for cascade); 0 = no cascade
+  isAutoUnits:      boolean;
+  costPerUnit:      number;
+  casePack:         number;   // case pack units (drives suggested inners hint)
+  efficiencyBuffer: number;   // integer percent, e.g. 20
+  laborMarkup:      number;   // integer percent, e.g. 35
+  unitCostMarkup:   number;   // integer percent, e.g. 125
+  overageRate:      number;   // integer percent, e.g. 15
+  wageRate:         number;   // $/hr
+  fillRatePerMin:   number;
+  packagingWeightG: number;
+  numStaff:         number;
+  hrsPerShift:      number;
+  workingDays:      number;
+  labelEnabled:     boolean;
+  labelPrintCost:   number;
+  labelApplyRate:   number;
+  tabsEnabled:      boolean;
+  tabCostPerUnit:   number;
+  hvThreshold:      number;   // 0 = disabled
+  hvFillRate:       number;
+  operations:       PackagingLevelOperation[];
+  manualCharges:    ManualCharge[];
+  isExpanded:       boolean;
+  includedInPdf:    boolean;
+  showOperationsInPdf: boolean;
+  pdfLabel:         string;
+}
+
 export interface MoqRow {
   id: number;
   moq: string;
@@ -46,6 +133,7 @@ export interface ProjectFormData {
   // Material intake pallets
   intakeFee: string;
   numPallets: string;
+  numIntakePallets: string;
   // Outbound / finished-goods pallets
   outboundFee: string;
   outboundFeeMarkup: string;
@@ -53,8 +141,10 @@ export interface ProjectFormData {
   palletBuffer: string;          // Added pallets buffer on top of auto-calculated pallet count
   manualPallets?: string;        // When set, overrides weight-based auto-calc (used per-MOQ row)
   // Fees
-  testingFee: string;
-  testingFeeMarkup: string;
+  // Testing section (structured test line items, modeled after co-packing mode)
+  testingEnabled: string;     // "true" | "false"
+  testingRows:    TestingRow[];
+  testingMarkup:  string;     // e.g. "20" = 20%
   // Setup / QA fee (separate our-cost vs customer price)
   setupFeeOur: string;
   setupFeeCustomer: string;
@@ -68,6 +158,17 @@ export interface ProjectFormData {
   startDate: string;
   // Unit weight display unit (g | oz | lb | kg | fl oz)
   unitWeightUnit: string;
+  // ── Co-packing extras (only active when projectType === 'copacking') ──
+  rawMaterialSource?: string;        // 'customer' | 'jdi' — default 'customer'
+  blendingEnabled?: string;          // 'true' | 'false'
+  blendingDescription?: string;
+  blendingUnits?: string;            // number of batches
+  blendingOverage?: string;          // fraction e.g. "0.05"
+  blendingUnitsPerMin?: string;
+  blendingEfficiencyBuffer?: string; // fraction e.g. "0.15"
+  blendingWageRate?: string;
+  blendingLaborMarkup?: string;      // fraction e.g. "0.35"
+  blendingMinLaborHrs?: string;
 }
 
 export interface SummaryRow {
@@ -101,4 +202,228 @@ export interface DetailSection {
   rows: DetailRow[];
   totalCustomerCost: number;
   totalOurCost: number;
+}
+
+// ── Additional Costs & Fees (standard mode, internal only) ───────────────────
+
+export interface AdditionalFeeRow {
+  id:     string;       // stable key for React (uid or "default-1"/"default-2")
+  type:   string;       // label, e.g. "Co-marketing and Return Fees"
+  amount: number;       // dollar value OR decimal percent (e.g. 0.05 = 5%)
+  mode:   "$" | "%";   // $ = flat dollar added to our cost; % = percent of adjusted revenue
+}
+
+// ── Co-Packing types ─────────────────────────────────────────────────────────
+
+export type ProjectType = "standard" | "copacking";
+
+// Blend recipe ingredient — composition expressed as % of batch
+export interface BlendIngredient {
+  id:         string;
+  name:       string;   // e.g. "Whey Protein Isolate"
+  percentage: number;   // 0–100, % of one batch by weight/volume
+}
+
+// Testing row for the new structured testing section
+export interface TestingRow {
+  id:             string;
+  testType:       string;   // dropdown value
+  customTestName: string;   // only used when testType === 'Custom'
+  cost:           number;   // $ per test per SKU
+  numSkus?:       number;   // # of SKUs for this specific test
+}
+
+// ── Co-Packing Packaging Summary + Columns (modeled after standard mode) ─────
+
+export interface CoPackingPackagingSummaryRow {
+  id:             string;
+  packagingLevel: string;   // 'Individual Units' | 'Final Kit Units' | 'Inner / Case' | 'Shipper / Outer'
+  packagingType:  string;
+  units:          number;   // 0 if auto-derived
+  isAutoUnits:    boolean;  // true for Inner/Case and Shipper/Outer
+  costPerUnit:    number;
+}
+
+export interface CoPackingColumn {
+  id:                string;
+  efficiencyBuffer:  number;  // 0.20
+  laborMarkup:       number;  // 0.35
+  unitCostMarkup:    number;  // 1.25
+  level:             string;
+  type:              string;
+  labelEnabled:      boolean; // false
+  labelPrintCost:    number;  // 0
+  labelApplyRate:    number;  // 0
+  tabsEnabled:       boolean; // false
+  tabCostPerUnit:    number;  // 0
+  overageRate:       number;  // 0.15
+  wageRate:          number;  // 26
+  fillRatePerMin:    number;  // 12
+  packagingWeightG:  number;  // 2
+  numStaff:          number;  // 1
+  hrsPerShift:       number;  // 7
+  workingDays:       number;  // 5
+}
+
+// Flat co-packing state — single source of truth for all co-packing inputs and meta
+export interface CoPackingState {
+  // Project Overview
+  unitsDelivered:    number;   // 75000 — "units delivered" (generic)
+  sachetSizeG:       number;   // 5     — unit size (value only; unit label is unitSizeUnit)
+  unitSizeUnit:      string;   // "g"   — display unit for unit size (g, kg, oz, fl oz, lbs, mg, mL, L)
+  sachetsPerInner:   number;   // 30    — "units per inner"
+  innersPerMaster:   number;   // 20
+  // Raw material source (radio — replaces materialModel toggle)
+  rawMaterialSource: 'customer' | 'jdi';  // 'customer'
+  setupFeeCustomer:  number;   // 3500
+  setupFeeOurCost:   number;   // 700
+  setupFeeMargin:    number;   // 0.80  (stored as decimal; 80% = 0.80)
+
+  // Blending (optional step — enabled by toggle)
+  blendingEnabled:            boolean;         // false
+  blendingDescription:        string;          // ""
+  blendingUnits:              number;          // 1 — number of batches to blend
+  blendingOverage:            number;          // 0
+  blendingUnitsPerMin:        number;          // 1
+  blendingEfficiencyBuffer:   number;          // 0.15
+  blendingWageRate:           number;          // 30
+  blendingLaborMarkup:        number;          // 0.35
+  blendingBatchSize:          number;          // 0 — total weight/volume of one batch
+  blendingBatchSizeUnit:      string;          // "kg"
+  blendingRecipe:             BlendIngredient[]; // []
+
+  // Inbound
+  inboundOverage:    number;   // 0.15
+  intakeFeePerPallet: number;  // 195
+  inboundPallets:    number;   // 5
+  intakeMarkup:      number;   // 0.25
+  // numSkus lives in Testing section now but still used by inbound calc
+  numSkus:           number;   // 1
+  // testingMarkup now lives in the Testing section
+  testingMarkup:     number;   // 0.20
+
+  // Testing section (replaces old coaRequired/sdsRequired/specRequired/testingFeePerSku)
+  testingEnabled: boolean;      // true
+  testingRows:    TestingRow[]; // structured test line items
+
+  // Packaging Summary + Packaging & Packout columns (replaces old flat
+  // primaryFill/packout1/packout2 sections — see CoPackingPackagingSummaryRow / CoPackingColumn)
+  coPackingPackagingSummaryRows: CoPackingPackagingSummaryRow[];
+  coPackingColumns:              CoPackingColumn[];
+
+  // Pallets
+  outboundPallets:      number;  // 4
+  outboundFeePerPallet: number;  // 195
+  outboundMarkup:       number;  // 0.30
+
+  // Minimum Job Charge
+  minimumJobCharge: number;   // 0 = no minimum
+
+  // JDI-supplied raw material fields (used when rawMaterialSource === 'jdi')
+  costPerGram:      number;   // 0
+  rawOverage:       number;   // 0
+  rawMaterialMarkup: number;  // 3.0
+
+  // Addition 2 — Packaging Type
+  packagingType:   'bulk' | 'retail';  // 'retail'
+
+  // Addition 3 — Overhead
+  overheadEnabled:      boolean;  // false
+  overheadRate:         number;   // 0.15
+  overheadMarkup:       number;   // 0.20
+  fixedOverheadFee:     number;   // 0
+  fixedOverheadMarkup:  number;   // 0.20
+
+  // Addition 4 — Minimum Labor per section + global
+  blendingMinLaborHrs:    number;  // 0
+  globalMinLaborHrs:      number;  // 0
+
+  // Addition 5 — Scaled Pricing Tiers
+  tiersEnabled:  boolean;
+  pricingTiers:  PricingTier[];
+
+  // Meta
+  pricingAssumptions: string;
+}
+
+export interface PricingTier {
+  id:                    string;
+  label:                 string;
+  units:                 number;
+  locked:                boolean;
+  inboundPalletsOverride: number | null;
+}
+
+// Addition 6 — Scenario Comparison
+export interface CoPackingScenario {
+  name:  string;
+  state: CoPackingState;
+}
+
+export interface CoPackingFormData {
+  totalUnits:          string;
+  unitSizeG:           string;
+  sachetsPerInner:     string;  // units packed per inner carton (e.g. 30)
+  innersPerMaster:     string;  // inner cartons per master shipper (e.g. 20)
+  materialSource:      "customer-supplied" | "jdi-supplied";
+  setupFeeCustomer:    string;
+  setupFeeOur:         string;  // kept for backwards compat with saved quotes; derived from setupMargin when blank
+  setupMargin:         string;  // % margin on setup fee (default "80") — drives setupFeeOur
+  pricingAssumptions:  string;
+}
+
+export interface CoPackingInbound {
+  overageRate:   string;  // % overage on raw material (e.g. "15")
+  intakeFee:     string;
+  pallets:       string;
+  testingFee:    string;
+  skus:          string;
+  intakeMarkup:  string;
+  testingMarkup: string;
+}
+
+export interface CoPackingLevel {
+  id:               number;
+  fillType:         string;
+  description:      string;
+  deliveredQty:     string;
+  overageRate:      string;
+  fillRate:         string;
+  efficiencyBuffer: string;
+  wageRate:         string;
+  numStaff:         string;
+  laborMarkup:      string;
+  // Material cost fields — shown when the relevant checklist item is unchecked (JDI sources the material)
+  materialCostPerUnit?: string;  // $ per unit of the packaging material (film, carton, shipper, pallet)
+  materialMarkup?:      string;  // % markup on material cost for customer price
+  labelCostPerUnit?:    string;  // $ per unit label cost (when JDI supplies labels)
+  labelMarkup?:         string;  // % markup on label cost
+}
+
+// Which materials the customer is supplying (all true = pure co-packing, JDI provides only labor)
+export interface CoPackingChecklist {
+  rawMaterial:     boolean;  // Raw Material / Bulk Product
+  packagingFilm:   boolean;  // Packaging Film / Sachets
+  innerCartons:    boolean;  // Inner Cartons
+  masterShippers:  boolean;  // Master Shippers / Outers
+  labels:          boolean;  // Labels / Printed Materials
+  palletsInbound:  boolean;  // Pallets (inbound)
+  other:           boolean;  // Other
+  otherText:       string;   // Free-text when "Other" is checked
+}
+
+export interface CoPackingPalletization {
+  outboundPallets: string;
+  fee:             string;
+  markup:          string;
+}
+
+export interface CoPackingResult {
+  label:         string;
+  description:   string;
+  deliveredQty:  number;
+  requiredQty:   number;
+  ourCost:       number;
+  customerPrice: number;
+  ppu:           number;          // customerPrice / deliveredQty
 }

@@ -118,6 +118,7 @@ export default function ManageQuotes() {
 
       {/* Trigger button */}
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]"
       >
@@ -133,10 +134,10 @@ export default function ManageQuotes() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
               <h2 className="text-sm font-semibold text-gray-900">Saved Quotes</h2>
               <div className="flex items-center gap-2">
-                <button onClick={fetchQuotes} disabled={loading} title="Refresh" className="text-gray-400 hover:text-gray-600 disabled:opacity-40">
+                <button type="button" onClick={fetchQuotes} disabled={loading} title="Refresh" className="text-gray-400 hover:text-gray-600 disabled:opacity-40">
                   <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
                 </button>
-                <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <X size={14} />
                 </button>
               </div>
@@ -154,7 +155,7 @@ export default function ManageQuotes() {
                   className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder:text-gray-300"
                 />
                 {filter && (
-                  <button onClick={() => setFilter("")} className="text-gray-300 hover:text-gray-500">
+                  <button type="button" onClick={() => setFilter("")} className="text-gray-300 hover:text-gray-500">
                     <X size={10} />
                   </button>
                 )}
@@ -177,6 +178,7 @@ export default function ManageQuotes() {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
+                        type="button"
                         onClick={() => handleLoad(q.id, q.quote_name)}
                         disabled={loading1 === q.id}
                         className="h-6 px-2.5 text-[0.65rem] font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-50 rounded-lg transition-colors"
@@ -184,6 +186,7 @@ export default function ManageQuotes() {
                         {loading1 === q.id ? "Loading…" : "Load"}
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(q.id, q.quote_name)}
                         disabled={deleting === q.id}
                         className="h-6 w-6 flex items-center justify-center text-gray-300 hover:text-red-400 disabled:opacity-40 transition-colors"

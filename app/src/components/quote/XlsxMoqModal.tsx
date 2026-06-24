@@ -37,7 +37,7 @@ export default function XlsxMoqModal({ moqResults, defaultMoqId, generating, onC
               <p className="text-[0.7rem] text-white/70 mt-0.5">Choose which MOQ to populate in the Excel template</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors mt-0.5">
+          <button type="button" onClick={onClose} className="text-white/60 hover:text-white transition-colors mt-0.5">
             <X size={18} />
           </button>
         </div>
@@ -95,13 +95,13 @@ export default function XlsxMoqModal({ moqResults, defaultMoqId, generating, onC
         {/* Footer */}
         <div className="px-6 py-5 flex gap-3">
           <button
-            onClick={onClose}
+type="button"             onClick={onClose}
             className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
-            onClick={() => selected && onConfirm(selected)}
+type="button"             onClick={() => selected && onConfirm(selected)}
             disabled={generating || !selected}
             className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm shadow-[#e8473f]/30"
           >

@@ -134,16 +134,18 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
 
   const inputBase = "h-8 px-2 text-xs bg-amber-50 border border-amber-200 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition w-full";
 
+  if (!open) return null;
+
   return (
     <>
       {/* Overlay + centered modal */}
       <div
-        className={`fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40"
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
       {/* Modal */}
       <div
-        className={`relative w-full md:max-w-225 max-h-[90vh] bg-white rounded-lg shadow-2xl flex flex-col transition-all duration-200 ${open ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+        className="relative w-full md:max-w-225 max-h-[90vh] bg-white rounded-lg shadow-2xl flex flex-col"
       >
         {/* ── Header ── */}
         <div className="shrink-0 px-5 py-4 border-b border-gray-100 flex items-start justify-between bg-white">
@@ -151,7 +153,7 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
             <h2 className="text-sm font-bold text-gray-900">Margin Calculator</h2>
             <p className="text-[0.65rem] text-gray-400 mt-0.5">Adjust pricing across all MOQ configurations</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors mt-0.5">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors mt-0.5">
             <X size={18} />
           </button>
         </div>
@@ -209,13 +211,13 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
               {/* Mode toggle */}
               <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
                 <button
-                  onClick={() => setGlobalMode("margin")}
+type="button"                   onClick={() => setGlobalMode("margin")}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${globalMode === "margin" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   Set by Margin %
                 </button>
                 <button
-                  onClick={() => setGlobalMode("multiplier")}
+type="button"                   onClick={() => setGlobalMode("multiplier")}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${globalMode === "multiplier" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   Set by PPU Multiplier
@@ -239,7 +241,7 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
                     />
                     <span className="h-8 px-2 flex items-center text-xs text-gray-400 border border-l-0 border-amber-200 bg-amber-50/50 rounded-r">%</span>
                   </div>
-                  <button onClick={resetAll} className="h-8 px-3 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Reset</button>
+                  <button type="button" onClick={resetAll} className="h-8 px-3 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Reset</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -258,7 +260,7 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
                     />
                     <span className="h-8 px-2 flex items-center text-xs text-gray-400 border border-l-0 border-amber-200 bg-amber-50/50 rounded-r">×</span>
                   </div>
-                  <button onClick={resetAll} className="h-8 px-3 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Reset</button>
+                  <button type="button" onClick={resetAll} className="h-8 px-3 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Reset</button>
                 </div>
               )}
             </div>
@@ -511,7 +513,7 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
                     </span>
                     {isActive && (
                       <button
-                        onClick={() => {
+type="button"                         onClick={() => {
                           onApply(r.moqRow.id, adjPpu);
                           showToast("Applied to quote");
                         }}
