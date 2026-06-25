@@ -244,9 +244,15 @@ interface LeftContentProps {
   costPpuOverrides: Record<number, string>;
   additionalFees:    AdditionalFeeRow[];
   setAdditionalFees: React.Dispatch<React.SetStateAction<AdditionalFeeRow[]>>;
+  moqPpuInputs:    Record<number, string>;
+  setMoqPpuInputs: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  moqMargins:      Record<number, string>;
+  setMoqMargins:   React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  moqLastEdited:   Record<number, "margin" | "ppu">;
+  setMoqLastEdited: React.Dispatch<React.SetStateAction<Record<number, "margin" | "ppu">>>;
 }
 
-function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType, setProjectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees }: LeftContentProps) {
+function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType, setProjectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees, moqPpuInputs, setMoqPpuInputs, moqMargins, setMoqMargins, moqLastEdited, setMoqLastEdited }: LeftContentProps) {
   const { notRequired } = useSectionRequired();
   const processesRequired = !notRequired["section-processes"];
 
@@ -342,6 +348,13 @@ function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFo
         moqRows={moqRows}
         setMoqRows={setMoqRows}
         formData={formData}
+        packagingLevels={packagingLevels}
+        moqPpuInputs={moqPpuInputs}
+        setMoqPpuInputs={setMoqPpuInputs}
+        moqMargins={moqMargins}
+        setMoqMargins={setMoqMargins}
+        moqLastEdited={moqLastEdited}
+        setMoqLastEdited={setMoqLastEdited}
       />
       {/* ── Additional Costs & Fees ── */}
       <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
@@ -612,6 +625,9 @@ export default function Home() {
     additionalFees, setAdditionalFees,
     coPackingProcesses, setCoPackingProcesses,
     activeMoqId,
+    moqPpuInputs, setMoqPpuInputs,
+    moqMargins, setMoqMargins,
+    moqLastEdited, setMoqLastEdited,
   } = useProject();
 
   // ── CRM start modal ──────────────────────────────────────────────────────
@@ -707,6 +723,12 @@ export default function Home() {
             costPpuOverrides={costPpuOverrides}
             additionalFees={additionalFees}
             setAdditionalFees={setAdditionalFees}
+            moqPpuInputs={moqPpuInputs}
+            setMoqPpuInputs={setMoqPpuInputs}
+            moqMargins={moqMargins}
+            setMoqMargins={setMoqMargins}
+            moqLastEdited={moqLastEdited}
+            setMoqLastEdited={setMoqLastEdited}
           />
           </SectionRequiredProvider>
           </div>

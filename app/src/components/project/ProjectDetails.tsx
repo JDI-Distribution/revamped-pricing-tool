@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
-import { MoqRow, ProjectFormData, TestingRow } from "@/lib/types";
+import { MoqRow, ProjectFormData, TestingRow, PackagingLevel } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
 import CurrencyInput, { CurrencyInputType } from "@/components/ui/CurrencyInput";
 import { uid } from "@/lib/uid";
@@ -781,10 +781,24 @@ export function MoqSection({
   moqRows,
   setMoqRows,
   formData,
+  packagingLevels,
+  moqPpuInputs,
+  setMoqPpuInputs,
+  moqMargins,
+  setMoqMargins,
+  moqLastEdited: _moqLastEdited,
+  setMoqLastEdited,
 }: {
-  moqRows: MoqRow[];
-  setMoqRows: React.Dispatch<React.SetStateAction<MoqRow[]>>;
-  formData: ProjectFormData;
+  moqRows:        MoqRow[];
+  setMoqRows:     React.Dispatch<React.SetStateAction<MoqRow[]>>;
+  formData:       ProjectFormData;
+  packagingLevels: PackagingLevel[];
+  moqPpuInputs:   Record<number, string>;
+  setMoqPpuInputs: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  moqMargins:     Record<number, string>;
+  setMoqMargins:  React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  moqLastEdited:  Record<number, "margin" | "ppu">;
+  setMoqLastEdited: React.Dispatch<React.SetStateAction<Record<number, "margin" | "ppu">>>;
 }) {
   const [moqOpen,         setMoqOpen]         = useState(true);
   const [palletToolRowId, setPalletToolRowId] = useState<number | null>(null);
@@ -792,130 +806,292 @@ export function MoqSection({
   const { moqErrors, effectiveColumns, allMoqResults, perMoqSummaryRows } = useProject();
   const { notRequired } = useSectionRequired();
 
-  const card      = "pt-5 pb-6 border-t border-gray-100";
-  const colHead   = "text-[0.6rem] font-semibold text-black uppercase tracking-widest";
-  const addRowBtn = "flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors";
-  const cellInputBase = "h-8 w-full px-2 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
+  // Derive case pack suggestion from the first packaging level with a perOuter set
+  const suggestedCasePack = (() => {
+    const inner = packagingLevels.find(l => l.perOuter > 0 && l.packagingLevel !== "Individual Units" && l.packagingLevel !== "Final Kit Units");
+    const master = packagingLevels.find(l => l.packagingLevel === "Shipper / Outer" || l.packagingLevel === "Master" || (l !== inner && l.perOuter > 0 && inner && packagingLevels.indexOf(l) > packagingLevels.indexOf(inner)));
+    return { unitsPerInner: inner?.perOuter ?? 0, innersPerMaster: master?.perOuter ?? 0 };
+  })();
 
-  const addMoqRow    = () => setMoqRows(prev => [...prev, emptyMoqRow()]);
+  // Auto-seed first row from ppuDenominator when rows are empty and section is required
+  useEffect(() => {
+    if (notRequired["section-moq"]) return;
+    if (moqRows.length === 0) {
+      const denom = parseFloat(formData.ppuDenominator) || 0;
+      const row = emptyMoqRow();
+      if (denom > 0) {
+        row.individualUnits = String(denom);
+        row.moq = String(denom);
+      }
+      if (suggestedCasePack.unitsPerInner > 0) row.unitsPerInner = String(suggestedCasePack.unitsPerInner);
+      if (suggestedCasePack.innersPerMaster > 0) row.innersPerMaster = String(suggestedCasePack.innersPerMaster);
+      setMoqRows([row]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notRequired["section-moq"]]);
+
+  const addRowBtn = "flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors";
+  const inp = "h-8 w-full px-2 border border-amber-300 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
+  const inpRo = "h-8 w-full px-2 border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50 rounded-md select-none tabular-nums";
+  const colHead = "text-[0.6rem] font-semibold text-gray-500 uppercase tracking-widest";
+
   const removeMoqRow = (id: number) => setMoqRows(prev => prev.filter(r => r.id !== id));
   const updateMoqRow = (id: number, field: keyof MoqRow, value: string) =>
     setMoqRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
 
+  const addMoqRow = () => {
+    const row = emptyMoqRow();
+    if (suggestedCasePack.unitsPerInner > 0) row.unitsPerInner = String(suggestedCasePack.unitsPerInner);
+    if (suggestedCasePack.innersPerMaster > 0) row.innersPerMaster = String(suggestedCasePack.innersPerMaster);
+    setMoqRows(prev => [...prev, row]);
+  };
+
+  // PPU / Margin two-way handlers
+  const handlePpuChange = (rowId: number, rawPpu: string) => {
+    setMoqPpuInputs(p => ({ ...p, [rowId]: rawPpu }));
+    setMoqLastEdited(p => ({ ...p, [rowId]: "ppu" }));
+    const moqResult = allMoqResults.find(r => r.moqRow.id === rowId);
+    if (!moqResult) return;
+    const ppu = parseFloat(rawPpu);
+    if (!isNaN(ppu) && ppu > 0 && moqResult.ppuCost > 0) {
+      const margin = ((ppu - moqResult.ppuCost) / ppu) * 100;
+      setMoqMargins(p => ({ ...p, [rowId]: margin.toFixed(2) }));
+    }
+  };
+
+  const handleMarginChange = (rowId: number, rawMargin: string) => {
+    setMoqMargins(p => ({ ...p, [rowId]: rawMargin }));
+    setMoqLastEdited(p => ({ ...p, [rowId]: "margin" }));
+    const moqResult = allMoqResults.find(r => r.moqRow.id === rowId);
+    if (!moqResult) return;
+    const margin = parseFloat(rawMargin);
+    if (!isNaN(margin) && margin < 100 && moqResult.ppuCost > 0) {
+      const ppu = moqResult.ppuCost / (1 - margin / 100);
+      setMoqPpuInputs(p => ({ ...p, [rowId]: ppu.toFixed(4) }));
+    }
+  };
+
+  const fmtCurrency = (n: number) =>
+    n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
-      <div id="section-moq" className={card}>
-        <div className="px-5 pt-4 pb-5">
-        <div className="mb-4">
-          <SectionHeader
-            title="MOQ + Case Pack Configuration"
-            open={moqOpen}
-            onToggle={() => setMoqOpen(o => !o)}
-            sectionId="section-moq"
-            action={moqOpen ? <button type="button" onClick={addMoqRow} className={addRowBtn}><Plus size={10} strokeWidth={2.5} />Add Row</button> : undefined}
-          />
+      <div id="section-moq" className="border border-gray-200 rounded-xl overflow-hidden">
+
+        {/* Header */}
+        <div className="px-4 pt-3 pb-2 flex items-center gap-3 border-b border-gray-100">
+          <button type="button" onClick={() => setMoqOpen(o => !o)}
+            className="flex items-center gap-1.5 group">
+            <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">MOQ + Case Pack Configuration</span>
+            {moqOpen && !notRequired["section-moq"]
+              ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
+              : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+          </button>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            {moqOpen && !notRequired["section-moq"] && (
+              <button type="button" onClick={addMoqRow} className={addRowBtn}>
+                <Plus size={10} strokeWidth={2.5} />Add MOQ Option
+              </button>
+            )}
+            <RequiredToggle sectionId="section-moq" />
+          </div>
         </div>
+
         {moqOpen && !notRequired["section-moq"] && (
-          <div className="overflow-x-auto -mx-1 px-1">
-            <div className="min-w-120">
-              <div className="grid grid-cols-5 gap-2 pb-2 border-b border-gray-100 mb-2.5">
-                {["# of Units", "Units / Inner", "Inners / Master", "# of Pallets", "Cost/g"].map(col => (
-                  <span key={col} className={colHead}>{col}</span>
-                ))}
-              </div>
-              <div className="space-y-2">
-                {moqRows.map(row => {
-                  const qty        = parseFloat(row.individualUnits) || 0;
-                  const innerPack  = parseFloat(row.unitsPerInner)   || 0;
-                  const innerCount = innerPack > 0 ? Math.ceil(qty / innerPack) : 0;
-                  const rowErr     = moqErrors.find(e => e.rowId === row.id);
-                  const hasRateOverrides = row.fillRateOverrides &&
-                    Object.values(row.fillRateOverrides).some(v => v !== "");
+          <div className="px-4 py-4">
+            {/* Column headers */}
+            <div className="grid gap-2 pb-2 border-b border-gray-100 mb-3" style={{ gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1.1fr auto" }}>
+              {["MOQ Units", "Case Pack Config", "PPU", "Margin %", "Revenue", ""].map(h => (
+                <span key={h} className={colHead}>{h}</span>
+              ))}
+            </div>
 
-                  const moqResult  = allMoqResults.find(r => r.moqRow.id === row.id);
-                  const moqSRows   = perMoqSummaryRows.get(row.id) ?? [];
-                  const palletSRow = moqSRows.find(r => r.label === "Pallets & Fees");
-                  const outFee     = parseFloat(formData.outboundFee) || 0;
-                  const autoPallets = (palletSRow && outFee > 0) ? Math.round(palletSRow.ourCosts / outFee) : null;
+            <div className="space-y-3">
+              {moqRows.map((row, rowIndex) => {
+                const qty       = parseFloat(row.individualUnits) || 0;
+                const innerPack = parseFloat(row.unitsPerInner)   || 0;
+                const masterPack = parseFloat(row.innersPerMaster) || 0;
+                const innerCount = innerPack > 0 && qty > 0 ? Math.ceil(qty / innerPack) : 0;
+                const masterCount = masterPack > 0 && innerCount > 0 ? Math.ceil(innerCount / masterPack) : 0;
+                const rowErr    = moqErrors.find(e => e.rowId === row.id);
+                const hasRateOverrides = row.fillRateOverrides &&
+                  Object.values(row.fillRateOverrides).some(v => v !== "");
 
-                  const GRAMS_PER_DISP: Record<string, number> = { g: 1, oz: 28.3495, lb: 453.592, kg: 1000, mg: 0.001 };
-                  const unitWeightG = (parseFloat(formData.unitWeight) || 0) * (GRAMS_PER_DISP[formData.unitWeightUnit ?? "g"] ?? 1);
-                  const costPerGram = (moqResult && qty > 0 && unitWeightG > 0)
-                    ? moqResult.totalOurCost / (qty * unitWeightG) : null;
+                const moqResult = allMoqResults.find(r => r.moqRow.id === row.id);
+                const naturalPpu = moqResult?.ppu ?? 0;
+                const naturalPpuCost = moqResult?.ppuCost ?? 0;
 
-                  return (
-                    <div key={row.id} className="space-y-1">
-                      <div className="grid grid-cols-5 gap-2 items-center">
-                        <CurrencyInput type="integer"
-                          value={parseFloat(row.individualUnits) || 0}
-                          onChange={v => {
-                            const s = String(v);
-                            setMoqRows(prev => prev.map(r => r.id === row.id ? { ...r, individualUnits: s, moq: s } : r));
-                          }}
-                          placeholder="0" className={cellInputBase} />
-                        <CurrencyInput type="integer"
-                          value={parseFloat(row.unitsPerInner) || 0}
-                          onChange={v => updateMoqRow(row.id, "unitsPerInner", String(v))}
-                          placeholder="0"
-                          className={`${cellInputBase} ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`} />
-                        <CurrencyInput type="integer"
-                          value={parseFloat(row.innersPerMaster) || 0}
-                          onChange={v => updateMoqRow(row.id, "innersPerMaster", String(v))}
-                          placeholder="0"
-                          className={`${cellInputBase} ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`} />
+                // Effective PPU: use user's input if set; else fall back to natural PPU
+                const ppuInputStr = moqPpuInputs[row.id] ?? "";
+                const marginInputStr = moqMargins[row.id] ?? "";
+
+                // Display values
+                const displayPpu: string = ppuInputStr !== "" ? ppuInputStr : naturalPpu > 0 ? naturalPpu.toFixed(4) : "";
+                const displayMargin: string = marginInputStr !== "" ? marginInputStr : moqResult ? moqResult.marginPct.toFixed(2) : "";
+
+                const effectivePpu = ppuInputStr !== "" ? parseFloat(ppuInputStr) : naturalPpu;
+                const revenue = effectivePpu > 0 && qty > 0 ? effectivePpu * qty : null;
+
+                const moqSRows   = perMoqSummaryRows.get(row.id) ?? [];
+                const palletSRow = moqSRows.find(r => r.label === "Pallets & Fees");
+                const outFee     = parseFloat(formData.outboundFee) || 0;
+                const autoPallets = (palletSRow && outFee > 0) ? Math.round(palletSRow.ourCosts / outFee) : null;
+
+                const GRAMS_PER_DISP: Record<string, number> = { g: 1, oz: 28.3495, lb: 453.592, kg: 1000, mg: 0.001 };
+                const unitWeightG = (parseFloat(formData.unitWeight) || 0) * (GRAMS_PER_DISP[formData.unitWeightUnit ?? "g"] ?? 1);
+                const derivedCostPerGram = (moqResult && qty > 0 && unitWeightG > 0)
+                  ? moqResult.totalOurCost / (qty * unitWeightG) : null;
+
+                const isFirst = rowIndex === 0;
+
+                return (
+                  <div key={row.id} className={`rounded-lg border ${isFirst ? "border-amber-300 bg-amber-50/30" : "border-gray-200 bg-white"}`}>
+                    {/* Row label */}
+                    <div className="px-3 pt-2 pb-1 flex items-center gap-2">
+                      <span className={`text-[0.55rem] font-bold uppercase tracking-widest ${isFirst ? "text-amber-600" : "text-gray-400"}`}>
+                        {isFirst ? "Base MOQ" : `MOQ Option ${rowIndex + 1}`}
+                      </span>
+                      {moqResult && naturalPpuCost > 0 && (
+                        <span className="text-[0.55rem] text-gray-400">
+                          Cost PPU: <span className="font-semibold text-gray-600">{fmtCurrency(naturalPpuCost)}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Main 5-column input row */}
+                    <div className="px-3 pb-2 grid gap-2 items-center" style={{ gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1.1fr auto" }}>
+
+                      {/* MOQ Units */}
+                      <CurrencyInput type="integer"
+                        value={qty}
+                        onChange={v => {
+                          const s = String(v);
+                          setMoqRows(prev => prev.map(r => r.id === row.id ? { ...r, individualUnits: s, moq: s } : r));
+                        }}
+                        placeholder="0" className={inp} />
+
+                      {/* Case Pack Config — unitsPerInner / innersPerMaster stacked */}
+                      <div className="space-y-1">
                         <div className="flex items-center gap-1">
-                          <input type="text" inputMode="numeric"
-                            value={row.pallets ?? ""}
-                            onChange={e => updateMoqRow(row.id, "pallets", e.target.value)}
-                            placeholder={autoPallets !== null ? String(autoPallets) : "auto"}
-                            className={`${cellInputBase} flex-1 min-w-0`} />
-                          <button type="button" onClick={() => setPalletToolRowId(row.id)}
-                            title="Pallet calculator"
-                            className="shrink-0 text-gray-300 hover:text-amber-500 transition-colors p-0.5">
-                            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-                              <rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/>
-                              <text x="8" y="11" textAnchor="middle" fontSize="8" fontWeight="bold">🧮</text>
-                            </svg>
-                          </button>
-                          <button type="button" onClick={() => setFillRateRowId(row.id)}
-                            title={hasRateOverrides ? "Custom rates active" : "Fill rate overrides"}
-                            className={`shrink-0 transition-colors p-0.5 ${hasRateOverrides ? "text-[#e8473f]" : "text-gray-300 hover:text-[#e8473f]"}`}>
-                            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-                              <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
-                              <circle cx="8" cy="8" r="2" fill="currentColor"/>
-                              <line x1="8" y1="1" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5"/>
-                              <line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" strokeWidth="1.5"/>
-                              <line x1="1" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5"/>
-                              <line x1="12" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.5"/>
-                            </svg>
-                          </button>
-                          <button type="button" onClick={() => removeMoqRow(row.id)}
-                            className="shrink-0 text-gray-300 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
+                          <div className="flex items-center flex-1 min-w-0">
+                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-gray-500 rounded-l-md shrink-0 select-none whitespace-nowrap">/inn</span>
+                            <CurrencyInput type="integer"
+                              value={innerPack}
+                              onChange={v => updateMoqRow(row.id, "unitsPerInner", String(v))}
+                              placeholder={suggestedCasePack.unitsPerInner > 0 ? String(suggestedCasePack.unitsPerInner) : "0"}
+                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`} />
+                          </div>
+                          <span className="text-[0.6rem] text-gray-400 shrink-0">×</span>
+                          <div className="flex items-center flex-1 min-w-0">
+                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-gray-500 rounded-l-md shrink-0 select-none whitespace-nowrap">/mst</span>
+                            <CurrencyInput type="integer"
+                              value={masterPack}
+                              onChange={v => updateMoqRow(row.id, "innersPerMaster", String(v))}
+                              placeholder={suggestedCasePack.innersPerMaster > 0 ? String(suggestedCasePack.innersPerMaster) : "0"}
+                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`} />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-0.5 min-w-0">
-                          <input type="text" inputMode="decimal"
-                            value={row.costPerGram ?? ""}
-                            onChange={e => updateMoqRow(row.id, "costPerGram", e.target.value)}
-                            placeholder={costPerGram !== null ? costPerGram.toFixed(4) : "0.0000"}
-                            className={`${cellInputBase} flex-1 min-w-0 font-mono`} />
-                          {row.costPerGram !== undefined && row.costPerGram !== "" && (
-                            <button type="button"
-                              onClick={() => updateMoqRow(row.id, "costPerGram", "")}
-                              title="Reset to derived value"
-                              className="shrink-0 text-[0.6rem] text-gray-300 hover:text-[#e8473f] transition-colors pl-0.5">↺</button>
-                          )}
-                        </div>
+                        {(innerCount > 0 || masterCount > 0) && (
+                          <p className="text-[0.58rem] text-gray-400 leading-tight">
+                            {innerCount > 0 && <>{innerCount} inners{masterCount > 0 ? ` · ${masterCount} masters` : ""}</>}
+                          </p>
+                        )}
+                        {rowErr?.unitsPerInner   && <p className="text-[0.58rem] text-red-500">{rowErr.unitsPerInner}</p>}
+                        {rowErr?.innersPerMaster && <p className="text-[0.58rem] text-red-500">{rowErr.innersPerMaster}</p>}
                       </div>
-                      {rowErr?.unitsPerInner   && <p className="text-[0.6rem] text-red-500 font-medium">{rowErr.unitsPerInner}</p>}
-                      {rowErr?.innersPerMaster && <p className="text-[0.6rem] text-red-500 font-medium">{rowErr.innersPerMaster}</p>}
-                      <div className="flex items-center gap-2">
-                        {!rowErr && innerPack > 0 && qty > 0 && <p className="text-[0.6rem] text-gray-400">→ {innerCount} inners</p>}
-                        {hasRateOverrides && <p className="text-[0.6rem] text-[#e8473f] font-medium">⚙ custom rates</p>}
+
+                      {/* PPU — editable, 2-way with margin */}
+                      <div className="flex items-center">
+                        <span className="h-8 px-2 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-gray-500 rounded-l-md shrink-0 select-none">$</span>
+                        <input
+                          type="number" step="0.0001" min={0}
+                          value={displayPpu}
+                          onChange={e => handlePpuChange(row.id, e.target.value)}
+                          placeholder={naturalPpu > 0 ? naturalPpu.toFixed(4) : "0.0000"}
+                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md tabular-nums"
+                        />
+                      </div>
+
+                      {/* Margin % — editable, 2-way with PPU */}
+                      <div className="flex items-center">
+                        <input
+                          type="number" step="0.01" min={0} max={99.99}
+                          value={displayMargin}
+                          onChange={e => handleMarginChange(row.id, e.target.value)}
+                          placeholder={moqResult ? moqResult.marginPct.toFixed(2) : "0.00"}
+                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-l-md tabular-nums"
+                        />
+                        <span className="h-8 px-2 flex items-center border border-l-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-gray-500 rounded-r-md shrink-0 select-none">%</span>
+                      </div>
+
+                      {/* Revenue — read-only */}
+                      <div className={inpRo + " flex items-center justify-end"}>
+                        {revenue != null ? (
+                          <span className="text-[#e8473f]">{fmtCurrency(revenue)}</span>
+                        ) : (
+                          <span className="text-gray-300 font-normal text-[0.65rem]">—</span>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => setPalletToolRowId(row.id)}
+                          title="Pallet calculator"
+                          className="text-gray-300 hover:text-amber-500 transition-colors p-0.5">
+                          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+                            <rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                            <text x="8" y="11" textAnchor="middle" fontSize="8" fontWeight="bold">🧮</text>
+                          </svg>
+                        </button>
+                        <button type="button" onClick={() => setFillRateRowId(row.id)}
+                          title={hasRateOverrides ? "Custom fill rates active" : "Fill rate overrides"}
+                          className={`transition-colors p-0.5 ${hasRateOverrides ? "text-[#e8473f]" : "text-gray-300 hover:text-[#e8473f]"}`}>
+                          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+                            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                            <circle cx="8" cy="8" r="2" fill="currentColor"/>
+                            <line x1="8" y1="1" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5"/>
+                            <line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" strokeWidth="1.5"/>
+                            <line x1="1" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5"/>
+                            <line x1="12" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.5"/>
+                          </svg>
+                        </button>
+                        {moqRows.length > 1 && (
+                          <button type="button" onClick={() => removeMoqRow(row.id)}
+                            className="text-gray-300 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Secondary row — cost/gram override + pallet override */}
+                    <div className="px-3 pb-2.5 flex items-center gap-4 border-t border-gray-100/60 pt-1.5">
+                      <span className="text-[0.55rem] text-gray-400 uppercase tracking-widest shrink-0">Overrides</span>
+                      {/* Pallets */}
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-[0.6rem] text-gray-400 shrink-0">Pallets:</span>
+                        <input type="text" inputMode="numeric"
+                          value={row.pallets ?? ""}
+                          onChange={e => updateMoqRow(row.id, "pallets", e.target.value)}
+                          placeholder={autoPallets !== null ? String(autoPallets) : "auto"}
+                          className="h-6 w-16 px-1.5 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md" />
+                        {hasRateOverrides && <span className="text-[0.58rem] text-[#e8473f] font-medium shrink-0">⚙ custom rates</span>}
+                      </div>
+                      {/* Cost/gram */}
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-[0.6rem] text-gray-400 shrink-0">Cost/g:</span>
+                        <input type="text" inputMode="decimal"
+                          value={row.costPerGram ?? ""}
+                          onChange={e => updateMoqRow(row.id, "costPerGram", e.target.value)}
+                          placeholder={derivedCostPerGram !== null ? derivedCostPerGram.toFixed(4) : "0.0000"}
+                          className="h-6 w-24 px-1.5 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md font-mono" />
+                        {row.costPerGram !== undefined && row.costPerGram !== "" && (
+                          <button type="button" onClick={() => updateMoqRow(row.id, "costPerGram", "")}
+                            title="Reset to derived" className="text-[0.6rem] text-gray-300 hover:text-[#e8473f] transition-colors">↺</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -940,7 +1116,7 @@ export function MoqSection({
               onClose={() => setFillRateRowId(null)} />
           ) : null;
         })()}
-        </div>{/* end inner padding */}
+
       </div>
     </div>
   );

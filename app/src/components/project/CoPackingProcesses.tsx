@@ -13,23 +13,23 @@ const CollapsedContext = React.createContext<Record<string, boolean>>({});
 function Col({ proc, children }: { proc: CoPackingProcess; children: React.ReactNode }) {
   const collapsedCols = React.useContext(CollapsedContext);
   return collapsedCols[proc.id]
-    ? <td className="border-l border-gray-200 bg-gray-50/60" style={{ width: 36, minWidth: 36 }} />
-    : <td className="px-2 py-1 border-l border-gray-200 bg-[#fffbf2]">{children}</td>;
+    ? <td className="border-l border-amber-200 bg-amber-50/40" style={{ width: 36, minWidth: 36 }} />
+    : <td className="px-2 py-1 border-l border-amber-200 bg-[#fef9ee]">{children}</td>;
 }
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const cellInp =
-  "h-7 w-full px-2 border border-amber-200 text-[0.7rem] text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const cellInpSuffix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-200 border-r-0 text-[0.7rem] text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const cellInpPrefix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-200 border-l-0 text-[0.7rem] text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-r";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-r";
 const suffixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-200 border-l-0 text-[0.58rem] text-gray-400 bg-amber-50/50 rounded-r select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-gray-500 bg-amber-100/60 rounded-r select-none shrink-0";
 const prefixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-200 border-r-0 text-[0.58rem] text-gray-400 bg-amber-50/50 rounded-l select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-300 border-r-0 text-[0.58rem] text-gray-500 bg-amber-100/60 rounded-l select-none shrink-0";
 const labelCell =
-  "px-3 py-1 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10";
+  "px-3 py-1 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10";
 
 // ── Unit conversion to grams ──────────────────────────────────────────────────
 const TO_GRAMS: Record<string, number> = {
@@ -202,7 +202,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
             {/* ── Column headers ── */}
             <thead>
               <tr>
-                <th className="w-[185px] min-w-[185px] px-3 py-2 text-left text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest border-b border-gray-200 bg-white sticky left-0 z-10">
+                <th className="w-[185px] min-w-[185px] px-3 py-2 text-left text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest border-b border-amber-200/70 bg-white sticky left-0 z-10">
                   Rate Field
                 </th>
                 {processes.map((proc, idx) => {
@@ -266,7 +266,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
             <tbody>
 
               {/* ── Name ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Name</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -276,11 +276,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       className={cellInp} />
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Units ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Units</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -291,11 +291,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       className={cellInp} />
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Batch Size ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Batch Size</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -304,20 +304,20 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         value={proc.batchSizeValue || ""}
                         onChange={e => update(proc.id, { batchSizeValue: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
-                        className="h-7 flex-1 min-w-0 px-2 border border-amber-200 text-[0.7rem] text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
+                        className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
                       <select value={proc.batchSizeUnit}
                         onChange={e => update(proc.id, { batchSizeUnit: e.target.value })}
-                        className="h-7 px-1 border border-l-0 border-amber-200 text-[0.7rem] text-gray-700 bg-amber-50/50 focus:outline-none rounded-r shrink-0">
+                        className="h-7 px-1 border border-l-0 border-amber-300 text-[0.7rem] text-gray-700 bg-amber-100/60 focus:outline-none rounded-r shrink-0">
                         {BATCH_SIZE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Overage Rate ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Overage Rate</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -329,11 +329,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Process Speed ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Process Speed</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -342,10 +342,10 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         value={proc.processSpeedValue || ""}
                         onChange={e => update(proc.id, { processSpeedValue: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
-                        className="h-7 flex-1 min-w-0 px-2 border border-amber-200 text-[0.7rem] text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
+                        className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
                       <select value={proc.processSpeedUnit}
                         onChange={e => update(proc.id, { processSpeedUnit: e.target.value })}
-                        className="h-7 px-1 border border-l-0 border-amber-200 text-[0.7rem] text-gray-700 bg-amber-50/50 focus:outline-none rounded-r shrink-0">
+                        className="h-7 px-1 border border-l-0 border-amber-300 text-[0.7rem] text-gray-700 bg-amber-100/60 focus:outline-none rounded-r shrink-0">
                         <optgroup label="Throughput">
                           {SPEED_UNITS_THROUGHPUT.map(u => <option key={u} value={u}>{u}</option>)}
                         </optgroup>
@@ -356,11 +356,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Labor Rate ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Labor Rate ($/hr)</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -372,11 +372,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Eff. Buffer % ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Eff. Buffer %</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -388,11 +388,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Labor Markup ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Labor Mkp %</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -404,11 +404,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── No. of Staff ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>No. of Staff</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -418,11 +418,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       className={cellInp} />
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Hrs / Shift ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Hrs / Shift</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -432,11 +432,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       className={cellInp} />
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Working Days ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Working Days</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -446,11 +446,11 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       className={cellInp} />
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Min Labor Hrs ── */}
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Min Labor Hrs</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
@@ -464,12 +464,12 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </div>
                   </Col>
                 ))}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Est. Summary ── */}
-              <tr className="border-b border-gray-200 bg-gray-50/60">
-                <td className="px-3 py-1 text-[0.63rem] text-gray-500 bg-gray-50/80 sticky left-0 z-10">Est. Summary</td>
+              <tr className="border-b border-amber-200 bg-amber-50/60">
+                <td className="px-3 py-1 text-[0.63rem] font-semibold text-amber-700 bg-amber-100/70 sticky left-0 z-10">Est. Summary</td>
                 {processes.map((proc, idx) => {
                   const { totalQty, calcHrs, laborOur, laborCust, batchCount, minApplied } = deriveStats(proc, idx);
                   return (
@@ -490,29 +490,77 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     </Col>
                   );
                 })}
-                <td className="border-l border-gray-200" />
+                <td className="border-l border-amber-200/70" />
               </tr>
 
               {/* ── Recipe Composition ── */}
               {processes.some(p => p.name.toLowerCase() === "blending") && (() => {
+                const ING_COLORS = ["bg-blue-400","bg-emerald-400","bg-violet-400","bg-orange-400","bg-pink-400","bg-teal-400","bg-yellow-400","bg-red-400"];
+                const maxIngs = Math.max(...processes.map(p =>
+                  p.name.toLowerCase() === "blending" ? p.recipeIngredients.length : 0
+                ));
                 return (
                   <>
-                    <tr className="border-t-2 border-gray-100">
-                      <td className="px-3 py-1.5 bg-[#f5f0e8] sticky left-0 z-10">
-                        <p className="text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest">Recipe Composition</p>
-                        <p className="text-[0.55rem] text-gray-400 mt-0.5">Shown when name = "Blending"</p>
+                    {/* Section divider header */}
+                    <tr>
+                      <td colSpan={processes.length + 2} className="p-0">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-t-2 border-amber-200">
+                          <div className="w-1 h-4 rounded-full bg-amber-400 shrink-0" />
+                          <span className="text-[0.6rem] font-bold text-amber-700 uppercase tracking-widest">Recipe Composition</span>
+                          <span className="text-[0.55rem] text-amber-500 ml-1">— visible on Blending processes</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Composition bar + Add Ingredient per blending column */}
+                    <tr className="border-b border-amber-100">
+                      <td className="px-3 py-2 bg-amber-50/60 sticky left-0 z-10">
+                        <span className="text-[0.6rem] text-amber-600 font-semibold">Composition</span>
                       </td>
                       {processes.map((proc, idx) => {
                         const isBlending = proc.name.toLowerCase() === "blending";
                         const { totalQty } = deriveStats(proc, idx);
+                        const sum = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
+                        const isOk   = Math.abs(sum - 100) < 0.01;
+                        const isOver = sum > 100.01;
                         return (
                           <Col key={proc.id} proc={proc}>
                             {isBlending ? (
-                              <div className="space-y-0.5">
-                                <p className="text-[0.55rem] text-gray-400">
-                                  Based on {totalQty.toFixed(2)} {proc.batchSizeUnit} total
-                                  {proc.overageRate > 0 ? ` (${proc.overageRate}% overage)` : ""}
-                                </p>
+                              <div className="space-y-1.5 py-0.5">
+                                {/* Stacked composition bar */}
+                                {proc.recipeIngredients.length > 0 && (
+                                  <div>
+                                    <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+                                      {(() => {
+                                        let offset = 0;
+                                        return proc.recipeIngredients.map((ing, i) => {
+                                          const w = Math.min(ing.percentage ?? 0, 100 - offset);
+                                          const seg = (
+                                            <div key={ing.id}
+                                              title={`${ing.name || `Ingredient ${i+1}`}: ${(ing.percentage ?? 0).toFixed(1)}%`}
+                                              className={`absolute h-full ${ING_COLORS[i % ING_COLORS.length]} transition-all`}
+                                              style={{ left: `${offset}%`, width: `${w}%` }} />
+                                          );
+                                          offset += w;
+                                          return seg;
+                                        });
+                                      })()}
+                                      {isOver && <div className="absolute inset-0 bg-red-400 opacity-20 rounded-full" />}
+                                    </div>
+                                    <div className="flex items-center justify-between mt-0.5">
+                                      <span className={`text-[0.55rem] font-semibold tabular-nums ${isOk ? "text-green-600" : isOver ? "text-red-500" : "text-amber-500"}`}>
+                                        {sum.toFixed(1)}% {isOk ? "✓" : isOver ? `(+${(sum-100).toFixed(1)}%)` : `(${(100-sum).toFixed(1)}% left)`}
+                                      </span>
+                                      <span className="text-[0.5rem] text-gray-400">target 100%</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {proc.batchSizeValue > 0 && totalQty > 0 && (
+                                  <p className="text-[0.55rem] text-amber-600">
+                                    {totalQty.toFixed(2)} {proc.batchSizeUnit} total
+                                    {proc.overageRate > 0 ? ` (+${proc.overageRate}% ovg)` : ""}
+                                  </p>
+                                )}
                                 <button type="button" onClick={() => addIngredient(proc.id)}
                                   className="text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] transition-colors whitespace-nowrap">
                                   + Add Ingredient
@@ -524,76 +572,80 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           </Col>
                         );
                       })}
-                      <td className="border-l border-gray-200" />
+                      <td className="border-l border-amber-100 bg-amber-50/40" />
                     </tr>
 
-                    {(() => {
-                      const maxIngs = Math.max(...processes.map(p =>
-                        p.name.toLowerCase() === "blending" ? p.recipeIngredients.length : 0
-                      ));
-                      if (maxIngs === 0) return null;
-                      return Array.from({ length: maxIngs }).map((_, ingIdx) => (
-                        <tr key={`ing-${ingIdx}`} className="border-b border-gray-200">
-                          <td className="px-3 py-1 text-[0.68rem] text-gray-500 italic bg-[#f5f0e8] sticky left-0 z-10">
-                            Ingredient {ingIdx + 1}
-                          </td>
-                          {processes.map((proc, procIdx) => {
-                            const isBlending = proc.name.toLowerCase() === "blending";
-                            if (!isBlending) return (
-                              <Col key={proc.id} proc={proc}>
-                                <span className="text-[0.6rem] text-gray-300 italic">—</span>
-                              </Col>
-                            );
-                            const ing = proc.recipeIngredients[ingIdx];
-                            if (!ing) return (
-                              <Col key={proc.id} proc={proc}>
-                                <span className="text-[0.6rem] text-gray-300 italic">—</span>
-                              </Col>
-                            );
-                            const { totalQty } = deriveStats(proc, procIdx);
-                            const totalGrams = totalQty * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
-                            const ingGrams   = (ing.percentage / 100) * totalGrams;
-                            const ingQty     = convertFromGrams(ingGrams, ing.unit);
-                            return (
-                              <Col key={proc.id} proc={proc}>
-                                <div className="space-y-1">
+                    {/* One row per ingredient slot */}
+                    {maxIngs > 0 && Array.from({ length: maxIngs }).map((_, ingIdx) => (
+                      <tr key={`ing-${ingIdx}`} className="border-b border-amber-100">
+                        <td className="px-3 py-1.5 bg-amber-50/60 sticky left-0 z-10">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${ING_COLORS[ingIdx % ING_COLORS.length]}`} />
+                            <span className="text-[0.63rem] text-amber-700 font-medium">Ingredient {ingIdx + 1}</span>
+                          </div>
+                        </td>
+                        {processes.map((proc, procIdx) => {
+                          const isBlending = proc.name.toLowerCase() === "blending";
+                          if (!isBlending) return (
+                            <Col key={proc.id} proc={proc}>
+                              <span className="text-[0.6rem] text-gray-300 italic">—</span>
+                            </Col>
+                          );
+                          const ing = proc.recipeIngredients[ingIdx];
+                          if (!ing) return (
+                            <Col key={proc.id} proc={proc}>
+                              <span className="text-[0.6rem] text-gray-300 italic">—</span>
+                            </Col>
+                          );
+                          const { totalQty } = deriveStats(proc, procIdx);
+                          const totalGrams = totalQty * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
+                          const ingGrams   = (ing.percentage / 100) * totalGrams;
+                          const ingQty     = convertFromGrams(ingGrams, ing.unit);
+                          return (
+                            <Col key={proc.id} proc={proc}>
+                              <div className="space-y-1 py-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ING_COLORS[ingIdx % ING_COLORS.length]}`} />
                                   <input type="text" value={ing.name}
                                     onChange={e => updateIngredient(proc.id, ing.id, { name: e.target.value })}
                                     placeholder="Ingredient name…"
-                                    className="h-6 w-full px-2 text-[0.7rem] border border-amber-200 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 rounded transition" />
-                                  <div className="flex gap-1 items-center">
-                                    <div className="flex items-center flex-1 min-w-0">
-                                      <input type="number" min={0} max={100} step={0.1}
-                                        value={ing.percentage || ""}
-                                        onChange={e => updateIngredient(proc.id, ing.id, { percentage: parseFloat(e.target.value) || 0 })}
-                                        placeholder="%"
-                                        className="h-6 w-10 px-1 text-[0.7rem] border border-amber-200 bg-amber-50/50 focus:outline-none rounded-l" />
-                                      <span className="h-6 px-1 text-[0.55rem] text-gray-400 border border-l-0 border-amber-200 bg-amber-50/50 flex items-center rounded-r select-none">%</span>
-                                    </div>
-                                    <select value={ing.unit}
-                                      onChange={e => updateIngredient(proc.id, ing.id, { unit: e.target.value })}
-                                      className="h-6 px-1 text-[0.7rem] border border-amber-200 bg-amber-50/50 focus:outline-none rounded shrink-0">
-                                      {INGREDIENT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                    </select>
-                                    {ing.percentage > 0 && totalGrams > 0 && (
-                                      <span className="text-[0.55rem] text-gray-500 tabular-nums whitespace-nowrap">
-                                        = {ingQty.toFixed(2)} {ing.unit}
-                                      </span>
-                                    )}
-                                    <button type="button" onClick={() => removeIngredient(proc.id, ing.id)}
-                                      className="text-gray-300 hover:text-red-400 transition-colors text-base leading-none shrink-0">×</button>
-                                  </div>
+                                    className="h-6 flex-1 min-w-0 px-2 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 rounded transition placeholder:text-gray-300" />
+                                  <button type="button" onClick={() => removeIngredient(proc.id, ing.id)}
+                                    className="text-gray-300 hover:text-red-400 transition-colors text-sm leading-none shrink-0" title="Remove">×</button>
                                 </div>
-                              </Col>
-                            );
-                          })}
-                          <td className="border-l border-gray-200" />
-                        </tr>
-                      ));
-                    })()}
+                                <div className="flex gap-1 items-center">
+                                  <div className="flex items-center">
+                                    <input type="number" min={0} max={100} step={0.1}
+                                      value={ing.percentage || ""}
+                                      onChange={e => updateIngredient(proc.id, ing.id, { percentage: parseFloat(e.target.value) || 0 })}
+                                      placeholder="%"
+                                      className="h-6 w-12 px-1.5 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none rounded-l text-right tabular-nums" />
+                                    <span className="h-6 px-1 text-[0.55rem] text-gray-500 border border-l-0 border-amber-300 bg-amber-100/60 flex items-center rounded-r select-none">%</span>
+                                  </div>
+                                  <select value={ing.unit}
+                                    onChange={e => updateIngredient(proc.id, ing.id, { unit: e.target.value })}
+                                    className="h-6 px-1 text-[0.7rem] border border-amber-300 bg-amber-100/60 focus:outline-none rounded shrink-0">
+                                    {INGREDIENT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                  </select>
+                                  {ing.percentage > 0 && totalGrams > 0 && (
+                                    <span className="text-[0.55rem] text-amber-600 font-medium tabular-nums whitespace-nowrap">
+                                      = {ingQty.toFixed(2)} {ing.unit}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </Col>
+                          );
+                        })}
+                        <td className="border-l border-amber-100 bg-amber-50/40" />
+                      </tr>
+                    ))}
 
-                    <tr className="border-b border-gray-200">
-                      <td className={labelCell}>Total %</td>
+                    {/* Total % summary row */}
+                    <tr className="border-b-2 border-amber-200">
+                      <td className="px-3 py-1.5 bg-amber-100/60 sticky left-0 z-10">
+                        <span className="text-[0.6rem] font-bold text-amber-700 uppercase tracking-wider">Total %</span>
+                      </td>
                       {processes.map((proc) => {
                         const isBlending = proc.name.toLowerCase() === "blending";
                         if (!isBlending) return (
@@ -601,19 +653,25 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                             <span className="text-[0.6rem] text-gray-300 italic">—</span>
                           </Col>
                         );
-                        const sum = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
+                        const sum    = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
                         const isOk   = Math.abs(sum - 100) < 0.01;
                         const isOver = sum > 100.01;
                         return (
                           <Col key={proc.id} proc={proc}>
-                            <span className={`text-[0.65rem] font-semibold tabular-nums ${isOk ? "text-green-600" : isOver ? "text-red-500" : "text-amber-500"}`}>
-                              Total: {sum.toFixed(1)}%{" "}
-                              {isOk ? "✓" : isOver ? `— exceeds 100%` : `— ${(100 - sum).toFixed(1)}% unaccounted`}
-                            </span>
+                            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[0.6rem] font-bold tabular-nums ${
+                              isOk   ? "bg-green-100 text-green-700" :
+                              isOver ? "bg-red-100 text-red-600"     :
+                                       "bg-amber-100 text-amber-700"
+                            }`}>
+                              {sum.toFixed(1)}%
+                              {isOk   ? " ✓" :
+                               isOver ? ` — ${(sum-100).toFixed(1)}% over` :
+                                        ` — ${(100-sum).toFixed(1)}% left`}
+                            </div>
                           </Col>
                         );
                       })}
-                      <td className="border-l border-gray-200" />
+                      <td className="border-l border-amber-100 bg-amber-100/40" />
                     </tr>
                   </>
                 );

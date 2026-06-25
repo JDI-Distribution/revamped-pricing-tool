@@ -178,6 +178,58 @@ Do not change any colors in the app.
 
 ## Changelog
 
+### 2026-06-25 — Reimagined MOQ section
+
+#### MOQ section redesigned with per-row PPU/Margin/Revenue and case pack suggestions
+
+**Change:** The MOQ + Case Pack Configuration section was fully redesigned. Key changes:
+- **New column layout (left→right):** MOQ Units | Case Pack Config (units/inner × inners/master) | PPU | Margin % | Revenue (read-only)
+- **Two-way PPU ↔ Margin:** editing PPU recalculates margin in real-time; editing margin back-calculates PPU. Both fields show natural (cost-derived) values as placeholders when not overridden
+- **Revenue = PPU × MOQ units** — displayed read-only per row in red
+- **Cost PPU badge** shown per row so users see the cost basis before adjusting margin
+- **Case pack suggestion:** auto-populates units/inner and inners/master from the first packaging level with `perOuter > 0` (from CPO Packaging Line Setup)
+- **Auto-seed first row:** when the section is toggled Required and no rows exist, creates a row pre-filled with `ppuDenominator` units and the suggested case pack
+- **"Add MOQ Option" button** with the same case pack suggestion pre-filled for new rows
+- **Pallet, fill rate, cost/gram overrides** moved to a compact secondary "Overrides" row per card, keeping the main row clean
+- **Row styling:** Base MOQ gets an amber-tinted card; additional options get plain white cards
+- **Section header** matches the rest of the app (chevron toggle + RequiredToggle)
+
+**Files changed:**
+- `app/src/components/project/ProjectDetails.tsx` — full rewrite of `MoqSection`; added `PackagingLevel` import; new props: `packagingLevels`, `moqPpuInputs`/`setMoqPpuInputs`, `moqMargins`/`setMoqMargins`, `moqLastEdited`/`setMoqLastEdited`
+- `app/src/pages/Home.tsx` — added new props to `LeftContentProps` and `LeftContent`; pulls `moqPpuInputs`, `moqMargins`, `moqLastEdited` + setters from `useProject()`; passes all to `MoqSection`
+
+---
+
+### 2026-06-25 — Increased contrast in Processes, Recipe Composition, and Packaging Line Setup tables
+
+#### Input fields, cell backgrounds, borders, and label columns darkened across all three table sections
+
+**Change:** All three horizontal-scroll table sections — Processes, Recipe Composition, and Packaging Line Setup — had near-invisible input/cell styling. Contrast was increased uniformly:
+- Input backgrounds: `bg-amber-50/50` → `bg-amber-100/70`
+- Input borders: `border-amber-200` → `border-amber-300`
+- Suffix/prefix unit badges: `bg-amber-50/50` → `bg-amber-100/60`, text `text-gray-400` → `text-gray-500`
+- Cell data background (`Col` helper): `bg-[#fffbf2]` → `bg-[#fef9ee]`; collapsed cell: amber tint instead of gray
+- Label column: `bg-[#f5f0e8]` → `bg-[#ede8dc]`
+- Row divider borders: `border-gray-200` → `border-amber-200/70`
+- Est. Summary row (Processes): styled with `bg-amber-100/70` label cell and amber text to stand out as a summary row
+
+**Files changed:**
+- `app/src/components/project/CoPackingProcesses.tsx` — style token constants + inline hardcoded classes
+- `app/src/components/project/PackagingLevels.tsx` — style token constants + Col helper + all label cells + outputs sub-header
+
+---
+
+### 2026-06-25 — Recipe Composition section styling
+
+#### Recipe Composition section redesigned to match app styling conventions
+
+**Change:** The Recipe Composition block inside the Processes table (shown when a process is named "Blending") was restyled from plain gray table rows to a visually distinct amber-tinted section matching the app's section divider and output panel patterns. Changes: amber section divider header row with colored left-border accent; color-coded dot per ingredient in both the label column and the ingredient rows; stacked composition bar with per-ingredient color segments and live % status; "Total %" summary row replaced with a pill badge (green ✓ / amber / red) consistent with the rest of the app; "Add Ingredient" button moved into the Composition row for each blending process column; right-side empty cell in recipe rows uses amber tint to match.
+
+**Files changed:**
+- `app/src/components/project/CoPackingProcesses.tsx` — rewrote the Recipe Composition section JSX (lines ~497–620)
+
+---
+
 ### 2026-06-25 — Manual charge level assignment + outputs panel integration
 
 #### Manual charges can now be assigned to a specific packaging level

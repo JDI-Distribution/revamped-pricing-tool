@@ -91,11 +91,11 @@ export function effectiveTypeName(lvl: PackagingLevel): string {
 // ── Shared cell styles ────────────────────────────────────────────────────────
 
 const cellInp =
-  "h-7 w-full px-2 border border-amber-200 text-[0.7rem] text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const cellInpSuffix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-200 border-r-0 text-[0.7rem] text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const suffixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-200 border-l-0 text-[0.58rem] text-gray-400 bg-amber-50/50 rounded-r select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-gray-500 bg-amber-100/60 rounded-r select-none shrink-0";
 const naCell = "text-[0.65rem] text-gray-300 italic";
 
 // ── Stable Col helper (defined outside component to avoid remount on every render) ──
@@ -105,8 +105,8 @@ const CollapsedContext = React.createContext<Record<string, boolean>>({});
 function Col({ lvl, children }: { lvl: PackagingLevel; children?: React.ReactNode }) {
   const collapsedCols = React.useContext(CollapsedContext);
   return collapsedCols[lvl.id]
-    ? <td className="border-l border-gray-200 bg-gray-50/60" style={{ width: 36, minWidth: 36 }} />
-    : <td className="px-2 py-1 border-l border-gray-200 bg-[#fffbf2]">{children}</td>;
+    ? <td className="border-l border-amber-200 bg-amber-50/40" style={{ width: 36, minWidth: 36 }} />
+    : <td className="px-2 py-1 border-l border-amber-200 bg-[#fef9ee]">{children}</td>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
             <thead>
               <tr>
                 {/* Rate Field label cell */}
-                <th className="w-36 min-w-[140px] px-3 py-2 text-left text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest border-b border-gray-200 bg-white sticky left-0 z-10">
+                <th className="w-36 min-w-[140px] px-3 py-2 text-left text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest border-b border-amber-200/70 bg-white sticky left-0 z-10">
                   Rate Field
                 </th>
                 {packagingLevels.map((lvl, index) => {
@@ -276,8 +276,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
             <tbody>
               {/* ── Type row ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Type</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Type</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     {lvl.packagingType === "custom_mode" ? (
@@ -309,8 +309,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Overage Rate ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Overage Rate</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Overage Rate</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -324,8 +324,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Wage Rate ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Wage Rate</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Wage Rate</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -339,8 +339,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Unit Fill Rate / Min ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Unit Fill Rate / Min</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Unit Fill Rate / Min</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.fillRatePerMin}
@@ -351,8 +351,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Label Print Cost / Unit ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Label Print Cost / Unit</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Label Print Cost / Unit</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -366,8 +366,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Label Apply Rate / Min ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Label Apply Rate / Min</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Label Apply Rate / Min</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.labelApplyRate}
@@ -378,8 +378,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Packaging Weight ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Packaging Weight</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Packaging Weight</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -393,8 +393,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── No. of Staff / Stations ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">No. of Staff / Stations</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">No. of Staff / Stations</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.numStaff}
@@ -405,8 +405,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Hrs / Shift ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Hrs / Shift</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Hrs / Shift</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.hrsPerShift}
@@ -417,8 +417,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Working Days ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Working Days</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Working Days</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.workingDays}
@@ -429,8 +429,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Tab Cost / Unit ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Tab Cost / Unit</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Tab Cost / Unit</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     {lvl.tabsEnabled ? (
@@ -448,8 +448,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Eff. Buffer % ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Eff. Buffer %</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Eff. Buffer %</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -463,8 +463,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Labor Mkp % ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Labor Mkp %</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Labor Mkp %</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -478,8 +478,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Unit Mkp % ── */}
-              <tr className="border-b border-gray-200">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#f5f0e8] sticky left-0 z-10">Unit Mkp %</td>
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Unit Mkp %</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -501,9 +501,9 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 {packagingLevels.map(lvl => {
                   const isOpen = !!outputsOpen[lvl.id];
                   return collapsedCols[lvl.id]
-                    ? <td key={lvl.id} className="w-9 border-l border-gray-200 bg-gray-50" />
+                    ? <td key={lvl.id} className="w-9 border-l border-amber-200 bg-amber-50/40" />
                     : (
-                      <td key={lvl.id} className="px-2 py-1 border-l border-gray-200 bg-gray-50">
+                      <td key={lvl.id} className="px-2 py-1 border-l border-amber-200 bg-amber-50/40">
                         <button
                           type="button"
                           onClick={() => setOutputsOpen(o => ({ ...o, [lvl.id]: !o[lvl.id] }))}
@@ -572,13 +572,13 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
                 // Sub-header row showing Our / Customer column labels
                 const subHeader = (
-                  <tr key="col-subheader" className="border-b border-gray-200 bg-gray-50">
-                    <td className="px-3 py-1 sticky left-0 z-10 bg-gray-50" />
+                  <tr key="col-subheader" className="border-b border-amber-200/70 bg-amber-50/40">
+                    <td className="px-3 py-1 sticky left-0 z-10 bg-amber-50/40" />
                     {packagingLevels.map(lvl =>
                       collapsedCols[lvl.id]
-                        ? <td key={lvl.id} className="w-9 border-l border-gray-200 bg-gray-50" />
+                        ? <td key={lvl.id} className="w-9 border-l border-amber-200 bg-amber-50/40" />
                         : (
-                          <td key={lvl.id} className="px-2 py-0.5 border-l border-gray-200 bg-gray-50">
+                          <td key={lvl.id} className="px-2 py-0.5 border-l border-amber-200 bg-amber-50/40">
                             {outputsOpen[lvl.id] && (
                               <div className="flex justify-between">
                                 <span className="text-[0.52rem] font-bold text-gray-400 uppercase tracking-wider">Our Cost</span>
@@ -600,8 +600,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                         {row.label}
                       </td>
                       {packagingLevels.map((lvl, i) => {
-                        if (collapsedCols[lvl.id]) return <td key={lvl.id} className="w-9 border-l border-gray-200" />;
-                        if (!outputsOpen[lvl.id]) return <td key={lvl.id} className="px-2 py-1 border-l border-gray-200 text-right"><span className="text-[0.65rem] text-gray-300">—</span></td>;
+                        if (collapsedCols[lvl.id]) return <td key={lvl.id} className="w-9 border-l border-amber-200 bg-amber-50/40" />;
+                        if (!outputsOpen[lvl.id]) return <td key={lvl.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-gray-300">—</span></td>;
                         return (
                           <td key={lvl.id} className={`px-2 py-1 border-l ${isCost ? "border-amber-200" : "border-gray-200"}`}>
                             {isCost ? (
