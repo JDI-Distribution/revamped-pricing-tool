@@ -178,6 +178,31 @@ Do not change any colors in the app.
 
 ## Changelog
 
+### 2026-06-25 — Manual charge level assignment + outputs panel integration
+
+#### Manual charges can now be assigned to a specific packaging level
+
+**Change:** The manual charge dialog in Packaging Line Setup now has a "Packaging Level" dropdown. When a specific level is selected, the charge only applies to that level's costs. Charges without a level assignment continue to apply to all levels ("All levels"). The Packaging Line Costs outputs panel now reflects these per-level charges — each level's Our Cost and Customer price includes the applicable manual charges (level-specific + all-levels), with a note showing the added manual charge total when non-zero.
+
+**Files changed:**
+- `app/src/lib/types.ts` — added `levelId?: string` to `ManualCharge` interface
+- `app/src/components/project/PackagingLevels.tsx` — updated `draftCharge` state to include `levelId`; added level dropdown to the add-charge form; updated `addCharge` to persist `levelId`; existing charges display shows assigned level name or "All levels"
+- `app/src/pages/Home.tsx` — packaging outputs panel now computes per-level manual charge totals from `packagingLevels[0].manualCharges` and adds them to the displayed Our Cost / Customer price per level; shows "incl. $X.XX manual charges" note when applicable
+
+---
+
+### 2026-06-25 — Packaging Line Setup outputs panel
+
+#### Per-level cost outputs panel added next to Packaging Line Setup
+
+**Change:** Added an amber outputs panel to the right of the Packaging Line Setup table (matching the CPO / Raw Material sidebar pattern). It shows each packaging level as its own block with Our Cost and Customer price. Non-packaging rows (Setup / QA Fee, Materials, Pallets & Fees, testing) are filtered out — only packaging level rows appear. Panel is hidden when the section is toggled Not Required or when there are no computed costs.
+
+**Files changed:**
+- `app/src/components/project/PackagingLevels.tsx` — added optional `className` prop to allow the outer wrapper class to be overridden by the parent
+- `app/src/pages/Home.tsx` — wrapped `PackagingLevels` in a `flex gap-5 items-start` container; added amber sidebar panel reading from `summaryRows` (already in context); `PackagingLevels` now receives `className="... flex-1 min-w-0"` to fill remaining width
+
+---
+
 ### 2026-06-25 — Inventory Handling section
 
 #### New "Inventory Handling" section added between Raw Materials and Testing

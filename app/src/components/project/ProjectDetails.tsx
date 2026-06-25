@@ -247,6 +247,28 @@ export default function ProjectDetails({
 
             {/* ── shared row token: label col fixed 180px, input col fills rest ── */}
 
+            {/* Setup + QA Fee */}
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">Setup + QA Fee</span>
+              <div className="flex items-center w-40">
+                <span className={prefixBadge}>$</span>
+                <CurrencyInput type="dollar" value={parseFloat(formData.setupFeeCustomer) || 0}
+                  onChange={v => setFormField("setupFeeCustomer", String(v))}
+                  className={inputWithPrefix} />
+              </div>
+            </div>
+
+            {/* Project Management Fee */}
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">Project Management Fee</span>
+              <div className="flex items-center w-40">
+                <span className={prefixBadge}>$</span>
+                <CurrencyInput type="dollar" value={parseFloat((formData as any).projectManagementFee) || 0}
+                  onChange={v => setFormField("projectManagementFee" as keyof typeof formData, String(v))}
+                  className={inputWithPrefix} />
+              </div>
+            </div>
+
             {/* Unit Size / ea */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -271,6 +293,16 @@ export default function ProjectDetails({
                     <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* PPU Denominator */}
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">PPU Denominator</span>
+              <div className="w-40">
+                <CurrencyInput type="integer" value={parseFloat(formData.ppuDenominator) || 0}
+                  onChange={v => setFormField("ppuDenominator", String(v))}
+                  className={inputKey} />
               </div>
             </div>
 
@@ -388,27 +420,6 @@ export default function ProjectDetails({
               </div>
             </div>
 
-            {/* Setup Fee */}
-            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Setup + QA Fee</span>
-              <div className="flex items-center w-40">
-                <span className={prefixBadge}>$</span>
-                <CurrencyInput type="dollar" value={parseFloat(formData.setupFeeCustomer) || 0}
-                  onChange={v => setFormField("setupFeeCustomer", String(v))}
-                  className={inputWithPrefix} />
-              </div>
-            </div>
-
-            {/* PPU Denominator */}
-            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">PPU Denominator</span>
-              <div className="w-40">
-                <CurrencyInput type="integer" value={parseFloat(formData.ppuDenominator) || 0}
-                  onChange={v => setFormField("ppuDenominator", String(v))}
-                  className={inputKey} />
-              </div>
-            </div>
-
             {/* Lead Time Buffer */}
             <div id="section-lead-time" className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-gray-600">Lead Time Buffer</span>
@@ -483,6 +494,12 @@ export default function ProjectDetails({
           <span className={outLbl}>Customer Cost</span>
           <span className={outCxVal}>{fv(parseFloat(formData.setupFeeCustomer) || 0, fmtD)}</span>
         </div>
+        {parseFloat((formData as any).projectManagementFee) > 0 && (
+          <div className={outRow}>
+            <span className={outLbl}>Project Mgmt Fee</span>
+            <span className={outCxVal}>{fmtD(parseFloat((formData as any).projectManagementFee))}</span>
+          </div>
+        )}
       </div>}
       </div>{/* end section-row CPO */}
 
@@ -580,19 +597,21 @@ export default function ProjectDetails({
       {!notRequired["section-inventory-handling"] && (() => {
         const intakeFee         = parseFloat(formData.intakeFee as string) || 0;
         const numIntakePallets  = parseFloat((formData as any).numIntakePallets ?? formData.numPallets) || 0;
-        const invHandlingFee    = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
+        const invHandlingFeePerPallet = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
+        const invHandlingFeeTotal = invHandlingFeePerPallet * numIntakePallets;
         const intakeMarkup      = parseFloat(formData.intakeFeeMarkup as string) || 0;
         const intakeTotalOur    = intakeFee * numIntakePallets;
         const intakeTotalCx     = intakeTotalOur * (1 + intakeMarkup / 100);
-        const invHandlingCx     = invHandlingFee * (1 + intakeMarkup / 100);
-        const totalOur          = intakeTotalOur + invHandlingFee;
+        const invHandlingCx     = invHandlingFeeTotal * (1 + intakeMarkup / 100);
+        const totalOur          = intakeTotalOur + invHandlingFeeTotal;
         const totalCustomer     = intakeTotalCx + invHandlingCx;
         return (
           <div className={outPanel}>
             <div className={outTitle}>Inventory Handling Outputs</div>
             <div className={outRow}><span className={outLbl}>Intake Fee / Pallet</span><span className={outVal}>{fv(intakeFee, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}># Intake Pallets</span><span className={outVal}>{numIntakePallets > 0 ? fmtN(numIntakePallets) : "—"}</span></div>
-            <div className={outRow}><span className={outLbl}>Inventory Handling Fee</span><span className={outVal}>{fv(invHandlingFee, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Inv. Handling Fee / Pallet</span><span className={outVal}>{fv(invHandlingFeePerPallet, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Inv. Handling Fee Total</span><span className={outVal}>{fv(invHandlingFeeTotal, fmtD)}</span></div>
             <div className={outCostSep}>Handling Costs</div>
             <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCustomer, fmtD)}</span></div>

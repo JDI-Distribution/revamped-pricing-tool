@@ -32,6 +32,7 @@ const initialFormData: ProjectFormData = {
   testingMarkup:           "20",
   setupFeeOur:             "598",
   setupFeeCustomer:        "1495",
+  projectManagementFee:    "0",
   ppuDenominator:          "6600",
   leadTimeBufferDays:      "57",
   startDate:               (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })(),

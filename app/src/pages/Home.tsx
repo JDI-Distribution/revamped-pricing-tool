@@ -272,7 +272,66 @@ function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFo
           </div>
         </div>
       )}
-      <PackagingLevels packagingLevels={packagingLevels} setPackagingLevels={setPackagingLevels} />
+      {/* Packaging Line Setup + outputs panel */}
+      <div className="flex gap-5 items-start px-4 md:px-6 mb-4">
+        <PackagingLevels
+          packagingLevels={packagingLevels}
+          setPackagingLevels={setPackagingLevels}
+          className="bg-white border border-gray-200 rounded-xl overflow-hidden flex-1 min-w-0"
+        />
+        {!notRequired["section-packaging-summary"] && summaryRows.length > 0 && (() => {
+          const allCharges = packagingLevels[0]?.manualCharges ?? [];
+          const pkgRows = summaryRows.filter(r => !["Setup / QA Fee", "Materials", "Pallets & Fees"].includes(r.label) && !r.label.startsWith("Testing –"));
+
+          // Compute manual charge total for a given packagingLevel
+          const manualChargeTotal = (lvl: (typeof packagingLevels)[0]): number => {
+            const lvlCharges = allCharges.filter(c => !c.levelId || c.levelId === lvl.id);
+            const baseUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0
+              ? lvl.cpoRequiredQty
+              : (lvl.units > 0 ? lvl.units : 0);
+            const unitsWithOverage = Math.ceil(baseUnits * (1 + lvl.overageRate / 100));
+            return lvlCharges.reduce((sum, c) => sum + (c.basis === "per_unit" ? c.amount * unitsWithOverage : c.amount), 0);
+          };
+
+          return (
+            <div className="w-56 shrink-0 sticky top-14 bg-[#FFF8F0] border border-amber-200 rounded-xl overflow-hidden shadow-sm shadow-amber-100">
+              <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-amber-700 uppercase tracking-widest border-b border-amber-200 bg-amber-100/60">
+                Packaging Line Costs
+              </div>
+              {pkgRows.map((r, i) => {
+                const lvl = packagingLevels[i];
+                const chargeTotal = lvl ? manualChargeTotal(lvl) : 0;
+                const totalOur = r.ourCosts + chargeTotal;
+                const totalCx  = r.customerPrice + chargeTotal;
+                return (
+                  <div key={i} className="border-b border-amber-100 last:border-0">
+                    <div className="px-3 pt-2 pb-0.5 text-[0.6rem] font-bold text-gray-600 uppercase tracking-wider">{r.label}</div>
+                    <div className="flex items-start justify-between gap-3 px-3 pb-2">
+                      <div>
+                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
+                        <div className="text-[0.72rem] font-semibold text-gray-700 tabular-nums">
+                          {totalOur > 0 ? totalOur.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "—"}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                        <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">
+                          {totalCx > 0 ? totalCx.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "—"}
+                        </div>
+                      </div>
+                    </div>
+                    {chargeTotal > 0 && (
+                      <div className="px-3 pb-2 text-[0.55rem] text-amber-600 italic">
+                        incl. {chargeTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })} manual charges
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
       <PalletizationSection
         formData={formData}
         setFormField={setFormField}

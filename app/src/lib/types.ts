@@ -43,6 +43,7 @@ export interface ManualCharge {
   name:      string;
   amount:    number;   // dollar amount
   basis:     "per_unit" | "fixed";
+  levelId?:  string;   // id of the PackagingLevel this charge applies to; undefined = all levels
 }
 
 export interface PackagingLevel {
@@ -149,6 +150,7 @@ export interface ProjectFormData {
   // Setup / QA fee (separate our-cost vs customer price)
   setupFeeOur: string;
   setupFeeCustomer: string;
+  projectManagementFee: string;
   ppuDenominator: string;
   // Material markups
   materialOverage: string;

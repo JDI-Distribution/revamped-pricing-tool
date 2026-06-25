@@ -114,9 +114,10 @@ function Col({ lvl, children }: { lvl: PackagingLevel; children?: React.ReactNod
 interface Props {
   packagingLevels:    PackagingLevel[];
   setPackagingLevels: React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
+  className?: string;
 }
 
-export default function PackagingLevels({ packagingLevels, setPackagingLevels }: Props) {
+export default function PackagingLevels({ packagingLevels, setPackagingLevels, className }: Props) {
   const [sectionOpen, setSectionOpen]   = useState(true);
   const [outputsOpen, setOutputsOpen]   = useState<Record<string, boolean>>({});
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
@@ -160,16 +161,19 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels }:
   };
 
   // ── Manual charges ─────────────────────────────────────────────────────────
-  const [draftCharge, setDraftCharge] = useState<{ name: string; amount: string; basis: "per_unit" | "fixed" }>({
-    name: "", amount: "", basis: "per_unit",
+  const [draftCharge, setDraftCharge] = useState<{ name: string; amount: string; basis: "per_unit" | "fixed"; levelId: string }>({
+    name: "", amount: "", basis: "per_unit", levelId: "",
   });
 
   const addCharge = () => {
     const amount = parseFloat(draftCharge.amount);
     if (!draftCharge.name.trim() || isNaN(amount) || amount <= 0) return;
-    const charge: ManualCharge = { id: uid(), name: draftCharge.name.trim(), amount, basis: draftCharge.basis };
+    const charge: ManualCharge = {
+      id: uid(), name: draftCharge.name.trim(), amount, basis: draftCharge.basis,
+      ...(draftCharge.levelId ? { levelId: draftCharge.levelId } : {}),
+    };
     setPackagingLevels(prev => prev.map(l => ({ ...l, manualCharges: [...(l.manualCharges ?? []), charge] })));
-    setDraftCharge({ name: "", amount: "", basis: "per_unit" });
+    setDraftCharge({ name: "", amount: "", basis: "per_unit", levelId: draftCharge.levelId });
   };
 
   const removeCharge = (chargeId: string) =>
@@ -185,7 +189,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels }:
 
 
   return (
-    <div id="section-packaging-summary" className="bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl">
+    <div id="section-packaging-summary" className={className ?? "bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl"}>
 
       {/* ── Section header ── */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
@@ -638,7 +642,14 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels }:
             {allCharges.length > 0 && (
               <div className="mb-2 space-y-1">
                 {allCharges.map(c => {
-                  const chargeRows = packagingLevels.map((lvl, index) => {
+                  const assignedLevels = c.levelId
+                    ? packagingLevels.filter(l => l.id === c.levelId)
+                    : packagingLevels;
+                  const assignedLabel = c.levelId
+                    ? (packagingLevels.find(l => l.id === c.levelId)?.customLevelName || packagingLevels.find(l => l.id === c.levelId)?.packagingLevel || "Level")
+                    : "All levels";
+                  const chargeRows = assignedLevels.map((lvl) => {
+                    const index = packagingLevels.indexOf(lvl);
                     const baseUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0
                       ? lvl.cpoRequiredQty
                       : effectiveUnits(lvl, index, packagingLevels);
@@ -649,11 +660,12 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels }:
                   return (
                     <div key={c.id} className="flex items-center gap-2 text-[0.65rem] bg-white border border-amber-200 rounded px-2 py-1">
                       <span className="font-semibold text-gray-700 flex-1 min-w-0 truncate">{c.name}</span>
+                      <span className="text-[0.6rem] text-gray-400 shrink-0 italic">{assignedLabel}</span>
                       <span className="text-gray-400 shrink-0">${c.amount.toFixed(2)} {c.basis === "per_unit" ? "/ unit" : "fixed"}</span>
                       <span className="text-gray-300 shrink-0">→</span>
                       {chargeRows.map(({ lvl, total, unitsWithOverage }) => (
                         <span key={lvl.id} className="text-[#e8473f] font-semibold tabular-nums shrink-0">
-                          {effectiveTypeName(lvl) || lvl.packagingLevel}: ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           {c.basis === "per_unit" && <span className="text-gray-400 font-normal"> ({unitsWithOverage.toLocaleString()} u)</span>}
                         </span>
                       ))}
@@ -679,6 +691,21 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels }:
                   placeholder="e.g. Tray Insert Cost"
                   className="h-8 w-full px-3 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
                 />
+              </div>
+              <div className="shrink-0">
+                <p className="text-[0.5rem] text-gray-400 mb-0.5">Packaging Level</p>
+                <select
+                  value={draftCharge.levelId}
+                  onChange={e => setDraftCharge(d => ({ ...d, levelId: e.target.value }))}
+                  className="h-8 px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition cursor-pointer"
+                >
+                  <option value="">All levels</option>
+                  {packagingLevels.map(lvl => (
+                    <option key={lvl.id} value={lvl.id}>
+                      {lvl.customLevelName || lvl.packagingLevel || effectiveTypeName(lvl) || `Level ${packagingLevels.indexOf(lvl) + 1}`}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="shrink-0">
                 <p className="text-[0.5rem] text-gray-400 mb-0.5">Amount ($)</p>
