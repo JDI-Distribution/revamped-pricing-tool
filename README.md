@@ -228,3 +228,14 @@ Do not change any colors in the app.
 
 **Files changed:**
 - `app/src/components/project/ProjectInfoSection.tsx` — removed `RequiredToggle` import, `useSectionRequired` hook, `isNR` variable, and `!isNR` guards on open/collapse logic
+
+---
+
+### 2026-06-25 — Processes table column width
+
+#### Narrow Processes table columns to match Packaging Line Setup
+
+**Change:** The Processes section table column width was reduced from `168px` to `160px` to match the Packaging Line Setup table, which uses `160px` columns.
+
+**Files changed:**
+- `app/src/components/project/CoPackingProcesses.tsx` — `minWidth` on expanded column headers changed from `168` to `160`; `tableMinWidth` formula updated from `185 + visibleCols * 168 + ...` to `185 + visibleCols * 160 + ...`

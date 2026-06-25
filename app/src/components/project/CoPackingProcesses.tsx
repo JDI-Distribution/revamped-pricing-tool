@@ -170,7 +170,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
   const numCols = processes.length;
   const visibleCols = processes.filter(p => !collapsedCols[p.id]).length;
   const collapsedCount = numCols - visibleCols;
-  const tableMinWidth = 185 + visibleCols * 168 + collapsedCount * 36;
+  const tableMinWidth = 185 + visibleCols * 160 + collapsedCount * 36;
 
   return (
     <div id="section-processes" className="bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl">
@@ -229,7 +229,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                   return (
                     <th key={proc.id}
                       className="px-2 py-2 text-left text-[0.65rem] font-bold text-white bg-gray-800 border-b border-l border-gray-700"
-                      style={{ minWidth: 168 }}>
+                      style={{ minWidth: 160 }}>
                       <div className="flex items-center justify-between gap-1">
                         <div className="min-w-0">
                           <span className="truncate block">{proc.name || `Process ${idx + 1}`}</span>
