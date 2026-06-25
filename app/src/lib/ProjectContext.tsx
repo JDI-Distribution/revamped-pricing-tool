@@ -20,6 +20,7 @@ const initialFormData: ProjectFormData = {
   intakeFee:               "195",
   numPallets:              "1",
   numIntakePallets:        "1",
+  inventoryHandlingFee:    "0",
   outboundFee:             "350",
   outboundFeeMarkup:       "40",
   maxPalletWeightLbs:      "2000",

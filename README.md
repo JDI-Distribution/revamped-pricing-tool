@@ -178,6 +178,33 @@ Do not change any colors in the app.
 
 ## Changelog
 
+### 2026-06-25 — Inventory Handling section
+
+#### New "Inventory Handling" section added between Raw Materials and Testing
+
+**Change:** Moved Intake Fee / Pallet, # Intake Pallets, and Intake Fee Markup out of Raw Materials into a new standalone "Inventory Handling" section. Added a new "Inventory Handling Fee" input ($). The section has its own collapsible card, Required/Not Required toggle, outputs panel (showing per-pallet intake total + handling fee, our cost and customer total), and sidebar nav entry.
+
+**Files changed:**
+- `app/src/lib/types.ts` — added `inventoryHandlingFee: string` to `ProjectFormData`
+- `app/src/lib/ProjectContext.tsx` — added `inventoryHandlingFee: "0"` to default `formData`
+- `app/src/lib/calculations.test.ts` — added `inventoryHandlingFee: "0"` to all test fixtures
+- `app/src/components/project/ProjectDetails.tsx` — removed intake fee / pallet fields from Raw Material section; added `invHandlingOpen` state; inserted Inventory Handling section + outputs panel
+- `app/src/pages/Home.tsx` — added `section-inventory-handling` to sidebar sections array
+
+---
+
+### 2026-06-25 — Project type driven by Processes toggle; radio removed
+
+#### Standard vs Co-Packing is now set automatically via the Processes section toggle
+
+**Change:** Removed the Standard / Co-Packing radio buttons from Project Info. Project type is now derived automatically: when the Processes section is toggled **Required**, `projectType` becomes `"copacking"`; when toggled **Not Required**, it becomes `"standard"`. The Process Cost Summary panel (per-process line items) appears below the Processes table only in co-packing mode.
+
+**Files changed:**
+- `app/src/components/project/ProjectInfoSection.tsx` — removed `PROJECT_TYPE_OPTS` array, radio button JSX, and `projectType`/`setProjectType` from `useProject()` destructure
+- `app/src/pages/Home.tsx` — added `CoPackingSummaryPanel` import; added `setProjectType` to `useProject()` destructure and `LeftContentProps`; `LeftContent` now syncs `notRequired["section-processes"]` → `setProjectType` via `useEffect`; renders `CoPackingSummaryPanel` card when `projectType === "copacking"`
+
+---
+
 ### 2026-06-24 — Save state unification + blending removal + misc fixes
 
 #### Save state unification (root cause fixes from discrepancy report)

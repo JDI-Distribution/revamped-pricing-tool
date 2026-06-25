@@ -130,10 +130,11 @@ export interface ProjectFormData {
   rawMaterialSkus: string;
   leftOverInventoryCost: string;
   leftOverInventoryAbsorb: string;
-  // Material intake pallets
+  // Material intake pallets (now in Inventory Handling section)
   intakeFee: string;
   numPallets: string;
   numIntakePallets: string;
+  inventoryHandlingFee: string;
   // Outbound / finished-goods pallets
   outboundFee: string;
   outboundFeeMarkup: string;

@@ -8,11 +8,6 @@ const labelCls = "text-[0.58rem] font-semibold text-gray-400 uppercase tracking-
 const inputCls =
   "h-8 w-full px-2.5 text-xs text-gray-900 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300";
 
-const PROJECT_TYPE_OPTS = [
-  { val: "standard"  as const, label: "Standard"      },
-  { val: "copacking" as const, label: "Co-Packing (Customer-Supplied)" },
-];
-
 function GroupDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 mt-5 mb-3">
@@ -23,7 +18,7 @@ function GroupDivider({ label }: { label: string }) {
 }
 
 export default function ProjectInfoSection() {
-  const { customer, setCustomerField, selectedBrand, setSelectedBrand, projectType, setProjectType } = useProject();
+  const { customer, setCustomerField, selectedBrand, setSelectedBrand } = useProject();
   const [open, setOpen] = useState(true);
 
   return (
@@ -42,25 +37,6 @@ export default function ProjectInfoSection() {
 
         {open && (
           <div className="max-w-4xl">
-            {/* Project Type */}
-            <div className="flex gap-5 mt-3 mb-1">
-              {PROJECT_TYPE_OPTS.map(opt => (
-                <label key={opt.val} className="flex items-center gap-2 cursor-pointer group">
-                  <span className={`w-3.5 h-3.5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    projectType === opt.val
-                      ? "border-[#e8473f] bg-[#e8473f]"
-                      : "border-gray-300 group-hover:border-[#e8473f]/60"
-                  }`}>
-                    {projectType === opt.val && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                  </span>
-                  <button type="button" onClick={() => setProjectType(opt.val)}
-                    className={`text-[0.7rem] text-left transition-colors ${projectType === opt.val ? "font-semibold text-gray-900" : "text-gray-500"}`}>
-                    {opt.label}
-                  </button>
-                </label>
-              ))}
-            </div>
-
             {/* ── CUSTOMER INFO ── */}
             <GroupDivider label="Customer Info" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">

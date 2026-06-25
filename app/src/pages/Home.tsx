@@ -7,6 +7,7 @@ import ProjectInfoSection from "@/components/project/ProjectInfoSection";
 import ProjectDetails, { MoqSection } from "@/components/project/ProjectDetails";
 import PackagingLevels from "@/components/project/PackagingLevels";
 import CoPackingProcesses from "@/components/project/CoPackingProcesses";
+import CoPackingSummaryPanel from "@/components/project/CoPackingSummaryPanel";
 import SectionSidebar, { SidebarSection } from "@/components/SectionSidebar";
 import CrmStartModal, { CrmParams as CrmStartParams } from "@/components/CrmStartModal";
 import { useProject } from "@/lib/ProjectContext";
@@ -232,6 +233,7 @@ interface LeftContentProps {
   scaledColumns: Column[];
   moqQty:    number;
   projectType: string;
+  setProjectType: React.Dispatch<React.SetStateAction<"standard" | "copacking">>;
   coPackingProcesses: CoPackingProcess[];
   setCoPackingProcesses: React.Dispatch<React.SetStateAction<CoPackingProcess[]>>;
   summaryRows:      SummaryRow[];
@@ -244,7 +246,14 @@ interface LeftContentProps {
   setAdditionalFees: React.Dispatch<React.SetStateAction<AdditionalFeeRow[]>>;
 }
 
-function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees }: LeftContentProps) {
+function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType, setProjectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees }: LeftContentProps) {
+  const { notRequired } = useSectionRequired();
+  const processesRequired = !notRequired["section-processes"];
+
+  useEffect(() => {
+    setProjectType(processesRequired ? "copacking" : "standard");
+  }, [processesRequired, setProjectType]);
+
   return (
     <>
       <ProjectInfoSection />
@@ -253,6 +262,16 @@ function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFo
         setFormField={setFormField}
       />
       <CoPackingProcesses processes={coPackingProcesses} setProcesses={setCoPackingProcesses} />
+      {projectType === "copacking" && (
+        <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              <span className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Process Cost Summary</span>
+            </div>
+            <CoPackingSummaryPanel />
+          </div>
+        </div>
+      )}
       <PackagingLevels packagingLevels={packagingLevels} setPackagingLevels={setPackagingLevels} />
       <PalletizationSection
         formData={formData}
@@ -522,7 +541,7 @@ function PriceAdjustmentSection({
 // ── Home ─────────────────────────────────────────────────────────────────────
 export default function Home() {
   const {
-    projectType,
+    projectType, setProjectType,
     moqRows, setMoqRows,
     packagingLevels, setPackagingLevels,
     scaledColumns,
@@ -587,6 +606,7 @@ export default function Home() {
   const sections: SidebarSection[] = [
     { id: "section-project-info",       label: "Project Info",       visible: true },
     { id: "section-raw-materials",      label: "Raw Materials",      visible: true },
+    { id: "section-inventory-handling", label: "Inventory Handling", visible: true },
     { id: "section-testing",            label: "Testing",            visible: true },
     { id: "section-processes",          label: "Processes",          visible: true },
     { id: "section-packaging-summary",  label: "Pkg Configuration",  visible: true },
@@ -617,6 +637,7 @@ export default function Home() {
             scaledColumns={scaledColumns}
             moqQty={moqQty}
             projectType={projectType}
+            setProjectType={setProjectType}
             coPackingProcesses={coPackingProcesses}
             setCoPackingProcesses={setCoPackingProcesses}
             summaryRows={summaryRows}

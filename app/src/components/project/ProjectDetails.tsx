@@ -121,6 +121,7 @@ export default function ProjectDetails({
   const [convPrefill,     setConvPrefill]     = useState<ConversionPrefill | undefined>();
   const [cpoOpen,         setCpoOpen]         = useState(true);
   const [rawMatOpen,      setRawMatOpen]      = useState(true);
+  const [invHandlingOpen, setInvHandlingOpen] = useState(true);
   const [testingOpen,     setTestingOpen]     = useState(true);
   const { setTestingRows, packagingLevels, setPackagingLevels } = useProject();
   const { notRequired } = useSectionRequired();
@@ -497,17 +498,8 @@ export default function ProjectDetails({
                 <span className="text-xs text-gray-600">Overage Rate</span>
                 <SymInput field="materialOverage" type="number" sym="%" formData={formData} setFormField={setFormField} />
               </div>
-              {/* Group 2 */}
-              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                <span className="text-xs text-gray-600">Intake Fee / Pallet</span>
-                <SymInput field="intakeFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
-              </div>
-              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5 mb-3 border-b border-gray-200">
-                <span className="text-xs text-gray-600"># Intake Pallets</span>
-                <SymInput field="numIntakePallets" type="number" sym="" formData={formData} setFormField={setFormField} />
-              </div>
 
-              {/* Group 3 */}
+              {/* Group 2 */}
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
                 <span className="text-xs text-gray-600">Cost / Gram</span>
                 <SymInput field="costPerGram" type="number" sym="$" formData={formData} setFormField={setFormField} />
@@ -521,14 +513,10 @@ export default function ProjectDetails({
                 <SymInput field="leftOverInventoryAbsorb" type="number" sym="%" formData={formData} setFormField={setFormField} />
               </div>
 
-              {/* Group 4 */}
+              {/* Group 3 */}
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
                 <span className="text-xs text-gray-600">Raw Matl Markup</span>
                 <SymInput field="rawMaterialMarkup" type="number" sym="%" formData={formData} setFormField={setFormField} />
-              </div>
-              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                <span className="text-xs text-gray-600">Intake Fee Markup</span>
-                <SymInput field="intakeFeeMarkup" type="number" sym="%" formData={formData} setFormField={setFormField} />
               </div>
           </div>
         )}
@@ -537,20 +525,14 @@ export default function ProjectDetails({
 
       {/* Raw Material outputs panel */}
       {!notRequired["section-raw-materials"] && (() => {
-        const overagePct        = parseFloat(formData.materialOverage as string) || 0;
-        const reqGrams          = Math.ceil(baseQty * (1 + overagePct / 100)) * unitWeightG;
-        const reqOz             = reqGrams / 28.3495;
-        const reqLbs            = reqGrams / 453.592;
-        const intakeFee         = parseFloat(formData.intakeFee as string) || 0;
-        const cpg               = parseFloat(formData.costPerGram as string) || 0;
-        const rawMatMarkup      = parseFloat(formData.rawMaterialMarkup as string) || 0;
-        const intakeMarkup      = parseFloat(formData.intakeFeeMarkup as string) || 0;
-        const rawMatOur         = reqGrams * cpg;
-        const rawMatCustomer    = rawMatOur * (1 + rawMatMarkup / 100);
-        const intakeOur         = intakeFee;
-        const intakeCustomer    = intakeOur * (1 + intakeMarkup / 100);
-        const totalOur          = rawMatOur + intakeOur;
-        const totalCustomer     = rawMatCustomer + intakeCustomer;
+        const overagePct     = parseFloat(formData.materialOverage as string) || 0;
+        const reqGrams       = Math.ceil(baseQty * (1 + overagePct / 100)) * unitWeightG;
+        const reqOz          = reqGrams / 28.3495;
+        const reqLbs         = reqGrams / 453.592;
+        const cpg            = parseFloat(formData.costPerGram as string) || 0;
+        const rawMatMarkup   = parseFloat(formData.rawMaterialMarkup as string) || 0;
+        const rawMatOur      = reqGrams * cpg;
+        const rawMatCustomer = rawMatOur * (1 + rawMatMarkup / 100);
         return (
           <div className={outPanel}>
             <div className={outTitle}>Raw Material Outputs</div>
@@ -558,14 +540,66 @@ export default function ProjectDetails({
             <div className={outRow}><span className={outLbl}>Materials — Req (oz)</span><span className={outVal}>{fv(reqOz, fmtN3)}</span></div>
             <div className={outRow}><span className={outLbl}>Materials — Req (lbs)</span><span className={outVal}>{fv(reqLbs, fmtN3)}</span></div>
             <div className={outRow}><span className={outLbl}>Cost per gram</span><span className={outVal}>{fv(cpg, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Intake fee / pallet</span><span className={outVal}>{fv(intakeFee, fmtD)}</span></div>
             <div className={outCostSep}>Material Costs</div>
+            <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(rawMatOur, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(rawMatCustomer, fmtD)}</span></div>
+          </div>
+        );
+      })()}
+      </div>{/* end section-row Raw Material */}
+
+      {/* ── Inventory Handling ── */}
+      <div className={sectionRow}><div id="section-inventory-handling" className={card}>
+        <div className="px-5 pt-4 pb-5">
+        <SectionHeader title="Inventory Handling" open={invHandlingOpen} onToggle={() => setInvHandlingOpen(o => !o)} sectionId="section-inventory-handling" />
+
+        {invHandlingOpen && !notRequired["section-inventory-handling"] && (
+          <div className="mt-4">
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">Intake Fee / Pallet</span>
+              <SymInput field="intakeFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
+            </div>
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600"># Intake Pallets</span>
+              <SymInput field="numIntakePallets" type="number" sym="" formData={formData} setFormField={setFormField} />
+            </div>
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">Inventory Handling Fee</span>
+              <SymInput field="inventoryHandlingFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
+            </div>
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">Intake Fee Markup</span>
+              <SymInput field="intakeFeeMarkup" type="number" sym="%" formData={formData} setFormField={setFormField} />
+            </div>
+          </div>
+        )}
+        </div>{/* end inner padding */}
+      </div>
+
+      {/* Inventory Handling outputs panel */}
+      {!notRequired["section-inventory-handling"] && (() => {
+        const intakeFee         = parseFloat(formData.intakeFee as string) || 0;
+        const numIntakePallets  = parseFloat((formData as any).numIntakePallets ?? formData.numPallets) || 0;
+        const invHandlingFee    = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
+        const intakeMarkup      = parseFloat(formData.intakeFeeMarkup as string) || 0;
+        const intakeTotalOur    = intakeFee * numIntakePallets;
+        const intakeTotalCx     = intakeTotalOur * (1 + intakeMarkup / 100);
+        const invHandlingCx     = invHandlingFee * (1 + intakeMarkup / 100);
+        const totalOur          = intakeTotalOur + invHandlingFee;
+        const totalCustomer     = intakeTotalCx + invHandlingCx;
+        return (
+          <div className={outPanel}>
+            <div className={outTitle}>Inventory Handling Outputs</div>
+            <div className={outRow}><span className={outLbl}>Intake Fee / Pallet</span><span className={outVal}>{fv(intakeFee, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}># Intake Pallets</span><span className={outVal}>{numIntakePallets > 0 ? fmtN(numIntakePallets) : "—"}</span></div>
+            <div className={outRow}><span className={outLbl}>Inventory Handling Fee</span><span className={outVal}>{fv(invHandlingFee, fmtD)}</span></div>
+            <div className={outCostSep}>Handling Costs</div>
             <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCustomer, fmtD)}</span></div>
           </div>
         );
       })()}
-      </div>{/* end section-row Raw Material */}
+      </div>{/* end section-row Inventory Handling */}
 
       {/* ── Testing ─────────────────────────────────────────────── */}
       {(() => {
