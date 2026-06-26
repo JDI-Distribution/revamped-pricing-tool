@@ -136,10 +136,14 @@ export interface ProjectFormData {
   numPallets: string;
   numIntakePallets: string;
   inventoryHandlingFee: string;
+  numShipments?: string;          // # of shipments for inventory handling fee multiplier
+  intakePalletWeightValue?: string;  // weight of each intake pallet
+  intakePalletWeightUom?: string;    // unit: lbs | kg | g | oz
   // Outbound / finished-goods pallets
   outboundFee: string;
   outboundFeeMarkup: string;
   maxPalletWeightLbs: string;    // Max weight per pallet (lbs) — used to auto-calculate finished pallet count
+  maxPalletWeightUom?: string;   // unit for max pallet weight: lbs | kg | g | oz
   palletBuffer: string;          // Added pallets buffer on top of auto-calculated pallet count
   manualPallets?: string;        // When set, overrides weight-based auto-calc (used per-MOQ row)
   // Fees

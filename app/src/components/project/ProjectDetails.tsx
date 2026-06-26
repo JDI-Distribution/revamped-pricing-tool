@@ -35,17 +35,6 @@ const suffixBadge =
   "text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
 
 
-function Toggle({ enabled, onToggle, label }: { enabled: boolean; onToggle: () => void; label: string }) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
-      <span className="text-[0.65rem] text-gray-500">{label}</span>
-      <button type="button" role="switch" aria-checked={enabled} onClick={onToggle}
-        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabled ? "bg-[#e8473f]" : "bg-gray-200"}`}>
-        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
-      </button>
-    </label>
-  );
-}
 
 function SectionHeader({ title, open, onToggle, action, sectionId }: { title: string; open: boolean; onToggle: () => void; action?: React.ReactNode; sectionId?: string }) {
   return (
@@ -296,16 +285,6 @@ export default function ProjectDetails({
               </div>
             </div>
 
-            {/* PPU Denominator */}
-            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">PPU Denominator</span>
-              <div className="w-40">
-                <CurrencyInput type="integer" value={parseFloat(formData.ppuDenominator) || 0}
-                  onChange={v => setFormField("ppuDenominator", String(v))}
-                  className={inputKey} />
-              </div>
-            </div>
-
             {/* Packaging Structure table */}
             <div className="pt-3 pb-2">
               <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-gray-400 mb-2">Packaging Structure</p>
@@ -408,17 +387,36 @@ export default function ProjectDetails({
                 </table>
 
                 {/* Add Packaging Level */}
-                <div className="border-t-2 border-dashed border-[#e8473f]/40 bg-red-50/30">
+                <div className="border-t border-dashed border-[#e8473f]/40 bg-red-50/20 px-3 py-2">
                   <button
                     type="button"
                     onClick={addPackagingLevel}
-                    className="w-full py-2.5 text-[0.7rem] font-semibold text-[#e8473f] hover:bg-red-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[0.68rem] font-semibold text-[#e8473f] border border-[#e8473f]/40 rounded-md hover:bg-red-50 hover:border-[#e8473f]/70 transition-colors"
                   >
-                    + Add Packaging Level
+                    <Plus size={11} strokeWidth={2.5} />Add Packaging Level
                   </button>
                 </div>
               </div>
             </div>
+
+            {/* PPU Denominator — defaults to first packaging level's required qty */}
+            {(() => {
+              const firstLvlQty = packagingRequiredQtys[0] ?? 0;
+              const ppuDenomVal = parseFloat(formData.ppuDenominator) || firstLvlQty;
+              return (
+                <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                  <div>
+                    <span className="text-xs text-gray-600">PPU Denominator</span>
+                    {firstLvlQty > 0 && <p className="text-[0.55rem] text-gray-400 mt-0.5">default: {firstLvlQty.toLocaleString()}</p>}
+                  </div>
+                  <div className="w-40">
+                    <CurrencyInput type="integer" value={ppuDenomVal}
+                      onChange={v => setFormField("ppuDenominator", String(v))}
+                      className={inputKey} />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Lead Time Buffer */}
             <div id="section-lead-time" className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
@@ -580,9 +578,33 @@ export default function ProjectDetails({
               <span className="text-xs text-gray-600"># Intake Pallets</span>
               <SymInput field="numIntakePallets" type="number" sym="" formData={formData} setFormField={setFormField} />
             </div>
+            {/* Intake Pallet Weight */}
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">Intake Pallet Weight</span>
+              <div className="flex items-center w-full sm:w-44">
+                <input
+                  type="number"
+                  value={(formData as any).intakePalletWeightValue ?? ""}
+                  onChange={e => setFormField("intakePalletWeightValue" as keyof typeof formData, e.target.value)}
+                  placeholder="0"
+                  className="w-24 h-9 px-3 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
+                />
+                <select
+                  value={(formData as any).intakePalletWeightUom ?? "lbs"}
+                  onChange={e => setFormField("intakePalletWeightUom" as keyof typeof formData, e.target.value)}
+                  className="text-[0.6rem] font-medium text-gray-500 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
+                >
+                  {["lbs", "kg", "g", "oz", "t"].map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-gray-600">Inventory Handling Fee</span>
               <SymInput field="inventoryHandlingFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
+            </div>
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600"># of Shipments</span>
+              <SymInput field="numShipments" type="number" sym="" formData={formData} setFormField={setFormField} />
             </div>
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-gray-600">Intake Fee Markup</span>
@@ -597,21 +619,23 @@ export default function ProjectDetails({
       {!notRequired["section-inventory-handling"] && (() => {
         const intakeFee         = parseFloat(formData.intakeFee as string) || 0;
         const numIntakePallets  = parseFloat((formData as any).numIntakePallets ?? formData.numPallets) || 0;
-        const invHandlingFeePerPallet = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
-        const invHandlingFeeTotal = invHandlingFeePerPallet * numIntakePallets;
+        const invHandlingFee    = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
+        const numShipments      = parseFloat((formData as any).numShipments ?? "1") || 1;
         const intakeMarkup      = parseFloat(formData.intakeFeeMarkup as string) || 0;
-        const intakeTotalOur    = intakeFee * numIntakePallets;
-        const intakeTotalCx     = intakeTotalOur * (1 + intakeMarkup / 100);
-        const invHandlingCx     = invHandlingFeeTotal * (1 + intakeMarkup / 100);
-        const totalOur          = intakeTotalOur + invHandlingFeeTotal;
-        const totalCustomer     = intakeTotalCx + invHandlingCx;
+        // New formula: total = (shipments × handlingFee) + (pallets × intakeFee)
+        const handlingFeeTotal  = numShipments * invHandlingFee;
+        const intakeFeeTotal    = numIntakePallets * intakeFee;
+        const totalOur          = handlingFeeTotal + intakeFeeTotal;
+        const totalCustomer     = totalOur * (1 + intakeMarkup / 100);
         return (
           <div className={outPanel}>
             <div className={outTitle}>Inventory Handling Outputs</div>
-            <div className={outRow}><span className={outLbl}>Intake Fee / Pallet</span><span className={outVal}>{fv(intakeFee, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}># of Shipments</span><span className={outVal}>{numShipments > 0 ? fmtN(numShipments) : "—"}</span></div>
+            <div className={outRow}><span className={outLbl}>Handling Fee / Shipment</span><span className={outVal}>{fv(invHandlingFee, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Handling Fee Total</span><span className={outVal}>{fv(handlingFeeTotal, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}># Intake Pallets</span><span className={outVal}>{numIntakePallets > 0 ? fmtN(numIntakePallets) : "—"}</span></div>
-            <div className={outRow}><span className={outLbl}>Inv. Handling Fee / Pallet</span><span className={outVal}>{fv(invHandlingFeePerPallet, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Inv. Handling Fee Total</span><span className={outVal}>{fv(invHandlingFeeTotal, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Intake Fee / Pallet</span><span className={outVal}>{fv(intakeFee, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Intake Fee Total</span><span className={outVal}>{fv(intakeFeeTotal, fmtD)}</span></div>
             <div className={outCostSep}>Handling Costs</div>
             <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCustomer, fmtD)}</span></div>
@@ -634,7 +658,6 @@ export default function ProjectDetails({
           "Custom",
         ];
         const rows: TestingRow[] = formData.testingRows ?? [];
-        const testingEnabled = formData.testingEnabled !== "false";
         const testingMarkup  = parseFloat(formData.testingMarkup || "0") || 0;
         const defaultSkus    = parseFloat(formData.numSkus || "1") || 1;
         const totalOur  = rows.reduce((sum, r) => sum + (r.cost ?? 0) * (r.numSkus ?? defaultSkus), 0);
@@ -660,13 +683,8 @@ export default function ProjectDetails({
               open={testingOpen}
               onToggle={() => setTestingOpen(o => !o)}
               sectionId="section-testing"
-              action={<Toggle
-                enabled={testingEnabled}
-                onToggle={() => setFormField("testingEnabled", testingEnabled ? "false" : "true")}
-                label="Include testing costs"
-              />}
             />
-            {testingOpen && !notRequired["section-testing"] && (testingEnabled ? (
+            {testingOpen && !notRequired["section-testing"] && (true ? (
               <div className="mt-4">
                 <table className="w-full border-collapse mb-2">
                   <thead>
@@ -726,8 +744,8 @@ export default function ProjectDetails({
                   </tbody>
                 </table>
                 <button type="button" onClick={addRow}
-                  className="text-[0.65rem] font-semibold text-[#e8473f] hover:text-[#d43f37] transition-colors mb-4">
-                  + Add Test
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[0.68rem] font-semibold text-[#e8473f] border border-[#e8473f]/40 rounded-md hover:bg-red-50 hover:border-[#e8473f]/70 transition-colors mb-4">
+                  <Plus size={11} strokeWidth={2.5} />Add Test
                 </button>
                 <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
                   <span className="text-[0.65rem] text-gray-500">Markup on total testing cost:</span>
@@ -744,9 +762,7 @@ export default function ProjectDetails({
                   )}
                 </div>
               </div>
-            ) : (
-              <p className="text-[0.65rem] text-gray-400 mt-1">Toggle on to include testing and quality documentation costs.</p>
-            ))}
+            ) : null)}
             </div>{/* end inner padding */}
           </div>
 

@@ -118,8 +118,9 @@ interface Props {
 }
 
 export default function PackagingLevels({ packagingLevels, setPackagingLevels, className }: Props) {
-  const [sectionOpen, setSectionOpen]   = useState(true);
-  const [outputsOpen, setOutputsOpen]   = useState<Record<string, boolean>>({});
+  const [sectionOpen, setSectionOpen]     = useState(true);
+  const [manualChargeOpen, setManualChargeOpen] = useState(false);
+  const [outputsOpen, setOutputsOpen]     = useState<Record<string, boolean>>({});
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
   const { moqRows, activeMoqId } = useProject();
   const { notRequired } = useSectionRequired();
@@ -633,126 +634,130 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
             </tbody>
           </table>
+        </div>
 
-          {/* ── Manual Charge ── */}
-          <div className="mx-3 my-3 border border-dashed border-amber-400 rounded-lg bg-amber-50/60 p-3">
-            <p className="text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest mb-2">Manual Charge</p>
+        {/* ── Manual Charge (toggle) — outside scroll container so it respects card width ── */}
+        <div className="mx-4 mb-3 mt-1 border border-dashed border-amber-400 rounded-lg bg-amber-50/60">
+          <button
+            type="button"
+            onClick={() => setManualChargeOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 py-2 group"
+          >
+            <span className="text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest group-hover:text-amber-700 transition-colors">
+              Manual Charge {allCharges.length > 0 && <span className="text-amber-600">({allCharges.length})</span>}
+            </span>
+            {manualChargeOpen
+              ? <ChevronUp size={12} className="text-gray-400 group-hover:text-amber-600 transition-colors" />
+              : <ChevronDown size={12} className="text-gray-400 group-hover:text-amber-600 transition-colors" />}
+          </button>
 
-            {/* existing charges */}
-            {allCharges.length > 0 && (
-              <div className="mb-2 space-y-1">
-                {allCharges.map(c => {
-                  const assignedLevels = c.levelId
-                    ? packagingLevels.filter(l => l.id === c.levelId)
-                    : packagingLevels;
-                  const assignedLabel = c.levelId
-                    ? (packagingLevels.find(l => l.id === c.levelId)?.customLevelName || packagingLevels.find(l => l.id === c.levelId)?.packagingLevel || "Level")
-                    : "All levels";
-                  const chargeRows = assignedLevels.map((lvl) => {
-                    const index = packagingLevels.indexOf(lvl);
-                    const baseUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0
-                      ? lvl.cpoRequiredQty
-                      : effectiveUnits(lvl, index, packagingLevels);
-                    const unitsWithOverage = Math.ceil(baseUnits * (1 + lvl.overageRate / 100));
-                    const total = c.basis === "per_unit" ? c.amount * unitsWithOverage : c.amount;
-                    return { lvl, total, unitsWithOverage };
-                  });
-                  return (
-                    <div key={c.id} className="flex items-center gap-2 text-[0.65rem] bg-white border border-amber-200 rounded px-2 py-1">
-                      <span className="font-semibold text-gray-700 flex-1 min-w-0 truncate">{c.name}</span>
-                      <span className="text-[0.6rem] text-gray-400 shrink-0 italic">{assignedLabel}</span>
-                      <span className="text-gray-400 shrink-0">${c.amount.toFixed(2)} {c.basis === "per_unit" ? "/ unit" : "fixed"}</span>
-                      <span className="text-gray-300 shrink-0">→</span>
-                      {chargeRows.map(({ lvl, total, unitsWithOverage }) => (
-                        <span key={lvl.id} className="text-[#e8473f] font-semibold tabular-nums shrink-0">
-                          ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          {c.basis === "per_unit" && <span className="text-gray-400 font-normal"> ({unitsWithOverage.toLocaleString()} u)</span>}
-                        </span>
-                      ))}
-                      <button type="button" onClick={() => removeCharge(c.id)}
-                        className="shrink-0 text-gray-300 hover:text-red-400 transition-colors ml-1">
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {manualChargeOpen && (
+            <div className="px-3 pb-3 border-t border-amber-300/40">
+              {/* existing charges */}
+              {allCharges.length > 0 && (
+                <div className="mt-2 mb-3 space-y-1">
+                  {allCharges.map(c => {
+                    const assignedLevels = c.levelId
+                      ? packagingLevels.filter(l => l.id === c.levelId)
+                      : packagingLevels;
+                    const assignedLabel = c.levelId
+                      ? (packagingLevels.find(l => l.id === c.levelId)?.customLevelName || packagingLevels.find(l => l.id === c.levelId)?.packagingLevel || "Level")
+                      : "All levels";
+                    const chargeRows = assignedLevels.map((lvl) => {
+                      const index = packagingLevels.indexOf(lvl);
+                      const baseUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0
+                        ? lvl.cpoRequiredQty
+                        : effectiveUnits(lvl, index, packagingLevels);
+                      const unitsWithOverage = Math.ceil(baseUnits * (1 + lvl.overageRate / 100));
+                      const total = c.basis === "per_unit" ? c.amount * unitsWithOverage : c.amount;
+                      return { lvl, total, unitsWithOverage };
+                    });
+                    return (
+                      <div key={c.id} className="flex items-center gap-2 text-[0.65rem] bg-white border border-amber-200 rounded px-2 py-1.5">
+                        <span className="font-semibold text-gray-700 flex-1 min-w-0 truncate">{c.name}</span>
+                        <span className="text-[0.6rem] text-gray-400 shrink-0 italic">{assignedLabel}</span>
+                        <span className="text-gray-400 shrink-0 text-[0.6rem]">${c.amount.toFixed(2)} {c.basis === "per_unit" ? "/unit" : "fixed"}</span>
+                        <span className="text-gray-300 shrink-0">→</span>
+                        {chargeRows.map(({ lvl, total, unitsWithOverage }) => (
+                          <span key={lvl.id} className="text-[#e8473f] font-semibold tabular-nums shrink-0 text-[0.65rem]">
+                            ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {c.basis === "per_unit" && <span className="text-gray-400 font-normal"> ({unitsWithOverage.toLocaleString()}u)</span>}
+                          </span>
+                        ))}
+                        <button type="button" onClick={() => removeCharge(c.id)}
+                          className="shrink-0 text-gray-300 hover:text-red-400 transition-colors ml-1">
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-            {/* add new charge */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-[0.5rem] text-gray-400 mb-0.5">Charge Name</p>
-                <input
-                  type="text"
-                  value={draftCharge.name}
-                  onChange={e => setDraftCharge(d => ({ ...d, name: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && addCharge()}
-                  placeholder="e.g. Tray Insert Cost"
-                  className="h-8 w-full px-3 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
-                />
+              {/* add new charge — compact 2-row grid layout */}
+              <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-1.5 items-end">
+                {/* Row 1: Name + Level + Amount */}
+                <div>
+                  <p className="text-[0.5rem] text-gray-400 mb-0.5">Charge Name</p>
+                  <input
+                    type="text"
+                    value={draftCharge.name}
+                    onChange={e => setDraftCharge(d => ({ ...d, name: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && addCharge()}
+                    placeholder="e.g. Tray Insert Cost"
+                    className="h-7 w-full px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
+                  />
+                </div>
+                <div>
+                  <p className="text-[0.5rem] text-gray-400 mb-0.5">Level</p>
+                  <select
+                    value={draftCharge.levelId}
+                    onChange={e => setDraftCharge(d => ({ ...d, levelId: e.target.value }))}
+                    className="h-7 px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition cursor-pointer"
+                  >
+                    <option value="">All</option>
+                    {packagingLevels.map(lvl => (
+                      <option key={lvl.id} value={lvl.id}>
+                        {lvl.customLevelName || lvl.packagingLevel || effectiveTypeName(lvl) || `Level ${packagingLevels.indexOf(lvl) + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[0.5rem] text-gray-400 mb-0.5">Amount ($)</p>
+                  <input
+                    type="number" min={0} step={0.01}
+                    value={draftCharge.amount}
+                    onChange={e => setDraftCharge(d => ({ ...d, amount: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && addCharge()}
+                    placeholder="0.00"
+                    className="h-7 w-20 px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
+                  />
+                </div>
               </div>
-              <div className="shrink-0">
-                <p className="text-[0.5rem] text-gray-400 mb-0.5">Packaging Level</p>
-                <select
-                  value={draftCharge.levelId}
-                  onChange={e => setDraftCharge(d => ({ ...d, levelId: e.target.value }))}
-                  className="h-8 px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition cursor-pointer"
-                >
-                  <option value="">All levels</option>
-                  {packagingLevels.map(lvl => (
-                    <option key={lvl.id} value={lvl.id}>
-                      {lvl.customLevelName || lvl.packagingLevel || effectiveTypeName(lvl) || `Level ${packagingLevels.indexOf(lvl) + 1}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="shrink-0">
-                <p className="text-[0.5rem] text-gray-400 mb-0.5">Amount ($)</p>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={draftCharge.amount}
-                  onChange={e => setDraftCharge(d => ({ ...d, amount: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && addCharge()}
-                  placeholder="0.00"
-                  className="h-8 w-24 px-3 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
-                />
-              </div>
-              <div className="shrink-0">
-                <p className="text-[0.5rem] text-gray-400 mb-0.5">&nbsp;</p>
-                <div className="flex items-center border border-gray-300 rounded overflow-hidden h-8 text-xs font-semibold">
+              {/* Row 2: basis toggle + add button */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="flex items-center border border-gray-300 rounded overflow-hidden h-7 text-xs font-semibold">
                   <button type="button"
                     onClick={() => setDraftCharge(d => ({ ...d, basis: "per_unit" }))}
-                    className={`px-3 h-8 flex items-center transition-colors ${draftCharge.basis === "per_unit" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-700"}`}>
+                    className={`px-2.5 h-7 flex items-center transition-colors text-[0.65rem] ${draftCharge.basis === "per_unit" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-700"}`}>
                     Per Unit
                   </button>
                   <button type="button"
                     onClick={() => setDraftCharge(d => ({ ...d, basis: "fixed" }))}
-                    className={`px-3 h-8 flex items-center transition-colors border-l border-gray-300 ${draftCharge.basis === "fixed" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-700"}`}>
+                    className={`px-2.5 h-7 flex items-center transition-colors border-l border-gray-300 text-[0.65rem] ${draftCharge.basis === "fixed" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-700"}`}>
                     Fixed
                   </button>
                 </div>
-              </div>
-              <div className="shrink-0">
-                <p className="text-[0.5rem] text-gray-400 mb-0.5">&nbsp;</p>
                 <button type="button" onClick={addCharge}
-                  className="h-8 px-4 text-xs font-semibold text-white rounded transition-colors whitespace-nowrap disabled:opacity-40"
+                  className="h-7 px-3 text-[0.65rem] font-semibold text-white rounded transition-colors whitespace-nowrap disabled:opacity-40"
                   style={{ backgroundColor: "#e8473f" }}
                   disabled={!draftCharge.name.trim() || !draftCharge.amount || parseFloat(draftCharge.amount) <= 0}>
-                  + Add to Quote
+                  + Add
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* ── Footer note ── */}
-          <div className="px-4 pb-3">
-            <p className="text-[0.6rem] text-amber-700/70 italic">
-              Row 2 label differs by level (Fill Rate, Apply Rate, Overage Rate) but stays in one row since it's the same position in each level's cost math.
-            </p>
-          </div>
+          )}
         </div>
         </CollapsedContext.Provider>
       )}

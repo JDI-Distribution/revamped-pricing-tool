@@ -4,15 +4,13 @@ import { SlidersHorizontal } from "lucide-react";
 import { SectionRequiredProvider, RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
 import Navbar from "@/components/navbar/Navbar";
 import ProjectInfoSection from "@/components/project/ProjectInfoSection";
-import ProjectDetails, { MoqSection } from "@/components/project/ProjectDetails";
+import ProjectDetails from "@/components/project/ProjectDetails";
 import PackagingLevels from "@/components/project/PackagingLevels";
 import CoPackingProcesses from "@/components/project/CoPackingProcesses";
-import CoPackingSummaryPanel from "@/components/project/CoPackingSummaryPanel";
 import SectionSidebar, { SidebarSection } from "@/components/SectionSidebar";
 import CrmStartModal, { CrmParams as CrmStartParams } from "@/components/CrmStartModal";
 import { useProject } from "@/lib/ProjectContext";
-import { MoqRow, ProjectFormData, AdditionalFeeRow, PackagingLevel, CoPackingProcess, Column } from "@/lib/types";
-import { SummaryRow } from "@/lib/types";
+import { MoqRow, ProjectFormData, AdditionalFeeRow, PackagingLevel, CoPackingProcess, Column, SummaryRow } from "@/lib/types";
 import { MoqPricingRow } from "@/lib/ProjectContext";
 import { uid } from "@/lib/uid";
 
@@ -61,8 +59,11 @@ function PalletizationSection({
   scaledColumns: Column[];
   moqQty: number;
 }) {
+  const WEIGHT_TO_LBS: Record<string, number> = { lbs: 1, kg: 2.20462, g: 0.00220462, oz: 0.0625, t: 2204.62 };
   const n = (v: string | number | undefined) => parseFloat(String(v ?? "0")) || 0;
-  const maxWtLbs = n(formData.maxPalletWeightLbs) || 2000;
+  const maxWtRaw = n(formData.maxPalletWeightLbs) || 2000;
+  const maxWtUom = (formData as any).maxPalletWeightUom ?? "lbs";
+  const maxWtLbs = maxWtRaw * (WEIGHT_TO_LBS[maxWtUom] ?? 1);
 
   // Raw material weight — same formula as calculations.ts
   const GRAMS_PER_UNIT: Record<string, number> = { g: 1, oz: 28.3495, lb: 453.592, kg: 1000, "fl oz": 29.5735 };
@@ -93,7 +94,6 @@ function PalletizationSection({
 
   const otherFields: { label: string; field: keyof ProjectFormData; sym: string }[] = [
     { label: "Pallet Buffer",         field: "palletBuffer",        sym: ""    },
-    { label: "Max Pallet Wt (lbs)",   field: "maxPalletWeightLbs",  sym: "lbs" },
     { label: "Outbound Fee / Pallet", field: "outboundFee",         sym: "$"   },
     { label: "Outbound Fee Markup %", field: "outboundFeeMarkup",   sym: "%"   },
   ];
@@ -108,6 +108,25 @@ function PalletizationSection({
         <RequiredToggle sectionId="section-palletization" />
       </div>
       {!palletNR && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-5 gap-y-4 items-start">
+
+        {/* Max Pallet Weight + UOM */}
+        <div>
+          <p className={palletLabel}>Max Pallet Weight</p>
+          <div className="flex items-center w-full">
+            <NumInput
+              value={maxWtRaw}
+              onChange={v => setFormField("maxPalletWeightLbs", String(v))}
+              className={palletWithSfx}
+            />
+            <select
+              value={maxWtUom}
+              onChange={e => setFormField("maxPalletWeightUom" as keyof ProjectFormData, e.target.value)}
+              className="text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 px-1 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none transition cursor-pointer"
+            >
+              {["lbs", "kg", "g", "oz", "t"].map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+        </div>
 
         {/* # of Pallets — auto with manual override */}
         <div>
@@ -177,7 +196,7 @@ function PalletizationSection({
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Weight Component</th>
-                <th className="px-3 py-1.5 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">lbs</th>
+                <th className="px-3 py-1.5 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">{maxWtUom}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -244,15 +263,9 @@ interface LeftContentProps {
   costPpuOverrides: Record<number, string>;
   additionalFees:    AdditionalFeeRow[];
   setAdditionalFees: React.Dispatch<React.SetStateAction<AdditionalFeeRow[]>>;
-  moqPpuInputs:    Record<number, string>;
-  setMoqPpuInputs: React.Dispatch<React.SetStateAction<Record<number, string>>>;
-  moqMargins:      Record<number, string>;
-  setMoqMargins:   React.Dispatch<React.SetStateAction<Record<number, string>>>;
-  moqLastEdited:   Record<number, "margin" | "ppu">;
-  setMoqLastEdited: React.Dispatch<React.SetStateAction<Record<number, "margin" | "ppu">>>;
 }
 
-function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType, setProjectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees, moqPpuInputs, setMoqPpuInputs, moqMargins, setMoqMargins, moqLastEdited, setMoqLastEdited }: LeftContentProps) {
+function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, setProjectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees }: LeftContentProps) {
   const { notRequired } = useSectionRequired();
   const processesRequired = !notRequired["section-processes"];
 
@@ -268,22 +281,12 @@ function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFo
         setFormField={setFormField}
       />
       <CoPackingProcesses processes={coPackingProcesses} setProcesses={setCoPackingProcesses} />
-      {projectType === "copacking" && (
-        <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
-          <div className="border border-gray-200 rounded-xl overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
-              <span className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Process Cost Summary</span>
-            </div>
-            <CoPackingSummaryPanel />
-          </div>
-        </div>
-      )}
       {/* Packaging Line Setup + outputs panel */}
       <div className="flex gap-5 items-start px-4 md:px-6 mb-4">
         <PackagingLevels
           packagingLevels={packagingLevels}
           setPackagingLevels={setPackagingLevels}
-          className="bg-white border border-gray-200 rounded-xl overflow-hidden flex-1 min-w-0"
+          className="bg-white border border-gray-200 rounded-xl overflow-hidden max-w-4xl w-full"
         />
         {!notRequired["section-packaging-summary"] && summaryRows.length > 0 && (() => {
           const allCharges = packagingLevels[0]?.manualCharges ?? [];
@@ -343,18 +346,6 @@ function LeftContent({ expanded: _expanded, moqRows, setMoqRows, formData, setFo
         setFormField={setFormField}
         scaledColumns={scaledColumns}
         moqQty={moqQty}
-      />
-      <MoqSection
-        moqRows={moqRows}
-        setMoqRows={setMoqRows}
-        formData={formData}
-        packagingLevels={packagingLevels}
-        moqPpuInputs={moqPpuInputs}
-        setMoqPpuInputs={setMoqPpuInputs}
-        moqMargins={moqMargins}
-        setMoqMargins={setMoqMargins}
-        moqLastEdited={moqLastEdited}
-        setMoqLastEdited={setMoqLastEdited}
       />
       {/* ── Additional Costs & Fees ── */}
       <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
@@ -625,9 +616,6 @@ export default function Home() {
     additionalFees, setAdditionalFees,
     coPackingProcesses, setCoPackingProcesses,
     activeMoqId,
-    moqPpuInputs, setMoqPpuInputs,
-    moqMargins, setMoqMargins,
-    moqLastEdited, setMoqLastEdited,
   } = useProject();
 
   // ── CRM start modal ──────────────────────────────────────────────────────
@@ -686,7 +674,6 @@ export default function Home() {
     { id: "section-processes",          label: "Processes",          visible: true },
     { id: "section-packaging-summary",  label: "Pkg Configuration",  visible: true },
     { id: "section-palletization",      label: "Palletization",      visible: true },
-    { id: "section-moq",                label: "MOQ",                visible: true },
   ];
 
   return (
@@ -723,12 +710,6 @@ export default function Home() {
             costPpuOverrides={costPpuOverrides}
             additionalFees={additionalFees}
             setAdditionalFees={setAdditionalFees}
-            moqPpuInputs={moqPpuInputs}
-            setMoqPpuInputs={setMoqPpuInputs}
-            moqMargins={moqMargins}
-            setMoqMargins={setMoqMargins}
-            moqLastEdited={moqLastEdited}
-            setMoqLastEdited={setMoqLastEdited}
           />
           </SectionRequiredProvider>
           </div>

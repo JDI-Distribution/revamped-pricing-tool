@@ -178,6 +178,45 @@ Do not change any colors in the app.
 
 ## Changelog
 
+### 2026-06-26 — Compact Bakell-v2-inspired PDF quote redesign
+
+**Changes to `app/src/lib/generateQuotePDF.ts`:**
+- Replaced large header/info boxes with a minimal logo-left + quote-ID-right layout
+- Added spaced-letter section dividers ("Q U O T E  D E T A I L S") matching Bakell v2 style
+- Customer details and quote metadata now render in a two-column grid (customer left, sales rep/date right)
+- Project Overview section uses a two-column layout: fields left, overview paragraph right
+- Reduced font sizes: body 8.5pt, labels 7pt bold, headings 9.5pt
+- Tighter cell padding in all autoTable calls (2.5mm vertical, 3.5mm horizontal)
+- Replaced colored fill boxes with thin 0.2pt gray divider lines and light gray header fills
+- Terms & Conditions rendered inline with a `Cancellation Policy` + `Quote Disclaimer` label-prefixed layout
+- Compact footer bar with brand address/email/phone centered at page bottom
+- All data and calculation logic unchanged; only visual layout redesigned
+
+**Files changed:** `app/src/lib/generateQuotePDF.ts`
+
+---
+
+### 2026-06-26 — UI overhaul: remove MOQ/summary sections, inventory handling upgrade, consistent design
+
+**Changes:**
+- **Removed MOQ + Case Pack Configuration section** from `Home.tsx` — the section and all its props have been removed from the render tree. The `MoqSection` export in `ProjectDetails.tsx` still exists for reference but is no longer rendered.
+- **Removed Process Cost Summary panel** — `CoPackingSummaryPanel` no longer appears in the layout.
+- **PPU Denominator moved** — field shifted from top of CPO section to after the Packaging Structure table, with a "default: N" hint showing the first level's required qty.
+- **Inventory Handling section upgraded:**
+  - Added `# of Shipments` input; new fee formula: `numShipments × inventoryHandlingFee + numIntakePallets × intakeFee`
+  - Added Intake Pallet Weight field with UOM dropdown (lbs, kg, g, oz, t)
+  - Output panel updated to show new breakdown
+- **Palletization section upgraded:**
+  - Max Pallet Weight field now has a UOM dropdown (lbs, kg, g, oz, t) — weight is converted to lbs internally for auto-pallet calculation
+- **Manual Charge section is now a toggle** — collapsed by default; charge count shown in header when charges exist; footer note removed
+- **Removed "Include testing fee" toggle** from Testing section — testing rows always show
+- **Consistent Add button design** across Add Test, Add Process, and Add Packaging Level — bordered pill style with icon
+- **New fields added to `ProjectFormData`** (all optional): `numShipments`, `intakePalletWeightValue`, `intakePalletWeightUom`, `maxPalletWeightUom`
+
+**Files changed:** `app/src/lib/types.ts`, `app/src/lib/ProjectContext.tsx`, `app/src/components/project/ProjectDetails.tsx`, `app/src/components/project/PackagingLevels.tsx`, `app/src/components/project/CoPackingProcesses.tsx`, `app/src/pages/Home.tsx`
+
+---
+
 ### 2026-06-25 — Reimagined MOQ section
 
 #### MOQ section redesigned with per-row PPU/Margin/Revenue and case pack suggestions

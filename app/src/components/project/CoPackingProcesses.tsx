@@ -186,8 +186,8 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
         </button>
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <button type="button" onClick={addProcess}
-            className="flex items-center gap-1 text-[0.65rem] font-semibold text-[#e8473f] hover:text-[#c73d36] transition-colors">
-            <span className="w-4 h-4 flex items-center justify-center border border-[#e8473f] rounded text-xs leading-none">+</span>
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[0.68rem] font-semibold text-[#e8473f] border border-[#e8473f]/40 rounded-md hover:bg-red-50 hover:border-[#e8473f]/70 transition-colors">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
             Add Process
           </button>
           <RequiredToggle sectionId="section-processes" />
