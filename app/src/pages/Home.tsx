@@ -87,13 +87,8 @@ function PalletizationSection({
   const buffer     = n(formData.palletBuffer);
   const autoPallets = totalWeightLbs > 0 ? Math.ceil(totalWeightLbs / maxWtLbs) + buffer : null;
 
-  const isManual     = !!(formData.manualPallets && formData.manualPallets !== "");
-  const displayPallets = isManual ? (parseFloat(formData.manualPallets!) || 0) : (autoPallets ?? 0);
-
-  const palletAutoInp = "h-9 w-full px-3 border border-gray-200 text-xs text-gray-400 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md";
 
   const otherFields: { label: string; field: keyof ProjectFormData; sym: string }[] = [
-    { label: "Pallet Buffer",         field: "palletBuffer",        sym: ""    },
     { label: "Outbound Fee / Pallet", field: "outboundFee",         sym: "$"   },
     { label: "Outbound Fee Markup %", field: "outboundFeeMarkup",   sym: "%"   },
   ];
@@ -126,30 +121,6 @@ function PalletizationSection({
               {["lbs", "kg", "g", "oz", "t"].map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
-        </div>
-
-        {/* # of Pallets — auto with manual override */}
-        <div>
-          <p className={palletLabel}>
-            {isManual ? "# of Pallets (manual)" : "# of Pallets (auto)"}
-          </p>
-          <div className="flex items-center gap-1">
-            <NumInput
-              value={displayPallets}
-              onChange={v => setFormField("manualPallets", String(v))}
-              placeholder={autoPallets != null && autoPallets > 0 ? String(autoPallets) : "auto"}
-              className={isManual ? palletInputKey : palletAutoInp}
-            />
-            {isManual && (
-              <button type="button"
-                onClick={() => setFormField("manualPallets", "")}
-                title="Reset to auto"
-                className="shrink-0 text-gray-400 hover:text-[#e8473f] transition-colors text-base leading-none">↺</button>
-            )}
-          </div>
-          {autoPallets != null && autoPallets > 0 && isManual && (
-            <p className="text-[0.55rem] text-gray-400 mt-0.5">auto: {autoPallets}</p>
-          )}
         </div>
 
         {otherFields.map(({ label, field, sym }) => {
@@ -226,9 +197,32 @@ function PalletizationSection({
                   {maxWtLbs.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </td>
               </tr>
-              <tr className="bg-amber-50 border-t border-amber-200">
-                <td className="px-3 py-1.5 font-bold text-gray-800">Pallets Required</td>
-                <td className="px-3 py-1.5 text-right font-bold text-[#e8473f]">
+              <tr className="bg-gray-100 border-t border-gray-300">
+                <td className="px-3 py-1.5 font-semibold text-gray-700">Pallets Required</td>
+                <td className="px-3 py-1.5 text-right font-semibold text-gray-900">
+                  {autoPallets != null ? Math.ceil(totalWeightLbs / maxWtLbs) : "—"}
+                </td>
+              </tr>
+              <tr className="bg-white">
+                <td className="px-3 py-1 text-gray-600">+ Buffer</td>
+                <td className="px-3 py-1 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span className="text-[0.65rem] text-gray-400 tabular-nums">{buffer > 0 ? `+${buffer}` : "+0"}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={formData.palletBuffer || ""}
+                      onChange={e => setFormField("palletBuffer", e.target.value)}
+                      placeholder="0"
+                      className="w-14 h-6 px-2 text-xs text-right border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] tabular-nums"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr className="bg-blue-50 border-t-2 border-blue-300">
+                <td className="px-3 py-2 font-bold text-blue-900">Total Pallets</td>
+                <td className="px-3 py-2 text-right font-bold text-blue-700 tabular-nums text-sm">
                   {autoPallets != null ? autoPallets : "—"}
                 </td>
               </tr>
@@ -263,16 +257,12 @@ interface LeftContentProps {
   costPpuOverrides: Record<number, string>;
   additionalFees:    AdditionalFeeRow[];
   setAdditionalFees: React.Dispatch<React.SetStateAction<AdditionalFeeRow[]>>;
+  processLevels:     PackagingLevel[];
+  setProcessLevels:  React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
 }
 
-function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, setProjectType, coPackingProcesses, setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees }: LeftContentProps) {
+function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, setProjectType: _setProjectType, coPackingProcesses: _coPackingProcesses, setCoPackingProcesses: _setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees, processLevels: _processLevels, setProcessLevels: _setProcessLevels }: LeftContentProps) {
   const { notRequired } = useSectionRequired();
-  const processesRequired = !notRequired["section-processes"];
-
-  useEffect(() => {
-    setProjectType(processesRequired ? "copacking" : "standard");
-  }, [processesRequired, setProjectType]);
-
   return (
     <>
       <ProjectInfoSection />
@@ -280,8 +270,91 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
         formData={formData}
         setFormField={setFormField}
       />
-      <CoPackingProcesses processes={coPackingProcesses} setProcesses={setCoPackingProcesses} />
-      {/* Packaging Line Setup + outputs panel */}
+      {/* Processes section + side output panel */}
+      {(() => {
+        const fmtD = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+        const fmtPct = (v: number) => `${v.toFixed(1)}%`;
+        const marginBg = (pct: number) => pct >= 50 ? "bg-green-50 border-green-200 text-green-700" : pct >= 30 ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-red-50 border-red-200 text-red-600";
+
+        // Compute per-process labor outputs
+        const procOutputs = _coPackingProcesses.map(proc => {
+          const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
+          const speed = proc.processSpeedValue;
+          const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
+          let unitsPerHr = 0;
+          if (speed > 0) {
+            if (proc.processSpeedUnit === "units / min") unitsPerHr = speed * 60;
+            else if (proc.processSpeedUnit === "units / hr") unitsPerHr = speed;
+          }
+          const effectiveUph = unitsPerHr * buffer;
+          const hrsRequired = effectiveUph > 0 ? totalUnits / effectiveUph : 0;
+          const operators = proc.numStaff > 0 ? proc.numStaff : 1;
+          const laborOur = hrsRequired * proc.laborRate * operators;
+          const laborCust = laborOur * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
+          const margin = laborCust > 0 ? ((laborCust - laborOur) / laborCust) * 100 : 0;
+          return { laborOur, laborCust, margin };
+        });
+        const totalProcOur  = procOutputs.reduce((s, p) => s + p.laborOur, 0);
+        const totalProcCust = procOutputs.reduce((s, p) => s + p.laborCust, 0);
+        const totalProcMargin = totalProcCust > 0 ? ((totalProcCust - totalProcOur) / totalProcCust) * 100 : 0;
+        const hasAnyProc = procOutputs.some(p => p.laborCust > 0);
+
+        return (
+          <div className="flex gap-5 items-start px-4 md:px-6 mb-4">
+            <CoPackingProcesses processes={_coPackingProcesses} setProcesses={_setCoPackingProcesses} />
+            {!notRequired["section-processes"] && hasAnyProc && (
+              <div className="w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100">
+                <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60">
+                  Process Costs
+                </div>
+                {_coPackingProcesses.map((proc, i) => {
+                  const { laborOur, laborCust, margin } = procOutputs[i];
+                  if (laborCust <= 0) return null;
+                  return (
+                    <div key={proc.id} className="border-b border-blue-100 last:border-0 px-3 py-2.5 space-y-1.5">
+                      <div className="text-[0.6rem] font-bold text-gray-700 uppercase tracking-wider truncate">{proc.name || `Process ${i + 1}`}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
+                          <div className="text-[0.72rem] font-semibold text-gray-700 tabular-nums">{fmtD(laborOur)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                          <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">{fmtD(laborCust)}</div>
+                        </div>
+                      </div>
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[0.65rem] font-bold tabular-nums ${marginBg(margin)}`}>
+                        <span className="text-[0.5rem] font-semibold opacity-70">MARGIN</span>
+                        {fmtPct(margin)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {_coPackingProcesses.length > 1 && totalProcCust > 0 && (
+                  <div className="px-3 py-2.5 bg-blue-100/60 border-t-2 border-blue-300 space-y-1.5">
+                    <div className="text-[0.55rem] font-bold text-blue-700 uppercase tracking-widest">Total</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
+                        <div className="text-[0.75rem] font-bold text-gray-800 tabular-nums">{fmtD(totalProcOur)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                        <div className="text-[0.75rem] font-bold text-[#e8473f] tabular-nums">{fmtD(totalProcCust)}</div>
+                      </div>
+                    </div>
+                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[0.65rem] font-bold tabular-nums ${marginBg(totalProcMargin)}`}>
+                      <span className="text-[0.5rem] font-semibold opacity-70">MARGIN</span>
+                      {fmtPct(totalProcMargin)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="flex gap-5 items-start px-4 md:px-6 mb-4">
         <PackagingLevels
           packagingLevels={packagingLevels}
@@ -289,54 +362,78 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
           className="bg-white border border-gray-200 rounded-xl overflow-hidden max-w-4xl w-full"
         />
         {!notRequired["section-packaging-summary"] && summaryRows.length > 0 && (() => {
+          const fmtD = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+          const fmtPct = (v: number) => `${v.toFixed(1)}%`;
+          const marginBg = (pct: number) => pct >= 50 ? "bg-green-50 border-green-200 text-green-700" : pct >= 30 ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-red-50 border-red-200 text-red-600";
           const allCharges = packagingLevels[0]?.manualCharges ?? [];
           const pkgRows = summaryRows.filter(r => !["Setup / QA Fee", "Materials", "Pallets & Fees"].includes(r.label) && !r.label.startsWith("Testing –"));
 
-          // Compute manual charge total for a given packagingLevel
           const manualChargeTotal = (lvl: (typeof packagingLevels)[0]): number => {
             const lvlCharges = allCharges.filter(c => !c.levelId || c.levelId === lvl.id);
-            const baseUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0
-              ? lvl.cpoRequiredQty
-              : (lvl.units > 0 ? lvl.units : 0);
+            const baseUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0 ? lvl.cpoRequiredQty : (lvl.units > 0 ? lvl.units : 0);
             const unitsWithOverage = Math.ceil(baseUnits * (1 + lvl.overageRate / 100));
             return lvlCharges.reduce((sum, c) => sum + (c.basis === "per_unit" ? c.amount * unitsWithOverage : c.amount), 0);
           };
 
+          const totalOur = pkgRows.reduce((s, r, i) => s + r.ourCosts + (packagingLevels[i] ? manualChargeTotal(packagingLevels[i]) : 0), 0);
+          const totalCx  = pkgRows.reduce((s, r, i) => s + r.customerPrice + (packagingLevels[i] ? manualChargeTotal(packagingLevels[i]) : 0), 0);
+          const totalMargin = totalCx > 0 ? ((totalCx - totalOur) / totalCx) * 100 : 0;
+
           return (
-            <div className="w-56 shrink-0 sticky top-14 bg-[#FFF8F0] border border-amber-200 rounded-xl overflow-hidden shadow-sm shadow-amber-100">
-              <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-amber-700 uppercase tracking-widest border-b border-amber-200 bg-amber-100/60">
+            <div className="w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100">
+              <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60">
                 Packaging Line Costs
               </div>
               {pkgRows.map((r, i) => {
                 const lvl = packagingLevels[i];
                 const chargeTotal = lvl ? manualChargeTotal(lvl) : 0;
-                const totalOur = r.ourCosts + chargeTotal;
-                const totalCx  = r.customerPrice + chargeTotal;
+                const our = r.ourCosts + chargeTotal;
+                const cx  = r.customerPrice + chargeTotal;
+                const margin = cx > 0 ? ((cx - our) / cx) * 100 : 0;
                 return (
-                  <div key={i} className="border-b border-amber-100 last:border-0">
-                    <div className="px-3 pt-2 pb-0.5 text-[0.6rem] font-bold text-gray-600 uppercase tracking-wider">{r.label}</div>
-                    <div className="flex items-start justify-between gap-3 px-3 pb-2">
+                  <div key={i} className="border-b border-blue-100 last:border-0 px-3 py-2.5 space-y-1.5">
+                    <div className="text-[0.6rem] font-bold text-gray-700 uppercase tracking-wider">{r.label}</div>
+                    <div className="flex items-center justify-between gap-2">
                       <div>
                         <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
-                        <div className="text-[0.72rem] font-semibold text-gray-700 tabular-nums">
-                          {totalOur > 0 ? totalOur.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "—"}
-                        </div>
+                        <div className="text-[0.72rem] font-semibold text-gray-700 tabular-nums">{our > 0 ? fmtD(our) : "—"}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
-                        <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">
-                          {totalCx > 0 ? totalCx.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "—"}
-                        </div>
+                        <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">{cx > 0 ? fmtD(cx) : "—"}</div>
                       </div>
                     </div>
-                    {chargeTotal > 0 && (
-                      <div className="px-3 pb-2 text-[0.55rem] text-amber-600 italic">
-                        incl. {chargeTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })} manual charges
+                    {cx > 0 && (
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[0.65rem] font-bold tabular-nums ${marginBg(margin)}`}>
+                        <span className="text-[0.5rem] font-semibold opacity-70">MARGIN</span>
+                        {fmtPct(margin)}
                       </div>
+                    )}
+                    {chargeTotal > 0 && (
+                      <div className="text-[0.55rem] text-amber-600 italic">incl. {fmtD(chargeTotal)} charges</div>
                     )}
                   </div>
                 );
               })}
+              {pkgRows.length > 1 && totalCx > 0 && (
+                <div className="px-3 py-2.5 bg-blue-100/60 border-t-2 border-blue-300 space-y-1.5">
+                  <div className="text-[0.55rem] font-bold text-blue-700 uppercase tracking-widest">Total</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
+                      <div className="text-[0.75rem] font-bold text-gray-800 tabular-nums">{fmtD(totalOur)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                      <div className="text-[0.75rem] font-bold text-[#e8473f] tabular-nums">{fmtD(totalCx)}</div>
+                    </div>
+                  </div>
+                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[0.65rem] font-bold tabular-nums ${marginBg(totalMargin)}`}>
+                    <span className="text-[0.5rem] font-semibold opacity-70">MARGIN</span>
+                    {fmtPct(totalMargin)}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -607,6 +704,7 @@ export default function Home() {
     projectType, setProjectType,
     moqRows, setMoqRows,
     packagingLevels, setPackagingLevels,
+    processLevels, setProcessLevels,
     scaledColumns,
     formData, setFormField,
     summaryRows, ppuUnits,
@@ -710,6 +808,8 @@ export default function Home() {
             costPpuOverrides={costPpuOverrides}
             additionalFees={additionalFees}
             setAdditionalFees={setAdditionalFees}
+            processLevels={processLevels}
+            setProcessLevels={setProcessLevels}
           />
           </SectionRequiredProvider>
           </div>

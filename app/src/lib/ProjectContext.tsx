@@ -19,7 +19,7 @@ const initialFormData: ProjectFormData = {
   leftOverInventoryAbsorb: "0",
   intakeFee:               "195",
   numPallets:              "1",
-  numIntakePallets:        "1",
+  numIntakePallets:        "",
   inventoryHandlingFee:    "350",
   numShipments:            "1",
   intakePalletWeightValue: "",
@@ -40,6 +40,7 @@ const initialFormData: ProjectFormData = {
   ppuDenominator:          "6600",
   leadTimeBufferDays:      "57",
   startDate:               (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })(),
+  rawMaterialProvider:     "customer",
   materialOverage:         "25",
   rawMaterialMarkup:       "300",
   intakeFeeMarkup:         "25",
@@ -171,8 +172,9 @@ const initialCoPackingState: CoPackingState = {
   blendingRecipe:             [],
   // Inbound
   inboundOverage:    0.15,
-  intakeFeePerPallet: 195,
-  inboundPallets:    5,
+  intakeFeePerPallet:    595,
+  inboundPallets:        5,
+  intakePalletWeightLbs: 1200,
   intakeMarkup:      0.25,
   numSkus:           1,
   testingMarkup:     0.20,
@@ -251,6 +253,12 @@ interface ProjectContextValue {
   // Packaging levels — unified source of truth (replaces columns + packagingSummaryRows)
   packagingLevels:    PackagingLevel[];
   setPackagingLevels: React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
+  // Process levels — separate PackagingLevel state for the Processes section
+  processLevels:      PackagingLevel[];
+  setProcessLevels:   React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
+  // Overall process cost markup %
+  processCostMarkup:    number;
+  setProcessCostMarkup: React.Dispatch<React.SetStateAction<number>>;
   // Derived columns (for internal calc compatibility — do not expose to UI)
   columns:      Column[];
   setColumns:   React.Dispatch<React.SetStateAction<Column[]>>;
@@ -332,6 +340,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       ? _draft.packagingLevels.map((l: PackagingLevel) => ({ ...l, manualCharges: l.manualCharges ?? [] }))
       : initialPackagingLevels
   );
+  const [processLevels, setProcessLevels] = useState<PackagingLevel[]>(
+    (_draft as any).processLevels && (_draft as any).processLevels.length > 0
+      ? (_draft as any).processLevels.map((l: PackagingLevel) => ({ ...l, manualCharges: l.manualCharges ?? [] }))
+      : []
+  );
+  const [processCostMarkup, setProcessCostMarkup] = useState<number>((_draft as any).processCostMarkup ?? 0);
 
   const [formData, setFormData] = useState<ProjectFormData>(_draft.formData ? { ...initialFormData, ..._draft.formData } : initialFormData);
   const [activeMoqId, setActiveMoqId] = useState<number>(1);
@@ -645,7 +659,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
       return initialPackagingLevels;
     })();
-    const resolvedFormData = { ...state.formData, numIntakePallets: state.formData.numIntakePallets ?? "1" };
+    const resolvedFormData = { ...state.formData, numIntakePallets: state.formData.numIntakePallets ?? "" };
     const resolvedCustomer = state.customer ?? initialCustomer;
     const resolvedBrand = state.selectedBrand ?? initialBrand;
     const resolvedProjectType = state.projectType ?? "standard";
@@ -713,6 +727,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       coPackingTotals,
       moqRows, setMoqRows,
       packagingLevels, setPackagingLevels,
+      processLevels, setProcessLevels,
+      processCostMarkup, setProcessCostMarkup,
       columns, setColumns,
       formData, setFormField,
       setTestingRows,

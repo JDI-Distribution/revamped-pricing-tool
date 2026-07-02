@@ -64,8 +64,13 @@ export function computeCoPackingResults(
   const testingOur = testingCostPerSku * s.numSkus;
   const testingCx  = testingOur * (1 + (s.testingMarkup ?? 0.20));
 
-  const inboundHandlingOur = s.intakeFeePerPallet * pallets + testingOur;
-  const inboundHandlingCx  = s.intakeFeePerPallet * pallets * (1 + s.intakeMarkup) + testingCx;
+  // Auto-calculate intake pallets: raw material grams → lbs ÷ pallet weight
+  const rawGramsRequired   = units * s.sachetSizeG * (1 + s.inboundOverage);
+  const rawLbsRequired     = rawGramsRequired / 453.592;
+  const palletWeightLbs    = s.intakePalletWeightLbs ?? 1200;
+  const autoPallets        = palletWeightLbs > 0 ? Math.ceil(rawLbsRequired / palletWeightLbs) : pallets;
+  const inboundHandlingOur = s.intakeFeePerPallet * autoPallets + testingOur;
+  const inboundHandlingCx  = s.intakeFeePerPallet * autoPallets * (1 + s.intakeMarkup) + testingCx;
 
   // JDI-supplied raw materials (rawMaterialSource replaces old materialModel)
   let rawMaterialOur = 0;

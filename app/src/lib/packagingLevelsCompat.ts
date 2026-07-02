@@ -69,7 +69,7 @@ export function packagingLevelsToColumns(
         "Unit Fill Rate / min":    String(lvl.fillRatePerMin),
         "Packaging Cost / unit":   String(lvl.costPerUnit),
         "Label Print Cost / unit": lvl.labelEnabled ? String(lvl.labelPrintCost) : "0",
-        "Label Apply Rate / min":  lvl.labelEnabled ? String(lvl.labelApplyRate) : "0",
+        "Label Apply Rate / min":  String(lvl.labelApplyRate), // always pass — throughput bottleneck independent of labelEnabled
         "Packaging Weight (g)":    String(lvl.packagingWeightG),
         "No. of Staff / Stations": String(lvl.numStaff),
         "Hrs / Shift":             String(lvl.hrsPerShift),

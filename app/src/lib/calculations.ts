@@ -39,11 +39,12 @@ function computeColumn(
   // overageRate is entered as an integer percent (e.g. 15 = 15%).
   const overageRate = n(col.rows?.["Overage Rate"]);
   const units       = n(col.units);
-  const unitsReq    = units * (1 + overageRate / 100);
+  const unitsReq    = Math.ceil(Math.round(units * (1 + overageRate / 100) * 1e9) / 1e9);
 
   // ── Throughput ────────────────────────────────────────────────
   const hoursPerShiftEarly = n(col.rows?.["Hrs / Shift"]);
   const numStationsEarly   = n(col.rows?.["No. of Staff / Stations"]);
+  const workingDaysEarly   = n(col.rows?.["Working Days"]) || 5;
 
   const isInnerLevel = col.level === "Inner / Case";
 
@@ -108,7 +109,7 @@ function computeColumn(
     ? totalHrsReq / (hoursPerShiftEarly * numStationsEarly)
     : null;
   const leadTimeWeeks  = productionDays !== null
-    ? productionDays / 5
+    ? productionDays / workingDaysEarly
     : null;
 
   // ── Level helpers ──────────────────────────────────────────────
@@ -142,9 +143,9 @@ function computeColumn(
     leadTimeWeeks,
     costPerUnit,
     totalWeight:   isIndividual && unitWeightG > 0
-      ? unitsReq * unitWeightG
+      ? units * unitWeightG           // base units (not overage-inflated) per spec
       : n(col.rows?.["Packaging Weight (g)"]) > 0
-        ? unitsReq * n(col.rows?.["Packaging Weight (g)"])
+        ? units * n(col.rows?.["Packaging Weight (g)"])  // base units per spec
         : null,
     // totalUnits = DELIVERED qty (what the customer receives), not overage-inflated unitsReq.
     // PPU = customerTotalCost / totalUnits so they must use the same denominator.
@@ -190,17 +191,22 @@ export function computeColumnOutputs(
   wageRate:         number,   // total line wage rate (covers all staff cost)
   numStaff:         number,   // used for lead time capacity only, not labor cost
   hrsPerShift:      number,
-  _workingDays:     number,
+  workingDays:      number,
   packagingWeightG: number,
   baseUnits:        number,
   overageRate:      number,   // integer percent, e.g. 15 = 15%
   _cpoCostPerUnit:  number,   // Cost/Unit entered in CPO section for this level
   laborMarkup:      number,   // integer percent, e.g. 35 = 35%
+  labelApplyRate:   number = 0, // optional: when > 0, harmonic mean with fillRate
 ): ColumnOutputs {
-  const unitsReq    = Math.ceil(baseUnits * (1 + overageRate / 100));
-  const effRate     = fillRatePerMin > 0 && efficiencyBuffer < 100
-    ? fillRatePerMin * (1 - efficiencyBuffer / 100)
+  const unitsReq = Math.ceil(baseUnits * (1 + overageRate / 100));
+  // Harmonic mean when both fill and label rates exist (sequential ops on same line)
+  const nominalRate = fillRatePerMin > 0 && labelApplyRate > 0
+    ? (fillRatePerMin * labelApplyRate) / (fillRatePerMin + labelApplyRate)
     : fillRatePerMin;
+  const effRate = nominalRate > 0
+    ? nominalRate * (1 - efficiencyBuffer / 100)
+    : nominalRate;
   const totalMinReq = effRate > 0 ? unitsReq / effRate : 0;
   const totalHrsReq = totalMinReq / 60;
   const perHr       = effRate * 60;
@@ -216,7 +222,8 @@ export function computeColumnOutputs(
   const productionDays = hrsPerShift > 0 && numStaff > 0
     ? totalHrsReq / (hrsPerShift * numStaff)
     : hrsPerShift > 0 ? totalHrsReq / hrsPerShift : 0;
-  const leadTimeWeeks = productionDays / 5;
+  const effectiveWorkingDays = workingDays > 0 ? workingDays : 5;
+  const leadTimeWeeks = productionDays / effectiveWorkingDays;
   const leadTimeDays  = productionDays;
 
   return { unitsReq, effRate, perHr, totalHrsReq, totalMinReq, costPerMin, ourLaborCost, customerLaborCost, totalLabor: ourLaborCost, costPerUnit, pkgWeight, leadTimeDays, leadTimeWeeks };

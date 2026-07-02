@@ -52,6 +52,12 @@ export interface QuotePreview {
   overviewBox?:    { xMm: number; yMm: number; wMm: number; hMm: number; prefixWMm: number };
 }
 
+export interface OverviewLineItem {
+  desc:  string;
+  qty:   number | null;
+  total: number;
+}
+
 type QuoteArgs = {
   brandId:          BrandId;
   moqResults:       MoqPricingRow[];
@@ -61,6 +67,10 @@ type QuoteArgs = {
   summaryTableRows: SummaryTableRow[];
   deliveredQtys?:   number[];
   primaryProductName?: string;
+  overviewLineItems?: OverviewLineItem[];  // pre-computed line items from QuotePage Overview table
+  adjustedRevenue?:  number;
+  adjustedPPU?:      number;
+  ppuDenominator?:   number;
   formData:         {
     startDate: string; leadTimeBufferDays: string; ppuDenominator: string;
     outboundFee: string; outboundFeeMarkup: string; palletBuffer: string;
@@ -152,7 +162,8 @@ function syntheticBaseRow(summaryRows: SummaryRow[], ppuDenominator: number): Mo
 // ── Core builder ──────────────────────────────────────────────────────────────
 async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: string; moqLabel: string; packLabel: string; leadTimeTable?: AutoTableSnapshot; pricingTable?: AutoTableSnapshot; overviewBox?: QuotePreview["overviewBox"] }[]> {
   const { brandId, moqMargins, whatIfPpus = {}, summaryRows, summaryTableRows,
-          deliveredQtys = [], primaryProductName = "", formData, customer } = args;
+          deliveredQtys = [], primaryProductName = "", formData, customer,
+          overviewLineItems, adjustedRevenue, adjustedPPU, ppuDenominator: argPpuDenominator } = args;
   const moqResults = args.moqResults.length > 0
     ? args.moqResults
     : [syntheticBaseRow(summaryRows, parseFloat(formData.ppuDenominator) || 1)];
@@ -168,18 +179,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
   const startDate     = formData.startDate ? new Date(formData.startDate + "T00:00:00") : today;
   const shipDate      = addBusinessDays(startDate, leadTimeWeeks * 5);
 
-  const autoOverview = (() => {
-    const fmtN = (n: number) => Math.round(n).toLocaleString("en-US");
-    const rows = summaryTableRows.filter(r => !r.isLeadTimeSummary && (r.totalUnits ?? 0) > 0);
-    if (rows.length === 0) return "";
-    const parts: string[] = [];
-    const primary = rows[0];
-    const productName = customer.productName || primaryProductName || "product";
-    parts.push(`${fmtN(primary.totalUnits ?? 0)} Units, ${productName}`);
-    rows.slice(1).forEach(row => parts.push(`packed into ${fmtN(row.totalUnits ?? 0)} ${row.label}`));
-    const ltStr = leadTimeWeeks > 0 ? ` Lead time is approx ${Math.round(leadTimeWeeks)} wks.` : "";
-    return parts.join(". ") + `. Shipping/freight not included.${ltStr}`;
-  })();
+  void primaryProductName; // used in line items below
 
   void hexToRgb(brand.accent); // accent available for future tinting
 
@@ -282,21 +282,19 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       ["EMAIL",        brand.email],
     ];
 
-    const fieldLineH = 5.5;
-    leftFields.forEach(([label, val], i) => {
-      const fy = y + i * fieldLineH;
+    const fieldLineH = 8;   // label (7pt) + 3.2mm gap to value (9pt) + 4.8mm breathing room
+    const drawField = (label: string, val: string, x: number, fy: number, maxW: number) => {
       sf("bold", 7); doc.setTextColor(...midGray);
-      doc.text(label, L, fy);
+      doc.text(label, x, fy);
       sf("normal", 9); doc.setTextColor(...gray);
-      doc.text(val, L, fy + 3.2);
-    });
-    rightFields.forEach(([label, val], i) => {
-      const fy = y + i * fieldLineH;
-      sf("bold", 7); doc.setTextColor(...midGray);
-      doc.text(label, colMid, fy);
-      sf("normal", 9); doc.setTextColor(...gray);
-      doc.text(val, colMid, fy + 3.2);
-    });
+      // clip value to column width
+      const clipped = doc.splitTextToSize(val, maxW)[0] as string;
+      doc.text(clipped, x, fy + 3.5);
+    };
+
+    const colW = W / 2 - 4;
+    leftFields.forEach(([label, val], i)  => drawField(label, val, L,       y + i * fieldLineH, colW));
+    rightFields.forEach(([label, val], i) => drawField(label, val, colMid,  y + i * fieldLineH, colW));
 
     y += leftFields.length * fieldLineH + 4;
     rule(y);
@@ -318,29 +316,61 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     overviewFields.forEach(([label, val], i) => {
       const fy = y + i * fieldLineH;
-      sf("bold", 7); doc.setTextColor(...midGray);
-      doc.text(label, L, fy);
-      sf("normal", 9); doc.setTextColor(...gray);
-      doc.text(val, L, fy + 3.2);
+      drawField(label, val, L, fy, colW);
     });
 
-    // Project overview paragraph (right half or below)
-    const overviewText = customer.projectOverview || autoOverview;
-    let overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined;
-    if (overviewText) {
+    // ── Packaging breakdown table (right column, aligned with overviewFields) ──
+    const packRows = summaryTableRows.filter(str => !str.isLeadTimeSummary && (str.totalUnits ?? 0) > 0);
+    const overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined = undefined;
+    if (packRows.length > 0) {
+      const tableY = y;
+      const tableW = W / 2 - 2;
+      const col1W  = tableW * 0.6;
+      const rowH   = 5.2;
+
+      // header row
+      sf("bold", 7); doc.setTextColor(...midGray);
+      doc.text("PACKAGING LEVEL", colMid, tableY);
+      doc.text("QTY", colMid + col1W, tableY, { align: "right" });
+
+      doc.setDrawColor(...ltGray); doc.setLineWidth(0.2);
+      doc.line(colMid, tableY + 1.5, colMid + tableW, tableY + 1.5);
+
+      packRows.forEach((row, ri) => {
+        const ry = tableY + 4 + ri * rowH;
+        const isFirst = ri === 0;
+
+        // subtle alternating tint
+        if (ri % 2 === 1) {
+          doc.setFillColor(...rowEven);
+          doc.rect(colMid - 1, ry - 3.5, tableW + 2, rowH, "F");
+        }
+
+        sf(isFirst ? "bold" : "normal", 8.5);
+        doc.setTextColor(...(isFirst ? gray : [60, 60, 60] as [number,number,number]));
+        const displayLabel = row.label.replace(/ & Fees$/i, "");
+        const nameClipped = doc.splitTextToSize(displayLabel, col1W - 2)[0] as string;
+        doc.text(nameClipped, colMid, ry);
+
+        sf("normal", 8.5); doc.setTextColor(...gray);
+        doc.text(Math.round(row.totalUnits ?? 0).toLocaleString(), colMid + col1W, ry, { align: "right" });
+      });
+
+      // bottom rule under table
+      const tableBottom = tableY + 4 + packRows.length * rowH;
+      doc.setDrawColor(...ltGray); doc.setLineWidth(0.2);
+      doc.line(colMid, tableBottom, colMid + tableW, tableBottom);
+    } else if (customer.projectOverview) {
+      // fallback: custom text paragraph
       sf("normal", 8.5); doc.setTextColor(...midGray);
-      const ovWrapped = doc.splitTextToSize(overviewText, W / 2 - 4);
+      const ovWrapped = doc.splitTextToSize(customer.projectOverview, W / 2 - 4);
       ovWrapped.forEach((line: string, li: number) => {
         doc.text(line, colMid, y + li * 4.2);
       });
-      overviewBoxSnapshot = {
-        xMm: colMid, yMm: y,
-        wMm: W / 2, hMm: ovWrapped.length * 4.2,
-        prefixWMm: 0,
-      };
     }
 
-    y += Math.max(overviewFields.length, 3) * fieldLineH + 4;
+    const overviewSectionH = Math.max(overviewFields.length * fieldLineH, packRows.length > 0 ? 4 + packRows.length * 5.2 + 4 : 0);
+    y += overviewSectionH + 4;
     rule(y);
 
     // ── TIMELINE & DELIVERY ───────────────────────────────────────────────────
@@ -393,80 +423,62 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     // ── PRICING BREAKDOWN ─────────────────────────────────────────────────────
     y = (doc as any).lastAutoTable.finalY + 7;
-    checkPageBreak(60);
-
-    sectionLabel("Pricing Breakdown", L, y);
-    y += 5;
-
-    const setupRow    = summaryRows.find(sr => sr.label.toLowerCase().includes("setup"));
-    const materialRow = summaryRows.find(sr => sr.label.toLowerCase().includes("material"));
-    const palletRow   = summaryRows.find(sr => sr.label.toLowerCase().includes("pallet"));
-
-    const colItems = summaryTableRows.filter(str =>
-      !str.isLeadTimeSummary &&
-      !str.label.toLowerCase().includes("material") &&
-      !str.label.toLowerCase().includes("pallet") &&
-      !str.label.toLowerCase().includes("setup") &&
-      !str.label.toLowerCase().startsWith("testing –")
-    );
-    const palletSTR  = summaryTableRows.find(str => str.label.toLowerCase().includes("pallet") && !str.isLeadTimeSummary);
-    const primaryCol = colItems[0];
 
     const body: string[][] = [];
 
-    if (setupRow) {
-      body.push(["Project Setup, Line Dial-In & Quality Assurance", "1",
-        fmtPPU(setupRow.customerPrice), fmt(setupRow.customerPrice)]);
-    }
+    if (overviewLineItems && overviewLineItems.length > 0) {
+      // Use pre-computed Overview line items from QuotePage
+      for (const item of overviewLineItems) {
+        const qtyStr = item.qty != null ? Math.round(item.qty).toLocaleString() : "—";
+        const ppu    = item.qty && item.qty > 0 ? item.total / item.qty : item.total;
+        body.push([item.desc, qtyStr, fmtPPU(ppu), fmt(item.total)]);
+      }
+    } else {
+      // Fallback: build from summaryRows (legacy path)
+      const setupRow    = summaryRows.find(sr => sr.label.toLowerCase().includes("setup"));
+      const materialRow = summaryRows.find(sr => sr.label.toLowerCase().includes("material"));
+      const palletRow   = summaryRows.find(sr => sr.label.toLowerCase().includes("pallet"));
+      const colItems    = summaryTableRows.filter(str =>
+        !str.isLeadTimeSummary &&
+        !str.label.toLowerCase().includes("material") &&
+        !str.label.toLowerCase().includes("pallet") &&
+        !str.label.toLowerCase().includes("setup") &&
+        !str.label.toLowerCase().startsWith("testing –")
+      );
+      const palletSTR  = summaryTableRows.find(str => str.label.toLowerCase().includes("pallet") && !str.isLeadTimeSummary);
+      const primaryCol = colItems[0];
 
-    {
-      const intakeFee    = parseFloat(formData.intakeFee ?? "0") || 0;
-      const intakeMarkup = parseFloat(formData.intakeFeeMarkup ?? "0") || 0;
-      const nPallets     = parseFloat(formData.numIntakePallets ?? formData.numPallets ?? "0") || 0;
-      const intakeCx     = intakeFee * nPallets * (1 + intakeMarkup / 100);
-      const matCx        = (materialRow?.customerPrice ?? 0) - intakeCx;
-      const primCx       = primaryCol?.totalPrice ?? 0;
-      const combTotal    = matCx + primCx;
-      const combDeliv    = primaryDelivQty > 0 ? primaryDelivQty : 1;
-      const combPPU      = combDeliv > 0 ? combTotal / combDeliv : 0;
-      const primName     = primaryCol?.label || customer.productName || primaryProductName || "Primary Fill";
-      body.push([
-        `Product Filling, Handling & Intake (receiving, inspection) - ${primName}`,
-        Math.round(combDeliv).toLocaleString(),
-        fmtPPU(combPPU),
-        fmt(combTotal),
-      ]);
-      if (intakeCx > 0) {
-        const intakePPU = nPallets > 0 ? intakeCx / nPallets : 0;
-        body.push(["Intake Fee / Pallet", nPallets > 0 ? String(Math.round(nPallets)) : "—", fmtPPU(intakePPU), fmt(intakeCx)]);
+      if (setupRow) {
+        body.push(["Project Setup, Line Dial-In & Quality Assurance", "1", fmtPPU(setupRow.customerPrice), fmt(setupRow.customerPrice)]);
+      }
+      {
+        const matCx     = materialRow?.customerPrice ?? 0;
+        const primCx    = primaryCol?.totalPrice ?? 0;
+        const combTotal = matCx + primCx;
+        const combDeliv = primaryDelivQty > 0 ? primaryDelivQty : 1;
+        const combPPU   = combDeliv > 0 ? combTotal / combDeliv : 0;
+        const primName  = primaryCol?.label || customer.productName || primaryProductName || "Primary Fill";
+        body.push([`Product Filling, Handling & Intake - ${primName}`, Math.round(combDeliv).toLocaleString(), fmtPPU(combPPU), fmt(combTotal)]);
+      }
+      const testingSTRs = summaryTableRows.filter(str => str.label.toLowerCase().startsWith("testing –"));
+      const nSkus = parseInt(formData.numSkus ?? "1", 10) || 1;
+      for (const t of testingSTRs) {
+        const cx = t.totalPrice ?? 0;
+        body.push([`Testing & Documentation – ${t.label.replace(/^testing\s*[–-]\s*/i, "")}`, `${nSkus} SKUs`, fmtPPU(nSkus > 0 ? cx / nSkus : 0), fmt(cx)]);
+      }
+      colItems.slice(1).forEach((col) => {
+        const delivQty = col.totalUnits ?? 0;
+        const totalPrice = col.totalPrice ?? 0;
+        body.push([`${col.label} - Total`, delivQty > 0 ? Math.round(delivQty).toLocaleString() : "—", fmtPPU(delivQty > 0 ? totalPrice / delivQty : 0), fmt(totalPrice)]);
+      });
+      if (palletRow) {
+        const nPal  = palletSTR?.totalUnits != null ? Math.round(palletSTR.totalUnits) : 0;
+        const palCx = palletRow.customerPrice;
+        body.push(["Palletization & Outbound Staging", nPal > 0 ? String(nPal) : "—", fmtPPU(nPal > 0 ? palCx / nPal : 0), fmt(palCx)]);
       }
     }
 
-    const testingSTRs = summaryTableRows.filter(str => str.label.toLowerCase().startsWith("testing –"));
-    const nSkus = parseInt(formData.numSkus ?? "1", 10) || 1;
-    for (const t of testingSTRs) {
-      const cx  = t.totalPrice ?? 0;
-      const ppu = nSkus > 0 ? cx / nSkus : 0;
-      body.push([`Testing & Documentation – ${t.label.replace(/^testing\s*[–-]\s*/i, "")}`, `${nSkus} SKUs`, fmtPPU(ppu), fmt(cx)]);
-    }
-
-    colItems.slice(1).forEach((col, i) => {
-      const colItemsIdx = i + 1;
-      const delivQty    = (deliveredQtys.length > colItemsIdx && deliveredQtys[colItemsIdx] > 0)
-        ? deliveredQtys[colItemsIdx]
-        : (col.totalUnits ?? 0);
-      const totalPrice  = col.totalPrice ?? 0;
-      const ppu         = delivQty > 0 && totalPrice > 0 ? totalPrice / delivQty : 0;
-      body.push([`${col.label} - Total`, delivQty > 0 ? Math.round(delivQty).toLocaleString() : "—", fmtPPU(ppu), fmt(totalPrice)]);
-    });
-
-    if (palletRow) {
-      const nPal   = palletSTR?.totalUnits != null && palletSTR.totalUnits > 0 ? Math.round(palletSTR.totalUnits) : 0;
-      const palCx  = palletRow.customerPrice;
-      const palPPU = nPal > 0 ? palCx / nPal : 0;
-      body.push(["Palletization & Outbound Staging", nPal > 0 ? String(nPal) : "—", fmtPPU(palPPU), fmt(palCx)]);
-    }
-
+    // Apply PDF editor line-item overrides
     const liOv = customer.lineItemOverrides ?? [];
     if (liOv.length > 0) {
       body.forEach((row, ri) => {
@@ -476,10 +488,26 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       });
     }
 
-    const totalsRowOv = liOv[body.length];
-    const totalsTotal = (totalsRowOv?.[3] && totalsRowOv[3] !== "") ? totalsRowOv[3] : fmt(totalRevenue);
-    body.push(["TOTALS", "", fmtPPU(totalPPU), totalsTotal]);
+    // Totals row
+    const finalRevenue  = adjustedRevenue ?? totalRevenue;
+    const finalPPU      = adjustedPPU ?? totalPPU;
+    const finalDenom    = argPpuDenominator ?? r.ppuDenominator;
+    void finalDenom;
+    const totalsRowOv   = liOv[body.length];
+    const totalsTotal   = (totalsRowOv?.[3] && totalsRowOv[3] !== "") ? totalsRowOv[3] : fmt(finalRevenue);
+    body.push(["TOTALS", "", fmtPPU(finalPPU), totalsTotal]);
     const totalsIdx = body.length - 1;
+
+    // Estimate full table height: header (8mm) + each row (~8mm each, some wrap to 2 lines)
+    // + section label (10mm) — force new page if it won't all fit
+    const estimatedTableH = 10 + 8 + body.length * 8;
+    if (y + estimatedTableH > pageH - MARGIN_BOTTOM) {
+      doc.addPage();
+      y = 14;
+    }
+
+    sectionLabel("Pricing Breakdown", L, y);
+    y += 5;
 
     autoTable(doc, {
       startY: y, margin: { left: L, right: L },

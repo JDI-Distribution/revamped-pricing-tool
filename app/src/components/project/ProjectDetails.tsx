@@ -1,6 +1,6 @@
 ﻿
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { MoqRow, ProjectFormData, TestingRow, PackagingLevel } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
@@ -111,6 +111,8 @@ export default function ProjectDetails({
   const [cpoOpen,         setCpoOpen]         = useState(true);
   const [rawMatOpen,      setRawMatOpen]      = useState(true);
   const [invHandlingOpen, setInvHandlingOpen] = useState(true);
+  const [palletCalcOpen,  setPalletCalcOpen]  = useState(false);
+  const lastAutoIntakePallets = useRef<string | null>(null);
   const [testingOpen,     setTestingOpen]     = useState(true);
   const { setTestingRows, packagingLevels, setPackagingLevels } = useProject();
   const { notRequired } = useSectionRequired();
@@ -139,14 +141,27 @@ export default function ProjectDetails({
   /* ── Design tokens ─────────────────────────────────────────── */
   const card       = "bg-white border border-gray-200 rounded-xl overflow-hidden flex-1 min-w-0 max-w-4xl";
   const sectionRow = "flex gap-5 items-start px-4 md:px-6 mb-4";
-  const outPanel    = "w-56 shrink-0 sticky top-14 bg-[#FFF8F0] border border-amber-200 rounded-xl overflow-hidden shadow-sm shadow-amber-100";
-  const outTitle    = "px-3 py-2.5 text-[0.55rem] font-semibold text-amber-700 uppercase tracking-widest border-b border-amber-200 bg-amber-100/60";
-  const outRow      = "flex items-start justify-between gap-3 px-3 py-2.5 border-b border-amber-100 last:border-0";
+  const outPanel    = "w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100";
+  const outTitle    = "px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60";
+  const outRow      = "flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100 last:border-0";
   const outLbl      = "text-[0.68rem] text-gray-500 leading-tight";
   const outVal      = "text-[0.72rem] font-semibold text-gray-800 tabular-nums text-right shrink-0 ml-2";
-  const outCostSep  = "px-3 py-1.5 text-[0.52rem] font-bold text-amber-600 uppercase tracking-widest bg-amber-50 border-b border-amber-200";
+  const outCostSep  = "px-3 py-1.5 text-[0.52rem] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 border-b border-blue-200";
   const outOurVal   = "text-[0.72rem] font-semibold text-gray-700 tabular-nums text-right shrink-0 ml-2";
   const outCxVal    = "text-[0.72rem] font-bold text-[#e8473f] tabular-nums text-right shrink-0 ml-2";
+  const marginBadge = (our: number, cx: number) => {
+    if (cx <= 0 || our <= 0) return null;
+    const pct = ((cx - our) / cx) * 100;
+    const cls = pct >= 50 ? "bg-green-50 border-green-200 text-green-700" : pct >= 30 ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-red-50 border-red-200 text-red-600";
+    return (
+      <div className="px-3 pb-2.5">
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[0.65rem] font-bold tabular-nums ${cls}`}>
+          <span className="text-[0.5rem] font-semibold opacity-70">MARGIN</span>
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+    );
+  };
 
   /* ── Packaging Level helpers ──────────────────────────────── */
   const addPackagingLevel = () => {
@@ -176,6 +191,14 @@ export default function ProjectDetails({
     }
     return qtys;
   })();
+
+  // Auto-seed ppuDenominator from first packaging level's required qty when field is empty
+  const firstLvlQtyForSeed = packagingRequiredQtys[0] ?? 0;
+  useEffect(() => {
+    if (firstLvlQtyForSeed > 0 && (!formData.ppuDenominator || formData.ppuDenominator === "0")) {
+      setFormField("ppuDenominator", String(firstLvlQtyForSeed));
+    }
+  }, [firstLvlQtyForSeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stable dep key: serialised CPO-relevant fields — triggers sync only when CPO data actually changes.
   const _cpoSyncKey = packagingLevels
@@ -219,6 +242,27 @@ export default function ProjectDetails({
   const fmtN3 = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 3 });
   const fmtD  = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
   const fv    = (n: number, fmt: (n: number) => string) => n > 0 ? fmt(n) : "—";
+
+  // ── # Intake Pallets — auto-calculated from raw material weight ÷ pallet weight ──
+  const intakeOveragePct   = parseFloat(formData.materialOverage as string) || 0;
+  const intakeReqGrams     = Math.ceil(baseQty * (1 + intakeOveragePct / 100)) * unitWeightG;
+  const intakeReqLbs       = intakeReqGrams / 453.592;
+  const intakePalletWtLbs  = parseFloat((formData as any).intakePalletWeightValue) || 1200;
+  const autoIntakePallets  = intakePalletWtLbs > 0 ? Math.ceil(intakeReqLbs / intakePalletWtLbs) : 0;
+  const autoIntakePalletsStr = autoIntakePallets > 0 ? String(autoIntakePallets) : "";
+
+  // Keep # Intake Pallets synced to the live calculation unless the user has
+  // typed a value that diverges from the last auto-computed one. On first run
+  // (ref is null — fresh mount or legacy saved value), treat it as untouched too,
+  // so stale/pre-existing values get reconciled with the live calc.
+  useEffect(() => {
+    const current = formData.numIntakePallets ?? "";
+    const isUntouched = current === "" || lastAutoIntakePallets.current === null || current === lastAutoIntakePallets.current;
+    if (isUntouched && current !== autoIntakePalletsStr) {
+      setFormField("numIntakePallets", autoIntakePalletsStr);
+    }
+    lastAutoIntakePallets.current = autoIntakePalletsStr;
+  }, [autoIntakePalletsStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -311,7 +355,7 @@ export default function ProjectDetails({
                       <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Units</th>
                       <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">UOM</th>
                       <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Required Qty</th>
-                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Cost / Unit</th>
+                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Packaging Cost / Unit</th>
                       <th className="border-b-2 border-gray-300 w-10" />
                     </tr>
                   </thead>
@@ -399,24 +443,15 @@ export default function ProjectDetails({
               </div>
             </div>
 
-            {/* PPU Denominator — defaults to first packaging level's required qty */}
-            {(() => {
-              const firstLvlQty = packagingRequiredQtys[0] ?? 0;
-              const ppuDenomVal = parseFloat(formData.ppuDenominator) || firstLvlQty;
-              return (
-                <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                  <div>
-                    <span className="text-xs text-gray-600">PPU Denominator</span>
-                    {firstLvlQty > 0 && <p className="text-[0.55rem] text-gray-400 mt-0.5">default: {firstLvlQty.toLocaleString()}</p>}
-                  </div>
-                  <div className="w-40">
-                    <CurrencyInput type="integer" value={ppuDenomVal}
-                      onChange={v => setFormField("ppuDenominator", String(v))}
-                      className={inputKey} />
-                  </div>
-                </div>
-              );
-            })()}
+            {/* PPU Denominator */}
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600">PPU Denominator</span>
+              <div className="w-40">
+                <CurrencyInput type="integer" value={parseFloat(formData.ppuDenominator) || 0}
+                  onChange={v => setFormField("ppuDenominator", String(v))}
+                  className={inputKey} />
+              </div>
+            </div>
 
             {/* Lead Time Buffer */}
             <div id="section-lead-time" className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
@@ -498,6 +533,7 @@ export default function ProjectDetails({
             <span className={outCxVal}>{fmtD(parseFloat((formData as any).projectManagementFee))}</span>
           </div>
         )}
+        {marginBadge(parseFloat(formData.setupFeeOur) || 0, parseFloat(formData.setupFeeCustomer) || 0)}
       </div>}
       </div>{/* end section-row CPO */}
 
@@ -508,25 +544,51 @@ export default function ProjectDetails({
 
         {rawMatOpen && !notRequired["section-raw-materials"] && (
           <div className="mt-4">
+              {/* Raw Material Provider */}
+              <div className="flex items-center gap-4 py-1.5 mb-3 border-b border-gray-200">
+                {(["customer", "us"] as const).map(opt => (
+                  <label key={opt} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="rawMaterialProvider"
+                      value={opt}
+                      checked={(formData.rawMaterialProvider || "customer") === opt}
+                      onChange={() => setFormField("rawMaterialProvider", opt)}
+                      className="accent-[#e8473f] w-3.5 h-3.5"
+                    />
+                    <span className="text-xs text-gray-700">
+                      {opt === "customer" ? "Customer provides raw material" : "We source raw material"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
               {/* Group 1 */}
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5 mb-3 border-b border-gray-200">
                 <span className="text-xs text-gray-600">Overage Rate</span>
                 <SymInput field="materialOverage" type="number" sym="%" formData={formData} setFormField={setFormField} />
               </div>
 
-              {/* Group 2 */}
-              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                <span className="text-xs text-gray-600">Cost / Gram</span>
-                <SymInput field="costPerGram" type="number" sym="$" formData={formData} setFormField={setFormField} />
-              </div>
-              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                <span className="text-xs text-gray-600">Leftover Inv. Cost</span>
-                <SymInput field="leftOverInventoryCost" type="number" sym="$" formData={formData} setFormField={setFormField} />
-              </div>
-              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5 mb-3 border-b border-gray-200">
-                <span className="text-xs text-gray-600">Leftover Absorb</span>
-                <SymInput field="leftOverInventoryAbsorb" type="number" sym="%" formData={formData} setFormField={setFormField} />
-              </div>
+              {/* Group 2 — disabled when customer provides material */}
+              {(() => {
+                const customerProvides = (formData.rawMaterialProvider || "customer") === "customer";
+                return (
+                  <div className={customerProvides ? "opacity-40 pointer-events-none select-none" : ""}>
+                    <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                      <span className="text-xs text-gray-600">Cost / Gram</span>
+                      <SymInput field="costPerGram" type="number" sym="$" formData={formData} setFormField={setFormField} />
+                    </div>
+                    <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                      <span className="text-xs text-gray-600">Leftover Inv. Cost</span>
+                      <SymInput field="leftOverInventoryCost" type="number" sym="$" formData={formData} setFormField={setFormField} />
+                    </div>
+                    <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5 mb-3 border-b border-gray-200">
+                      <span className="text-xs text-gray-600">Leftover Absorb</span>
+                      <SymInput field="leftOverInventoryAbsorb" type="number" sym="%" formData={formData} setFormField={setFormField} />
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Group 3 */}
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
@@ -540,11 +602,12 @@ export default function ProjectDetails({
 
       {/* Raw Material outputs panel */}
       {!notRequired["section-raw-materials"] && (() => {
+        const customerProvides = (formData.rawMaterialProvider || "customer") === "customer";
         const overagePct     = parseFloat(formData.materialOverage as string) || 0;
         const reqGrams       = Math.ceil(baseQty * (1 + overagePct / 100)) * unitWeightG;
         const reqOz          = reqGrams / 28.3495;
         const reqLbs         = reqGrams / 453.592;
-        const cpg            = parseFloat(formData.costPerGram as string) || 0;
+        const cpg            = customerProvides ? 0 : (parseFloat(formData.costPerGram as string) || 0);
         const rawMatMarkup   = parseFloat(formData.rawMaterialMarkup as string) || 0;
         const rawMatOur      = reqGrams * cpg;
         const rawMatCustomer = rawMatOur * (1 + rawMatMarkup / 100);
@@ -558,6 +621,7 @@ export default function ProjectDetails({
             <div className={outCostSep}>Material Costs</div>
             <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(rawMatOur, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(rawMatCustomer, fmtD)}</span></div>
+            {marginBadge(rawMatOur, rawMatCustomer)}
           </div>
         );
       })()}
@@ -570,14 +634,6 @@ export default function ProjectDetails({
 
         {invHandlingOpen && !notRequired["section-inventory-handling"] && (
           <div className="mt-4">
-            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Intake Fee / Pallet</span>
-              <SymInput field="intakeFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
-            </div>
-            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600"># Intake Pallets</span>
-              <SymInput field="numIntakePallets" type="number" sym="" formData={formData} setFormField={setFormField} />
-            </div>
             {/* Intake Pallet Weight */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-gray-600">Intake Pallet Weight</span>
@@ -586,8 +642,8 @@ export default function ProjectDetails({
                   type="number"
                   value={(formData as any).intakePalletWeightValue ?? ""}
                   onChange={e => setFormField("intakePalletWeightValue" as keyof typeof formData, e.target.value)}
-                  placeholder="0"
-                  className="w-24 h-9 px-3 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
+                  placeholder="1200"
+                  className="flex-1 min-w-0 h-9 px-3 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
                 />
                 <select
                   value={(formData as any).intakePalletWeightUom ?? "lbs"}
@@ -598,13 +654,60 @@ export default function ProjectDetails({
                 </select>
               </div>
             </div>
+
+            {/* # Intake Pallets — auto-calculated default, still editable, with collapsible calc table */}
+            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+              <span className="text-xs text-gray-600"># Intake Pallets</span>
+              <div className="flex items-center gap-2">
+                <SymInput
+                  field="numIntakePallets"
+                  type="number"
+                  sym=""
+                  formData={formData}
+                  setFormField={setFormField}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPalletCalcOpen(o => !o)}
+                  className="flex items-center gap-1 text-[0.65rem] font-medium text-gray-400 hover:text-[#e8473f] transition-colors shrink-0"
+                >
+                  {palletCalcOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  How is this calculated?
+                </button>
+              </div>
+            </div>
+            {palletCalcOpen && (
+              <div className="ml-50 mb-2 border border-gray-200 rounded-md overflow-hidden max-w-sm">
+                {/* Formula header */}
+                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[0.62rem] text-gray-500 font-mono">
+                  ⌈ Raw Material (lbs) ÷ Pallet Weight (lbs) ⌉
+                </div>
+                <table className="w-full text-[0.7rem]">
+                  <tbody>
+                    <tr className="border-b border-gray-100">
+                      <td className="px-2.5 py-1.5 text-gray-400 font-mono text-[0.6rem]">Raw Material (lbs)</td>
+                      <td className="px-2.5 py-1.5 text-right text-gray-800 font-medium tabular-nums">{fmtN(intakeReqLbs)} lbs</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-gray-50/60">
+                      <td className="px-2.5 py-1.5 text-gray-400 font-mono text-[0.6rem]">÷ Pallet Weight (lbs)</td>
+                      <td className="px-2.5 py-1.5 text-right text-gray-800 font-medium tabular-nums">{fmtN(intakePalletWtLbs)} lbs</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-amber-50/40">
+                      <td className="px-2.5 py-1.5 text-gray-400 font-mono text-[0.6rem]">= {intakePalletWtLbs > 0 ? `${fmtN(intakeReqLbs)} ÷ ${fmtN(intakePalletWtLbs)}` : "—"}</td>
+                      <td className="px-2.5 py-1.5 text-right text-gray-600 tabular-nums">{intakePalletWtLbs > 0 ? (intakeReqLbs / intakePalletWtLbs).toFixed(2) : "—"}</td>
+                    </tr>
+                    <tr>
+                      <td className="px-2.5 py-1.5 text-gray-700 font-semibold">⌈ result ⌉ = # Pallets</td>
+                      <td className="px-2.5 py-1.5 text-right text-gray-900 font-bold tabular-nums">{autoIntakePallets > 0 ? fmtN(autoIntakePallets) : "—"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-gray-600">Inventory Handling Fee</span>
               <SymInput field="inventoryHandlingFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
-            </div>
-            <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600"># of Shipments</span>
-              <SymInput field="numShipments" type="number" sym="" formData={formData} setFormField={setFormField} />
             </div>
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-gray-600">Intake Fee Markup</span>
@@ -617,28 +720,21 @@ export default function ProjectDetails({
 
       {/* Inventory Handling outputs panel */}
       {!notRequired["section-inventory-handling"] && (() => {
-        const intakeFee         = parseFloat(formData.intakeFee as string) || 0;
-        const numIntakePallets  = parseFloat((formData as any).numIntakePallets ?? formData.numPallets) || 0;
+        const numIntakePallets  = parseFloat(formData.numIntakePallets as string) || autoIntakePallets;
         const invHandlingFee    = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
-        const numShipments      = parseFloat((formData as any).numShipments ?? "1") || 1;
         const intakeMarkup      = parseFloat(formData.intakeFeeMarkup as string) || 0;
-        // New formula: total = (shipments × handlingFee) + (pallets × intakeFee)
-        const handlingFeeTotal  = numShipments * invHandlingFee;
-        const intakeFeeTotal    = numIntakePallets * intakeFee;
-        const totalOur          = handlingFeeTotal + intakeFeeTotal;
+        const totalOur          = numIntakePallets * invHandlingFee;
         const totalCustomer     = totalOur * (1 + intakeMarkup / 100);
         return (
           <div className={outPanel}>
             <div className={outTitle}>Inventory Handling Outputs</div>
-            <div className={outRow}><span className={outLbl}># of Shipments</span><span className={outVal}>{numShipments > 0 ? fmtN(numShipments) : "—"}</span></div>
-            <div className={outRow}><span className={outLbl}>Handling Fee / Shipment</span><span className={outVal}>{fv(invHandlingFee, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Handling Fee Total</span><span className={outVal}>{fv(handlingFeeTotal, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}># Intake Pallets</span><span className={outVal}>{numIntakePallets > 0 ? fmtN(numIntakePallets) : "—"}</span></div>
-            <div className={outRow}><span className={outLbl}>Intake Fee / Pallet</span><span className={outVal}>{fv(intakeFee, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Intake Fee Total</span><span className={outVal}>{fv(intakeFeeTotal, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Inventory Handling Fee</span><span className={outVal}>{fv(invHandlingFee, fmtD)}</span></div>
+            <div className={outRow}><span className={outLbl}>Handling Fee Total</span><span className={outVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outCostSep}>Handling Costs</div>
             <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCustomer, fmtD)}</span></div>
+            {marginBadge(totalOur, totalCustomer)}
           </div>
         );
       })()}
@@ -647,14 +743,8 @@ export default function ProjectDetails({
       {/* ── Testing ─────────────────────────────────────────────── */}
       {(() => {
         const TEST_TYPES = [
-          "FSQ, Administration, and Testing Documents",
-          "Certificate of Analysis (COA)",
-          "Safety Data Sheet (SDS)",
-          "Spec Sheet / Product Specification",
-          "Microbial Testing",
-          "Heavy Metals Testing",
-          "Allergen Testing",
-          "Moisture / Water Activity Testing",
+          "FSQ, Administration, and Testing Documents - Raw Material",
+          "FSQ, Administration, and Testing Documents - Finished Goods",
           "Custom",
         ];
         const rows: TestingRow[] = formData.testingRows ?? [];
@@ -773,6 +863,7 @@ export default function ProjectDetails({
             <div className={outCostSep}>Testing Costs</div>
             <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCx, fmtD)}</span></div>
+            {marginBadge(totalOur, totalCx)}
           </div>}
           </div>
         );

@@ -410,8 +410,23 @@ export default function CoPackingDetails() {
             <Field label="Overage Rate" field="inboundOverage" value={s.inboundOverage} onChange={set} suffix="%" isPct placeholder="15" />
           </SubSection>
           <SubSection title="Intake Handling">
-            <Field label="Intake Fee / Pallet" field="intakeFeePerPallet" value={s.intakeFeePerPallet} onChange={set} prefix="$" placeholder="195" />
-            <Field label="# of Pallets" field="inboundPallets" value={s.inboundPallets} onChange={set} placeholder="5" />
+            <Field label="Inventory Handling Fee / Pallet" field="intakeFeePerPallet" value={s.intakeFeePerPallet} onChange={set} prefix="$" placeholder="595" />
+            <Field label="Intake Pallet Weight" field="intakePalletWeightLbs" value={s.intakePalletWeightLbs ?? 1200} onChange={set} suffix="lbs" placeholder="1200" />
+            {(() => {
+              const rawGrams = s.unitsDelivered * s.sachetSizeG * (1 + s.inboundOverage);
+              const rawLbs   = rawGrams / 453.592;
+              const palletWt = s.intakePalletWeightLbs ?? 1200;
+              const autoPallets = palletWt > 0 ? Math.ceil(rawLbs / palletWt) : 0;
+              return (
+                <div>
+                  <span className={labelCls}># of Intake Pallets (auto)</span>
+                  <div className="h-9 px-3 flex items-center text-xs text-gray-700 font-semibold bg-gray-50 border border-gray-200 rounded-md tabular-nums">
+                    {autoPallets > 0 ? autoPallets : "—"}
+                    {autoPallets > 0 && <span className="ml-1.5 text-[0.6rem] text-gray-400 font-normal">{rawLbs.toLocaleString("en-US", { maximumFractionDigits: 0 })} lbs total</span>}
+                  </div>
+                </div>
+              );
+            })()}
             <Field label="Markup" field="intakeMarkup" value={s.intakeMarkup} onChange={set} suffix="%" isPct placeholder="25" />
           </SubSection>
           {/* JDI-supplied raw materials (shown when rawMaterialSource === 'jdi') */}

@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { BRANDS, BrandId, CustomerInfo, QuotePreview } from "./generateQuotePDF";
-import { CoPackingState, CoPackingResult, CoPackingProcess } from "./types";
+import { CoPackingState, CoPackingResult, CoPackingProcess, SummaryRow, SummaryTableRow } from "./types";
 import { computePricingTiers } from "./coPackingCalculations";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -72,11 +72,14 @@ export interface CoPackingPdfArgs {
   coPackingState:      CoPackingState;
   coPackingResults:    CoPackingResult[];
   coPackingProcesses?: CoPackingProcess[];
-  adjustedRevenue?:    number;  // when set, overrides the natural grand total in the PDF
+  adjustedRevenue?:    number;
+  summaryRows?:        SummaryRow[];
+  summaryTableRows?:   SummaryTableRow[];
 }
 
 export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promise<QuotePreview> {
-  const { brandId, customer, coPackingState, coPackingResults, coPackingProcesses = [], adjustedRevenue } = args;
+  const { brandId, customer, coPackingState, coPackingResults, coPackingProcesses = [], adjustedRevenue,
+          summaryRows = [], summaryTableRows = [] } = args;
   const s = coPackingState;
 
   const brand        = BRANDS.find(b => b.id === brandId)!;
@@ -204,12 +207,19 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     }
   };
 
-  // Grand total — computed up front so the summary callout can reference it
-  // (adjustedRevenue overrides the natural/minimum-applied total)
-  const naturalTotal = coPackingResults.reduce((acc, r) => acc + r.customerPrice, 0);
+  // Packaging line items (Sachets, Cartons, SRDs, Shippers) — shown in table and included in grand total
+  const EXCLUDED_SUMMARY_LABELS = ["setup", "material", "testing", "pallet"];
+  const pkgSummaryRows = summaryRows.filter(r => {
+    const lbl = r.label.toLowerCase();
+    return !EXCLUDED_SUMMARY_LABELS.some(ex => lbl.includes(ex));
+  });
+  const pkgTotal = pkgSummaryRows.reduce((acc, r) => acc + (r.customerPrice > 0 ? r.customerPrice : 0), 0);
+
+  // Grand total: if price-adjusted, use that directly; otherwise co-packing + packaging
+  const cpNatural    = coPackingResults.reduce((acc, r) => acc + r.customerPrice, 0);
   const minCharge    = s.minimumJobCharge ?? 0;
-  const minApplies   = minCharge > 0 && naturalTotal < minCharge;
-  const grandTotal   = adjustedRevenue ?? (minApplies ? minCharge : naturalTotal);
+  const minApplies   = minCharge > 0 && cpNatural < minCharge;
+  const grandTotal   = adjustedRevenue ?? (minApplies ? minCharge : cpNatural) + pkgTotal;
   const grandPPU     = s.unitsDelivered > 0 ? grandTotal / s.unitsDelivered : 0;
 
   // ── Section 5 — Project Overview Box (identical to standard mode) ────────
@@ -341,6 +351,20 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     ]);
   }
 
+  // Packaging line items (informational — not included in grand total)
+  for (const r of pkgSummaryRows) {
+    if (r.customerPrice <= 0) continue;
+    const str = summaryTableRows.find(st => !st.isLeadTimeSummary && st.label === r.label);
+    const qty = str?.totalUnits ?? 0;
+    const ppu = qty > 0 ? r.customerPrice / qty : 0;
+    body.push([
+      r.label,
+      qty > 0 ? Math.round(qty).toLocaleString() : "—",
+      qty > 0 ? fmtPPU(ppu) : "—",
+      fmt(r.customerPrice),
+    ]);
+  }
+
   // Palletization & Outbound Staging (always shown)
   const palletResult = coPackingResults.find(r => r.label.toLowerCase().includes("pallet"));
   if (palletResult) {
@@ -357,7 +381,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
 
   // Minimum Job Charge Adjustment (only if applied)
   if (minApplies) {
-    const diff = minCharge - naturalTotal;
+    const diff = minCharge - cpNatural;
     body.push([
       "Minimum Job Charge Adjustment",
       "—",
@@ -366,6 +390,36 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     ]);
   }
 
+  // Build pricing table snapshot BEFORE applying overrides — modal uses this to seed its edit rows.
+  // Append a sentinel TOTALS row so the modal seeds grandTotal correctly and passes it back on regenerate.
+  const pricingSnapshot = {
+    body: [
+      ...body.map(row => ({
+        cells: row.map(cell => ({ x: 0, y: 0, width: 0, height: 0, raw: cell })),
+      })),
+      { cells: [
+        { x: 0, y: 0, width: 0, height: 0, raw: "TOTALS" },
+        { x: 0, y: 0, width: 0, height: 0, raw: "" },
+        { x: 0, y: 0, width: 0, height: 0, raw: "" },
+        { x: 0, y: 0, width: 0, height: 0, raw: fmt(grandTotal) },
+      ]},
+    ],
+    finalY: 0,
+  };
+
+  // Apply any display-only overrides from the PDF editor (does not change grand total)
+  const liOv = customer.lineItemOverrides ?? [];
+  if (liOv.length > 0) {
+    body.forEach((row, ri) => {
+      const rowOv = liOv[ri];
+      if (!rowOv) return;
+      rowOv.forEach((val, ci) => { if (val !== null && val !== undefined && val !== "") row[ci] = val as string; });
+    });
+  }
+  // Sentinel TOTALS row from modal overrides the grand total display
+  const totalsRowOv = liOv[body.length];
+  const displayTotal = (totalsRowOv?.[3] && totalsRowOv[3] !== "") ? totalsRowOv[3] as string : fmt(grandTotal);
+
   // ── Upfront page-break check before drawing the table ────────────────────
   const rowCount    = body.length;
   const tableHeight = rowCount * 14 + 16; // 14mm/row + 16mm for the Total row
@@ -373,6 +427,10 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     doc.addPage();
     y = 20;
   }
+
+  // Reset doc text color before autoTable so inherited accent color doesn't bleed in
+  doc.setTextColor(...gray);
+  doc.setFont("helvetica", "normal");
 
   autoTable(doc, {
     startY: y, margin: { left: L, right: L },
@@ -394,6 +452,9 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
       3: { halign: "right", cellWidth: 28 },
     },
     tableLineColor: ltGray, tableLineWidth: 0.2,
+    didParseCell: (data) => {
+      data.cell.styles.textColor = gray;
+    },
   });
 
   // ── Total Project Cost row — drawn on the SAME page as the last table row ──
@@ -409,8 +470,17 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   sf("bold", 10.5); doc.setTextColor(...gray);
   doc.text("Total Project Cost", L + 4, totalRowY + 6.5);
 
+  // PPU — right-aligned to the PPU column (3rd col, width 28, sits before the Total col of width 28)
+  const displayPPU = s.unitsDelivered > 0 ? fmtPPU(grandTotal / s.unitsDelivered) : "";
+  if (displayPPU) {
+    sf("italic", 9); doc.setTextColor(120, 120, 120);
+    const ppuColRightX = L + W - 28 - 4; // right edge of PPU column (before Total col)
+    doc.text(`${displayPPU} / unit`, ppuColRightX, totalRowY + 6.5, { align: "right" });
+  }
+
+  sf("bold", 10.5); doc.setTextColor(...gray);
   const totalColX = L + W - 4;
-  doc.text(fmt(grandTotal), totalColX, totalRowY + 6.5, { align: "right" });
+  doc.text(displayTotal, totalColX, totalRowY + 6.5, { align: "right" });
 
   doc.setDrawColor(...ltGray);
   doc.setLineWidth(0.2);
@@ -530,5 +600,5 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   const blob    = doc.output("blob");
   const blobUrl = URL.createObjectURL(blob);
 
-  return { filename, blobUrl, moqLabel: "Co-Packing", packLabel: "", doc };
+  return { filename, blobUrl, moqLabel: "Co-Packing", packLabel: "", doc, pricingTable: pricingSnapshot };
 }

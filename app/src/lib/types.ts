@@ -27,8 +27,10 @@ export interface CoPackingProcess {
   batchSizeUnit:       string;      // 'g' | 'kg' | 'oz' | 'lbs' | 'L' | 'mL' | 'units' | 'batches'
   laborRate:           number;      // $/hr (formerly wageRate)
   laborMarkup:         number;      // integer percent, e.g. 30 = 30%
+  costMarkup:          number;      // additional markup on total process cost, e.g. 10 = 10%
   efficiencyBuffer:    number;      // integer percent, e.g. 15 = 15%
   numStaff:            number;
+  numMachines:         number;
   hrsPerShift:         number;
   workingDays:         number;
   minLaborHrs:         number;
@@ -157,6 +159,7 @@ export interface ProjectFormData {
   projectManagementFee: string;
   ppuDenominator: string;
   // Material markups
+  rawMaterialProvider?: string;  // "customer" | "us"
   materialOverage: string;
   rawMaterialMarkup: string;
   intakeFeeMarkup: string;
@@ -300,10 +303,11 @@ export interface CoPackingState {
   blendingRecipe:             BlendIngredient[]; // []
 
   // Inbound
-  inboundOverage:    number;   // 0.15
-  intakeFeePerPallet: number;  // 195
-  inboundPallets:    number;   // 5
-  intakeMarkup:      number;   // 0.25
+  inboundOverage:        number;   // 0.15
+  intakeFeePerPallet:    number;   // 595
+  inboundPallets:        number;   // auto-calculated from raw material lbs / pallet weight
+  intakePalletWeightLbs: number;   // 1200
+  intakeMarkup:          number;   // 0.25
   // numSkus lives in Testing section now but still used by inbound calc
   numSkus:           number;   // 1
   // testingMarkup now lives in the Testing section

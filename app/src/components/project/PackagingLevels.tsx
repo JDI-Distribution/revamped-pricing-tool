@@ -115,9 +115,11 @@ interface Props {
   packagingLevels:    PackagingLevel[];
   setPackagingLevels: React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
   className?: string;
+  sectionTitle?: string;
+  sectionId?: string;
 }
 
-export default function PackagingLevels({ packagingLevels, setPackagingLevels, className }: Props) {
+export default function PackagingLevels({ packagingLevels, setPackagingLevels, className, sectionTitle = "Packaging Line Setup", sectionId = "section-packaging-summary" }: Props) {
   const [sectionOpen, setSectionOpen]     = useState(true);
   const [manualChargeOpen, setManualChargeOpen] = useState(false);
   const [outputsOpen, setOutputsOpen]     = useState<Record<string, boolean>>({});
@@ -190,24 +192,24 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
 
   return (
-    <div id="section-packaging-summary" className={className ?? "bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl"}>
+    <div id={sectionId} className={className ?? "bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl"}>
 
       {/* ── Section header ── */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <button type="button" onClick={() => setSectionOpen(o => !o)}
           className="flex items-center gap-1.5 group">
           <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">
-            Packaging Line Setup
+            {sectionTitle}
           </span>
           {sectionOpen
             ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
             : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
         </button>
-        <div className="ml-auto shrink-0"><RequiredToggle sectionId="section-packaging-summary" /></div>
+        <div className="ml-auto shrink-0"><RequiredToggle sectionId={sectionId} /></div>
       </div>
 
       {/* ── Subtitle ── */}
-      {sectionOpen && !notRequired["section-packaging-summary"] && (
+      {sectionOpen && !notRequired[sectionId] && (
         <div className="px-4 pb-2">
           <p className="text-[0.6rem] text-[#e8473f] leading-relaxed">
             Type, rates, staffing, and markup for each packaging level set in{" "}
@@ -216,7 +218,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
         </div>
       )}
 
-      {sectionOpen && !notRequired["section-packaging-summary"] && packagingLevels.length > 0 && (
+      {sectionOpen && !notRequired[sectionId] && packagingLevels.length > 0 && (
         <CollapsedContext.Provider value={collapsedCols}>
         <div className="overflow-x-auto">
           <table className="border-collapse" style={{ minWidth: tableMinWidth }}>
@@ -344,7 +346,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Unit Fill Rate / Min</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
-                    <CurrencyInput type="integer" value={lvl.fillRatePerMin}
+                    <CurrencyInput type="rate" value={lvl.fillRatePerMin}
                       onChange={v => update(lvl.id, { fillRatePerMin: v })}
                       className={cellInp} />
                   </Col>
@@ -533,7 +535,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                   return computeColumnOutputs(
                     lvl.fillRatePerMin, lvl.efficiencyBuffer, lvl.wageRate, lvl.numStaff,
                     lvl.hrsPerShift, lvl.workingDays, lvl.packagingWeightG, displayUnits,
-                    lvl.overageRate, lvl.costPerUnit, lvl.laborMarkup,
+                    lvl.overageRate, lvl.costPerUnit, lvl.laborMarkup, lvl.labelApplyRate,
                   );
                 });
 
