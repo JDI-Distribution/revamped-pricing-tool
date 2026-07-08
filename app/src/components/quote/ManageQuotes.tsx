@@ -130,7 +130,7 @@ export default function ManageQuotes() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]"
+        className="hidden md:flex items-center gap-1.5 text-sm text-zinc-700 hover:text-zinc-950 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]"
       >
         <FolderOpen size={14} />
         Saved Quotes
@@ -142,12 +142,12 @@ export default function ManageQuotes() {
           <div className="bg-white rounded-sm shadow-xl w-[480px] max-h-[70vh] flex flex-col">
 
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-              <h2 className="text-sm font-semibold text-gray-900">Saved Quotes</h2>
+              <h2 className="text-sm font-semibold text-zinc-950">Saved Quotes</h2>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={fetchQuotes} disabled={loading} title="Refresh" className="text-gray-400 hover:text-gray-600 disabled:opacity-40">
+                <button type="button" onClick={fetchQuotes} disabled={loading} title="Refresh" className="text-zinc-600 hover:text-zinc-700 disabled:opacity-40">
                   <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
                 </button>
-                <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={() => setOpen(false)} className="text-zinc-600 hover:text-zinc-700">
                   <X size={14} />
                 </button>
               </div>
@@ -155,17 +155,17 @@ export default function ManageQuotes() {
 
             <div className="px-4 py-2 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-2 h-7 border border-gray-200 px-2">
-                <Search size={11} className="text-gray-400 shrink-0" />
+                <Search size={11} className="text-zinc-600 shrink-0" />
                 <input
                   ref={searchRef}
                   type="text"
                   placeholder="Search quotes…"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
-                  className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder:text-gray-300"
+                  className="flex-1 text-xs bg-transparent outline-none text-zinc-800 placeholder:text-zinc-500"
                 />
                 {filter && (
-                  <button type="button" onClick={() => setFilter("")} className="text-gray-300 hover:text-gray-500">
+                  <button type="button" onClick={() => setFilter("")} className="text-zinc-500 hover:text-zinc-600">
                     <X size={10} />
                   </button>
                 )}
@@ -174,17 +174,17 @@ export default function ManageQuotes() {
 
             <div className="flex-1 overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-10 text-xs text-gray-400">Loading…</div>
+                <div className="flex items-center justify-center py-10 text-xs text-zinc-600">Loading…</div>
               ) : filtered.length === 0 ? (
-                <div className="flex items-center justify-center py-10 text-xs text-gray-400 italic">
+                <div className="flex items-center justify-center py-10 text-xs text-zinc-600 italic">
                   {filter ? "No quotes match your search." : "No saved quotes yet."}
                 </div>
               ) : (
                 filtered.map((q) => (
                   <div key={q.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50/60 group">
                     <div className="min-w-0 flex-1 pr-3">
-                      <p className="text-xs font-medium text-gray-900 truncate">{q.quote_name}</p>
-                      <p className="text-[0.6rem] text-gray-400 mt-0.5">Saved {fmt(q.created_at)}</p>
+                      <p className="text-xs font-medium text-zinc-950 truncate">{q.quote_name}</p>
+                      <p className="text-[0.6rem] text-zinc-600 mt-0.5">Saved {fmt(q.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
@@ -199,7 +199,7 @@ export default function ManageQuotes() {
                         type="button"
                         onClick={() => handleDelete(q.id, q.quote_name)}
                         disabled={deleting === q.id}
-                        className="h-6 w-6 flex items-center justify-center text-gray-300 hover:text-red-400 disabled:opacity-40 transition-colors"
+                        className="h-6 w-6 flex items-center justify-center text-zinc-500 hover:text-red-400 disabled:opacity-40 transition-colors"
                         title="Delete"
                       >
                         <Trash2 size={12} />
@@ -211,7 +211,7 @@ export default function ManageQuotes() {
             </div>
 
             {!loading && quotes.length > 0 && (
-              <div className="px-4 py-2 border-t border-gray-100 text-[0.6rem] text-gray-400 shrink-0">
+              <div className="px-4 py-2 border-t border-gray-100 text-[0.6rem] text-zinc-600 shrink-0">
                 {filtered.length} of {quotes.length} quote{quotes.length !== 1 ? "s" : ""}
               </div>
             )}

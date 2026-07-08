@@ -287,7 +287,7 @@ export default function SavedQuotesPage() {
 
   const toggleGroup = (key: string) => setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const inputCls = "h-7 px-2 text-xs border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300";
+  const inputCls = "h-7 px-2 text-xs border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500";
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
@@ -310,8 +310,8 @@ export default function SavedQuotesPage() {
           <div className="flex items-center gap-3">
             <div className="w-1 h-5 rounded-full bg-[#e8473f] shrink-0" />
             <div>
-              <h1 className="text-sm font-semibold text-gray-900 tracking-tight leading-none">Saved Quotes</h1>
-              <p className="text-[0.65rem] text-gray-400 mt-0.5">
+              <h1 className="text-sm font-semibold text-zinc-950 tracking-tight leading-none">Saved Quotes</h1>
+              <p className="text-[0.65rem] text-zinc-600 mt-0.5">
                 {loading ? "Loadingâ€¦" : `${quotes.length} quote${quotes.length !== 1 ? "s" : ""} saved`}
               </p>
             </div>
@@ -320,7 +320,7 @@ export default function SavedQuotesPage() {
             type="button"
             onClick={fetchList}
             disabled={loading}
-            className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 text-xs font-medium px-3 min-h-11 rounded-lg transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-zinc-600 text-xs font-medium px-3 min-h-11 rounded-lg transition-colors disabled:opacity-40"
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
             Refresh
@@ -330,33 +330,33 @@ export default function SavedQuotesPage() {
         {/* Filter bar â€” stacks to 2-col grid on mobile */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2 flex-wrap mb-4 p-3 bg-gray-50 border border-gray-100 rounded-sm">
           <div className="flex items-center gap-1.5">
-            <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Quote Name</span>
+            <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Quote Name</span>
             <input
               type="text" value={fName} onChange={(e) => setFName(e.target.value)}
               placeholder="Searchâ€¦" className={`${inputCls} flex-1`}
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Customer</span>
+            <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Customer</span>
             <input
               type="text" value={fCustomer} onChange={(e) => setFCustomer(e.target.value)}
               placeholder="Searchâ€¦" className={`${inputCls} flex-1`}
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Company</span>
+            <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Company</span>
             <input
               type="text" value={fCompany} onChange={(e) => setFCompany(e.target.value)}
               placeholder="Searchâ€¦" className={`${inputCls} flex-1`}
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Revenue</span>
+            <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Revenue</span>
             <input
               type="number" value={fMinRev} onChange={(e) => setFMinRev(e.target.value)}
               placeholder="Min $" className={`${inputCls} flex-1`}
             />
-            <span className="text-[0.6rem] text-gray-300">â€“</span>
+            <span className="text-[0.6rem] text-zinc-500">â€“</span>
             <input
               type="number" value={fMaxRev} onChange={(e) => setFMaxRev(e.target.value)}
               placeholder="Max $" className={`${inputCls} flex-1`}
@@ -366,7 +366,7 @@ export default function SavedQuotesPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="flex items-center gap-1 min-h-11 px-3 text-[0.65rem] font-semibold text-gray-400 hover:text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 transition-colors sm:col-span-2 lg:col-span-1 justify-center sm:justify-start"
+              className="flex items-center gap-1 min-h-11 px-3 text-[0.65rem] font-semibold text-zinc-600 hover:text-zinc-800 border border-gray-200 bg-white hover:bg-gray-50 transition-colors sm:col-span-2 lg:col-span-1 justify-center sm:justify-start"
             >
               <X size={11} /> Clear filters
             </button>
@@ -375,9 +375,9 @@ export default function SavedQuotesPage() {
 
         {/* Loading / empty states */}
         {loading ? (
-          <p className="py-16 text-center text-xs text-gray-400">Loading quotesâ€¦</p>
+          <p className="py-16 text-center text-xs text-zinc-600">Loading quotesâ€¦</p>
         ) : filtered.length === 0 ? (
-          <p className="py-16 text-center text-xs text-gray-400 italic">
+          <p className="py-16 text-center text-xs text-zinc-600 italic">
             {hasFilters ? "No quotes match your filters." : "No saved quotes yet."}
           </p>
         ) : (
@@ -407,20 +407,20 @@ export default function SavedQuotesPage() {
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      {collapsed ? <ChevronRight size={14} className="text-gray-400 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 shrink-0" />}
+                      {collapsed ? <ChevronRight size={14} className="text-zinc-600 shrink-0" /> : <ChevronDown size={14} className="text-zinc-600 shrink-0" />}
                       {isUnlinked ? (
-                        <span className="text-xs font-semibold text-gray-400 italic truncate">Unlinked Quotes</span>
+                        <span className="text-xs font-semibold text-zinc-600 italic truncate">Unlinked Quotes</span>
                       ) : (
-                        <span className="text-xs text-gray-700 truncate">
-                          <span className="font-bold text-gray-900">{key}</span>
-                          <span className="text-gray-300 mx-1.5">â€”</span>
+                        <span className="text-xs text-zinc-800 truncate">
+                          <span className="font-bold text-zinc-950">{key}</span>
+                          <span className="text-zinc-500 mx-1.5">â€”</span>
                           <span className="font-medium">{accountName}</span>
-                          <span className="text-gray-300 mx-1.5">â€”</span>
-                          <span className="text-gray-500">{fmtDate(new Date(earliestDate).toISOString())}</span>
+                          <span className="text-zinc-500 mx-1.5">â€”</span>
+                          <span className="text-zinc-600">{fmtDate(new Date(earliestDate).toISOString())}</span>
                         </span>
                       )}
                     </div>
-                    <span className="text-[0.6rem] font-semibold text-gray-400 whitespace-nowrap shrink-0">
+                    <span className="text-[0.6rem] font-semibold text-zinc-600 whitespace-nowrap shrink-0">
                       {groupRows.length} quote{groupRows.length !== 1 ? "s" : ""}
                     </span>
                   </button>
@@ -435,14 +435,14 @@ export default function SavedQuotesPage() {
                           return (
                             <div key={q.id} className={`border border-gray-100 rounded-sm p-4 ${i % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
                               <div className="flex items-start justify-between gap-3 mb-2">
-                                <p className="text-sm font-semibold text-gray-900 leading-tight">{q.quote_name}</p>
-                                <p className="text-[0.65rem] text-gray-400 whitespace-nowrap shrink-0">{fmtDate(q.created_at)}</p>
+                                <p className="text-sm font-semibold text-zinc-950 leading-tight">{q.quote_name}</p>
+                                <p className="text-[0.65rem] text-zinc-600 whitespace-nowrap shrink-0">{fmtDate(q.created_at)}</p>
                               </div>
                               {(contactName || company || product) && (
                                 <div className="space-y-0.5 mb-3">
-                                  {contactName && <p className="text-xs text-gray-600">{isFetching ? "â€¦" : contactName}</p>}
-                                  {company    && <p className="text-xs text-gray-500">{isFetching ? "â€¦" : company}</p>}
-                                  {product    && <p className="text-xs text-gray-400 italic">{isFetching ? "â€¦" : product}</p>}
+                                  {contactName && <p className="text-xs text-zinc-700">{isFetching ? "â€¦" : contactName}</p>}
+                                  {company    && <p className="text-xs text-zinc-600">{isFetching ? "â€¦" : company}</p>}
+                                  {product    && <p className="text-xs text-zinc-600 italic">{isFetching ? "â€¦" : product}</p>}
                                 </div>
                               )}
                               <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
@@ -458,7 +458,7 @@ export default function SavedQuotesPage() {
                                   type="button"
                                   onClick={() => handleClone(q.id, q.quote_name)}
                                   disabled={cloning === q.id}
-                                  className="min-h-11 w-11 flex items-center justify-center text-gray-300 hover:text-gray-600 disabled:opacity-40 transition-colors border border-gray-200"
+                                  className="min-h-11 w-11 flex items-center justify-center text-zinc-500 hover:text-zinc-700 disabled:opacity-40 transition-colors border border-gray-200"
                                   title="Clone this quote"
                                 >
                                   {cloning === q.id ? <RefreshCw size={13} className="animate-spin" /> : <Copy size={14} />}
@@ -467,7 +467,7 @@ export default function SavedQuotesPage() {
                                   type="button"
                                   onClick={() => handleDelete(q.id, q.quote_name)}
                                   disabled={deleting === q.id}
-                                  className="min-h-11 w-11 flex items-center justify-center text-gray-300 hover:text-red-500 disabled:opacity-40 transition-colors border border-gray-200"
+                                  className="min-h-11 w-11 flex items-center justify-center text-zinc-500 hover:text-red-500 disabled:opacity-40 transition-colors border border-gray-200"
                                   title="Delete"
                                 >
                                   {deleting === q.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={14} />}
@@ -483,12 +483,12 @@ export default function SavedQuotesPage() {
                         <table className="w-full border-collapse">
                           <thead>
                             <tr className="bg-gray-50 border-b border-gray-200">
-                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Quote Name</th>
-                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Contact Name</th>
-                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Product</th>
-                              <th className="py-2 px-4 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Revenue</th>
-                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Date Saved</th>
-                              <th className="py-2 px-4 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Quote Name</th>
+                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Contact Name</th>
+                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Product</th>
+                              <th className="py-2 px-4 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Revenue</th>
+                              <th className="py-2 px-4 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Date Saved</th>
+                              <th className="py-2 px-4 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -496,7 +496,7 @@ export default function SavedQuotesPage() {
                               const isFetching = !!fetching[q.id];
                               return (
                                 <tr key={q.id} className={`border-b border-gray-50 hover:bg-[#e8473f]/5 transition-colors ${i % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
-                                  <td className="py-3 px-4 text-xs font-medium text-gray-900">
+                                  <td className="py-3 px-4 text-xs font-medium text-zinc-950">
                                     {renamingId === q.id ? (
                                       <input
                                         autoFocus
@@ -511,16 +511,16 @@ export default function SavedQuotesPage() {
                                       />
                                     ) : q.quote_name}
                                   </td>
-                                  <td className="py-3 px-4 text-xs text-gray-600">
-                                    {isFetching ? <span className="text-gray-300">â€¦</span> : (contactName || <span className="text-gray-300">â€”</span>)}
+                                  <td className="py-3 px-4 text-xs text-zinc-700">
+                                    {isFetching ? <span className="text-zinc-500">â€¦</span> : (contactName || <span className="text-zinc-500">â€”</span>)}
                                   </td>
-                                  <td className="py-3 px-4 text-xs text-gray-600">
-                                    {isFetching ? <span className="text-gray-300">â€¦</span> : (product || <span className="text-gray-300">â€”</span>)}
+                                  <td className="py-3 px-4 text-xs text-zinc-700">
+                                    {isFetching ? <span className="text-zinc-500">â€¦</span> : (product || <span className="text-zinc-500">â€”</span>)}
                                   </td>
-                                  <td className="py-3 px-4 text-xs text-right text-gray-600">
-                                    {isFetching ? <span className="text-gray-300">â€¦</span> : revenue !== null ? fmtCurrency(revenue) : <span className="text-gray-300">â€”</span>}
+                                  <td className="py-3 px-4 text-xs text-right text-zinc-700">
+                                    {isFetching ? <span className="text-zinc-500">â€¦</span> : revenue !== null ? fmtCurrency(revenue) : <span className="text-zinc-500">â€”</span>}
                                   </td>
-                                  <td className="py-3 px-4 text-xs text-gray-500">{fmtDate(q.created_at)}</td>
+                                  <td className="py-3 px-4 text-xs text-zinc-600">{fmtDate(q.created_at)}</td>
                                   <td className="py-3 px-4">
                                     <div className="flex items-center gap-1.5 justify-end">
                                       {renamingId === q.id ? (
@@ -537,7 +537,7 @@ export default function SavedQuotesPage() {
                                           <button
                                             type="button"
                                             onClick={cancelRename}
-                                            className="h-7 w-7 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                                            className="h-7 w-7 flex items-center justify-center text-zinc-600 hover:text-zinc-700 transition-colors"
                                             title="Cancel"
                                           >
                                             <X size={13} />
@@ -556,7 +556,7 @@ export default function SavedQuotesPage() {
                                           <button
                                             type="button"
                                             onClick={() => startRename(q.id, q.quote_name)}
-                                            className="h-7 w-7 flex items-center justify-center text-gray-300 hover:text-gray-600 transition-colors"
+                                            className="h-7 w-7 flex items-center justify-center text-zinc-500 hover:text-zinc-700 transition-colors"
                                             title="Rename"
                                           >
                                             <Pencil size={12} />
@@ -565,7 +565,7 @@ export default function SavedQuotesPage() {
                                             type="button"
                                             onClick={() => handleClone(q.id, q.quote_name)}
                                             disabled={cloning === q.id}
-                                            className="h-7 w-7 flex items-center justify-center text-gray-300 hover:text-gray-600 disabled:opacity-40 transition-colors"
+                                            className="h-7 w-7 flex items-center justify-center text-zinc-500 hover:text-zinc-700 disabled:opacity-40 transition-colors"
                                             title="Clone this quote"
                                           >
                                             {cloning === q.id ? <RefreshCw size={11} className="animate-spin" /> : <Copy size={12} />}
@@ -574,7 +574,7 @@ export default function SavedQuotesPage() {
                                             type="button"
                                             onClick={() => handleDelete(q.id, q.quote_name)}
                                             disabled={deleting === q.id}
-                                            className="h-7 w-7 flex items-center justify-center text-gray-300 hover:text-red-500 disabled:opacity-40 transition-colors"
+                                            className="h-7 w-7 flex items-center justify-center text-zinc-500 hover:text-red-500 disabled:opacity-40 transition-colors"
                                             title="Delete"
                                           >
                                             {deleting === q.id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={12} />}
@@ -599,7 +599,7 @@ export default function SavedQuotesPage() {
 
         {/* Footer count */}
         {!loading && quotes.length > 0 && (
-          <p className="mt-3 text-[0.6rem] text-gray-400">
+          <p className="mt-3 text-[0.6rem] text-zinc-600">
             Showing {filtered.length} of {quotes.length} quote{quotes.length !== 1 ? "s" : ""}
           </p>
         )}

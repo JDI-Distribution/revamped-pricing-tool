@@ -48,13 +48,13 @@ export default function XlsxMoqModal({ moqResults, defaultMoqId, generating, onC
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider w-6" />
-                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">MOQ</th>
-                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">Case Pack</th>
-                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">Cost PPU</th>
-                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">Customer PPU</th>
-                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">Margin %</th>
-                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">Revenue</th>
+                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider w-6" />
+                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">MOQ</th>
+                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Case Pack</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Cost PPU</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Customer PPU</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Margin %</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Revenue</th>
                 </tr>
               </thead>
               <tbody>
@@ -76,14 +76,14 @@ export default function XlsxMoqModal({ moqResults, defaultMoqId, generating, onC
                           {isSelected && <div className="w-2 h-2 rounded-full bg-[#e8473f]" />}
                         </div>
                       </td>
-                      <td className={`py-3 px-3 font-semibold ${isSelected ? "text-[#e8473f]" : "text-gray-900"}`}>
+                      <td className={`py-3 px-3 font-semibold ${isSelected ? "text-[#e8473f]" : "text-zinc-950"}`}>
                         {r.moqRow.moq || "—"}
                       </td>
-                      <td className="py-3 px-3 text-gray-600">{r.casePack}</td>
-                      <td className="py-3 px-3 text-right text-gray-700">{r.ppuCost > 0 ? fmt(r.ppuCost) : "—"}</td>
-                      <td className="py-3 px-3 text-right text-gray-700">{r.ppu > 0 ? fmt(r.ppu) : "—"}</td>
-                      <td className="py-3 px-3 text-right text-gray-700">{r.marginPct > 0 ? fmtPct(r.marginPct) : "—"}</td>
-                      <td className="py-3 px-3 text-right text-gray-700">{r.totalCustomerPrice > 0 ? fmt(r.totalCustomerPrice) : "—"}</td>
+                      <td className="py-3 px-3 text-zinc-700">{r.casePack}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.ppuCost > 0 ? fmt(r.ppuCost) : "—"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.ppu > 0 ? fmt(r.ppu) : "—"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.marginPct > 0 ? fmtPct(r.marginPct) : "—"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.totalCustomerPrice > 0 ? fmt(r.totalCustomerPrice) : "—"}</td>
                     </tr>
                   );
                 })}
@@ -96,7 +96,7 @@ export default function XlsxMoqModal({ moqResults, defaultMoqId, generating, onC
         <div className="px-6 py-5 flex gap-3">
           <button
 type="button"             onClick={onClose}
-            className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+            className="flex-1 h-11 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>

@@ -32,7 +32,7 @@ export default function CpoOutputsPanel({ style }: Props) {
 
   const ROW = "flex items-start justify-between gap-2 py-2 border-b border-[#dde8f0] last:border-0";
   const LBL = "text-[0.7rem] text-[#4a6080] leading-tight";
-  const VAL = "text-[0.75rem] font-bold text-gray-800 tabular-nums text-right shrink-0 ml-2";
+  const VAL = "text-[0.75rem] font-bold text-zinc-900 tabular-nums text-right shrink-0 ml-2";
 
   return (
     <div

@@ -31,14 +31,14 @@ export function RequiredToggle({ sectionId }: { sectionId: string }) {
       <button
         type="button"
         onClick={() => !isNotRequired || toggle(sectionId)}
-        className={`px-3 py-1 transition-colors ${!isNotRequired ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-600"}`}
+        className={`px-3 py-1 transition-colors ${!isNotRequired ? "bg-gray-800 text-white" : "text-zinc-600 hover:text-zinc-700"}`}
       >
         Required
       </button>
       <button
         type="button"
         onClick={() => isNotRequired || toggle(sectionId)}
-        className={`px-3 py-1 transition-colors ${isNotRequired ? "bg-gray-400 text-white" : "text-gray-400 hover:text-gray-600"}`}
+        className={`px-3 py-1 transition-colors ${isNotRequired ? "bg-gray-400 text-white" : "text-zinc-600 hover:text-zinc-700"}`}
       >
         Not Required
       </button>

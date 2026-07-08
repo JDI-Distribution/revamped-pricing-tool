@@ -11,7 +11,7 @@ interface OutputRow { label: string; value: string }
 function Panel({ title, rows }: { title: string; rows: OutputRow[] }) {
   const ROW = "flex items-start justify-between gap-3 py-2 border-b border-[#dde8f0] last:border-0";
   const LBL = "text-[0.7rem] text-[#4a6080] leading-tight";
-  const VAL = "text-[0.72rem] font-bold text-gray-800 tabular-nums text-right shrink-0 ml-2";
+  const VAL = "text-[0.72rem] font-bold text-zinc-900 tabular-nums text-right shrink-0 ml-2";
   return (
     <>
       <p className="text-[0.55rem] font-semibold text-[#4a6080] uppercase tracking-widest mb-3">{title}</p>

@@ -146,22 +146,22 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
       {step === "start" && (
         <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-8">
           <div className="text-center mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Start Your Quote</h2>
-            <p className="text-xs text-gray-400 mt-1">How would you like to begin?</p>
+            <h2 className="text-lg font-bold text-zinc-950">Start Your Quote</h2>
+            <p className="text-xs text-zinc-600 mt-1">How would you like to begin?</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <button type="button" className={cardCls} onClick={() => setStep("browse")}>
               <Copy size={28} className="text-amber-500 mb-3" />
-              <h3 className="text-sm font-semibold text-gray-900 mb-1">Clone Existing Quote</h3>
-              <p className="text-xs text-gray-400 mb-4">Start from a saved quote and update the customer info</p>
+              <h3 className="text-sm font-semibold text-zinc-950 mb-1">Clone Existing Quote</h3>
+              <p className="text-xs text-zinc-600 mb-4">Start from a saved quote and update the customer info</p>
               <span className="mt-auto h-8 px-4 flex items-center justify-center text-xs font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] rounded-lg transition-colors">
                 Browse Saved Quotes
               </span>
             </button>
             <button type="button" className={cardCls} onClick={handleStartFromScratch}>
               <Sparkles size={28} className="text-amber-500 mb-3" />
-              <h3 className="text-sm font-semibold text-gray-900 mb-1">Start from Scratch</h3>
-              <p className="text-xs text-gray-400 mb-4">Begin a fresh quote with customer info pre-filled</p>
+              <h3 className="text-sm font-semibold text-zinc-950 mb-1">Start from Scratch</h3>
+              <p className="text-xs text-zinc-600 mb-4">Begin a fresh quote with customer info pre-filled</p>
               <span className="mt-auto h-8 px-4 flex items-center justify-center text-xs font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] rounded-lg transition-colors">
                 Create New Quote
               </span>
@@ -172,11 +172,11 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
 
       {step === "browse" && (
         <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 flex flex-col max-h-[80vh]">
-          <h2 className="text-sm font-bold text-gray-900 mb-1">Select a Quote to Clone</h2>
-          <p className="text-xs text-gray-400 mb-3">Choose a saved quote to use as a starting point</p>
+          <h2 className="text-sm font-bold text-zinc-950 mb-1">Select a Quote to Clone</h2>
+          <p className="text-xs text-zinc-600 mb-3">Choose a saved quote to use as a starting point</p>
 
           <div className="relative mb-3">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
               value={search}
@@ -194,9 +194,9 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
 
           <div className="flex-1 overflow-auto border border-gray-100 rounded divide-y divide-gray-100 mb-4 min-h-30">
             {loading ? (
-              <p className="py-8 text-center text-xs text-gray-400">Loading quotes…</p>
+              <p className="py-8 text-center text-xs text-zinc-600">Loading quotes…</p>
             ) : filteredQuotes.length === 0 ? (
-              <p className="py-8 text-center text-xs text-gray-400 italic">No quotes found</p>
+              <p className="py-8 text-center text-xs text-zinc-600 italic">No quotes found</p>
             ) : filteredQuotes.map((q) => (
               <button
                 type="button"
@@ -206,9 +206,9 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
                   selectedId === q.id ? "bg-amber-50" : "hover:bg-gray-50"
                 }`}
               >
-                <span className="text-xs font-medium text-gray-900 truncate">{q.quote_name}</span>
+                <span className="text-xs font-medium text-zinc-950 truncate">{q.quote_name}</span>
                 <span className="flex items-center gap-2 shrink-0">
-                  <span className="text-[0.6rem] text-gray-400">{fmtDate(q.created_at)}</span>
+                  <span className="text-[0.6rem] text-zinc-600">{fmtDate(q.created_at)}</span>
                   {selectedId === q.id && <Check size={13} className="text-[#e8473f]" />}
                 </span>
               </button>
@@ -219,7 +219,7 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
             <button
               type="button"
               onClick={() => setStep("start")}
-              className="h-9 px-4 text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"
+              className="h-9 px-4 text-xs font-semibold text-zinc-600 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"
             >
               Back
             </button>

@@ -118,7 +118,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
   const tabCls = (t: Tab) =>
     `flex-1 py-2.5 text-xs font-semibold transition-colors rounded-lg ${
       tab === t
-        ? "bg-white text-gray-900 shadow-sm"
+        ? "bg-white text-zinc-950 shadow-sm"
         : "text-white/70 hover:text-white"
     }`;
 
@@ -184,7 +184,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
               {/* ── Save as New ── */}
               {tab === "new" && (
                 <>
-                  <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <label className="block text-[0.65rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
                     Quote Name
                   </label>
                   <input
@@ -194,7 +194,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                     value={quoteName}
                     onChange={(e) => setQuoteName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !duplicateEntry && handleSaveNew()}
-                    className={`w-full h-11 px-4 text-sm border-2 rounded-xl focus:outline-none transition-colors placeholder:text-gray-300 ${
+                    className={`w-full h-11 px-4 text-sm border-2 rounded-xl focus:outline-none transition-colors placeholder:text-zinc-500 ${
                       duplicateEntry ? "border-amber-400 focus:border-amber-400 bg-amber-50" : "border-gray-200 focus:border-[#e8473f]"
                     }`}
                   />
@@ -233,7 +233,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                       <button
                         type="button"
                         onClick={close}
-                        className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                        className="flex-1 h-11 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
                       >
                         Cancel
                       </button>
@@ -253,7 +253,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
               {/* ── Update Existing ── */}
               {tab === "update" && (
                 <>
-                  <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <label className="block text-[0.65rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
                     Select Quote to Update
                   </label>
 
@@ -264,17 +264,17 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                     placeholder="Search quotes…"
                     value={updateFilter}
                     onChange={(e) => setUpdateFilter(e.target.value)}
-                    className="w-full h-9 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#e8473f] transition-colors placeholder:text-gray-300 mb-2"
+                    className="w-full h-9 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#e8473f] transition-colors placeholder:text-zinc-500 mb-2"
                   />
 
                   {/* Quote list */}
                   <div className="border-2 border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
                     {loadingList ? (
-                      <div className="flex items-center justify-center py-6 text-xs text-gray-400">
+                      <div className="flex items-center justify-center py-6 text-xs text-zinc-600">
                         <RefreshCw size={12} className="animate-spin mr-2" /> Loading…
                       </div>
                     ) : filteredExisting.length === 0 ? (
-                      <p className="py-6 text-center text-xs text-gray-400 italic">
+                      <p className="py-6 text-center text-xs text-zinc-600 italic">
                         {updateFilter ? "No quotes match" : "No saved quotes"}
                       </p>
                     ) : filteredExisting.map((q) => (
@@ -285,7 +285,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                         className={`w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 last:border-0 transition-colors ${
                           updateId === q.id
                             ? "bg-[#e8473f]/8 text-[#e8473f] font-semibold"
-                            : "text-gray-700 hover:bg-gray-50"
+                            : "text-zinc-800 hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                     <button
                       type="button"
                       onClick={close}
-                      className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                      className="flex-1 h-11 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       Cancel
                     </button>

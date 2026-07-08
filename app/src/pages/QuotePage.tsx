@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { FileText } from "lucide-react";
+﻿import { useState } from "react";
+import { FileText, ChevronDown, ChevronUp } from "lucide-react";
 import Navbar from "@/components/navbar/Navbar";
 import DatePicker from "@/components/ui/DatePicker";
 import { useProject } from "@/lib/ProjectContext";
 import { QuotePreview, buildQuotePreviews, buildCustomQtyPreview } from "@/lib/generateQuotePDF";
-import { buildCoPackingQuotePreview } from "@/lib/generateCoPackingQuotePDF";
 import { generateCoPackingExcel } from "@/lib/generateCoPackingExcel";
 import PdfPreviewModal from "@/components/quote/PdfPreviewModal";
 import { CustomerInfo } from "@/lib/generateQuotePDF";
@@ -14,13 +13,13 @@ import { generateQuoteXLSX } from "@/lib/generateQuoteXLSX";
 import XlsxMoqModal from "@/components/quote/XlsxMoqModal";
 import workdriveLogo from "@/assets/zoho-workdrive.png";
 import crmLogo       from "@/assets/zoho-crm.png";
-import { computePricingTiers, computeCoPackingTotals, computeCoPackingResults as calcCPResults } from "@/lib/coPackingCalculations";
+import { computePricingTiers } from "@/lib/coPackingCalculations";
 
 const fmt        = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const fmtPct     = (v: number) => `${v.toFixed(1)}%`;
 const calcMargin = (price: number, cost: number) => price > 0 ? ((price - cost) / price) * 100 : 0;
 
-const labelCls = "text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-0.5";
+const labelCls = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-0.5";
 
 export default function QuotePage() {
   const {
@@ -37,7 +36,7 @@ export default function QuotePage() {
     moqMargins, moqPpuInputs, moqLastEdited, costPpuOverrides,
     packagingLevels,
     additionalFees,
-    scenarioA, scenarioB, saveScenario, clearScenarios,
+    scenarioA: _scenarioA, scenarioB: _scenarioB, saveScenario: _saveScenario, clearScenarios: _clearScenarios,
     crmAccountId, crmContactId,
     saveState,
   } = useProject();
@@ -50,10 +49,6 @@ export default function QuotePage() {
   const [xlsxGenerating,  setXlsxGenerating]  = useState(false);
   const [bufferUnit,       setBufferUnit]       = useState<"days" | "weeks">("days");
   const [cpXlsxGenerating, setCpXlsxGenerating] = useState(false);
-  // Scenario naming
-  const [scenarioNameInput, setScenarioNameInput] = useState("");
-  const [scenarioSlot, setScenarioSlot] = useState<'A' | 'B'>('A');
-  const [showScenarioSave, setShowScenarioSave] = useState(false);
   // CRM push state
   const [crmStatus, setCrmStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [crmError, setCrmError] = useState("");
@@ -61,9 +56,10 @@ export default function QuotePage() {
   const [pdfMode, setPdfMode] = useState<"standard" | "copacking" | "custom">("standard");
   // Overview table: expanded rows and process inclusion checkboxes
   const [overviewExpanded, setOverviewExpanded] = useState<Record<number, boolean>>({});
-  const [processIncluded, setProcessIncluded] = useState<Record<string, boolean>>({});
+  // "total" = folded into Level 1, "line" = separate line item, "exclude" = not shown
+  const [processIncluded, setProcessIncluded] = useState<Record<string, "total" | "line" | "exclude">>({});
 
-  // Addition 5 — Pricing tiers (computed live)
+  // Addition 5  -- Pricing tiers (computed live)
   const tierResults = coPackingState.tiersEnabled ? computePricingTiers(coPackingState, coPackingProcesses) : [];
 
   // Co-packing totals
@@ -78,9 +74,9 @@ export default function QuotePage() {
   const cpAdjPpuVal  = cpAdjPpuStr !== undefined && cpAdjPpuStr !== "" ? parseFloat(cpAdjPpuStr) : 0;
   const cpNaturalPPU = cpUnits > 0 ? cpNaturalTotal / cpUnits : 0;
   const cpHasAdj     = cpAdjPpuVal > 0 && Math.abs(cpAdjPpuVal - cpNaturalPPU) > 0.00001;
-  const cpAdjRevenue = cpHasAdj ? cpAdjPpuVal * cpUnits : cpNaturalTotal;
+  void (cpHasAdj ? cpAdjPpuVal * cpUnits : cpNaturalTotal); // cpAdjRevenue  -- no longer used for PDF routing
 
-  // ── Interstitial pricing ──────────────────────────────────────────────────
+  // -- Interstitial pricing --------------------------------------------------
   const [customQty,        setCustomQty]        = useState("");
   const [customPack,       setCustomPack]        = useState("");
   const [customMargin,     setCustomMargin]      = useState("");
@@ -93,7 +89,7 @@ export default function QuotePage() {
   const totalCustomerPrice = activeSummaryRows.reduce((s, r) => s + r.customerPrice, 0);
   const totalOurCosts      = activeSummaryRows.reduce((s, r) => s + r.ourCosts, 0);
 
-  // Adjusted customer PPU for the active MOQ — Price Adjustment (whatIfPpus) takes priority,
+  // Adjusted customer PPU for the active MOQ  -- Price Adjustment (whatIfPpus) takes priority,
   // then MOQ Pricing Table (resolvedMoqMargins), then unadjusted.
   const activeMoqAdjPPU = (() => {
     if (!activeMoqResult) return 0;
@@ -114,7 +110,7 @@ export default function QuotePage() {
     return 0; // no adjustment
   })();
 
-  // Adjusted revenue — MOQ adj PPU takes priority, then no-MOQ whatIfPpus[0], then unadjusted
+  // Adjusted revenue  -- MOQ adj PPU takes priority, then no-MOQ whatIfPpus[0], then unadjusted
   const adjustedRevenue = (() => {
     if (activeMoqAdjPPU > 0 && activeMoqResult) return activeMoqAdjPPU * activeMoqResult.ppuDenominator;
     // No-MOQ mode: Price Adjustment uses whatIfPpus[0] × ppuUnits
@@ -132,7 +128,7 @@ export default function QuotePage() {
     cost: fee.mode === "$" ? fee.amount : adjustedRevenue * fee.amount,
   }));
 
-  // ── Interstitial calc ────────────────────────────────────────────────────────
+  // -- Interstitial calc --------------------------------------------------------
   const parsedQty    = parseInt(customQty)  || 0;
   const parsedPack   = parseInt(customPack) || (moqRows[0] ? parseInt(moqRows[0].unitsPerInner) || 24 : 24);
   const parsedMargin = parseFloat(customMargin);
@@ -184,9 +180,8 @@ export default function QuotePage() {
     const levelRows2 = activeSummaryRows.filter(r =>
       r.label !== "Setup / QA Fee" && r.label !== "Materials" && r.label !== "Pallets & Fees" && !r.label.startsWith("Testing")
     );
-    const procFoldedTotal2 = coPackingProcesses.reduce((s, proc) => {
-      const included = processIncluded[proc.id] !== false;
-      if (!included) return s;
+    const procLineItemTotal2 = coPackingProcesses.reduce((s, proc) => {
+      if (processIncluded[proc.id] !== 'line' && processIncluded[proc.id] !== 'exclude') return s; // in total, not a line item
       const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
       const speed = proc.processSpeedValue; const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
       let uph = 0; if (speed > 0) { if (proc.processSpeedUnit === "units / min") uph = speed * 60; else if (proc.processSpeedUnit === "units / hr") uph = speed; }
@@ -195,6 +190,13 @@ export default function QuotePage() {
       const our = hrs * proc.laborRate * ops;
       return s + our * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
     }, 0);
+
+    // Level 1 plug: adjustedRevenue - setup - level2..N - pallets - line-item processes
+    const setup2   = activeSummaryRows.find(r => r.label === "Setup / QA Fee")?.customerPrice ?? 0;
+    const pallet2  = activeSummaryRows.find(r => r.label === "Pallets & Fees")?.customerPrice ?? 0;
+    const lv2plus2 = levelRows2.slice(1).reduce((s, r) => s + r.customerPrice, 0);
+    const level1Plug2 = adjustedRevenue - setup2 - lv2plus2 - pallet2 - procLineItemTotal2;
+
     const items: { desc: string; qty: number | null; total: number }[] = [];
     activeSummaryRows.forEach(sr => {
       const str = strByLabel(sr.label);
@@ -202,24 +204,24 @@ export default function QuotePage() {
       if (sr.label === "Setup / QA Fee") {
         items.push({ desc: "Project Setup, Line Dial-In & Quality Assurance", qty: 1, total: sr.customerPrice });
       } else if (sr.label === "Materials") {
-        items.push({ desc: "Raw Materials & Intake", qty, total: sr.customerPrice });
+        // Raw materials merged into Level 1  -- not shown as separate line item
       } else if (sr.label.startsWith("Testing")) {
-        items.push({ desc: sr.label, qty, total: sr.customerPrice });
+        // Testing fees merged into Level 1  -- not shown as separate line item
       } else if (sr.label === "Pallets & Fees") {
         items.push({ desc: "Palletization & Outbound Staging", qty: strByLabel("Pallets & Fees")?.totalUnits ?? null, total: sr.customerPrice });
       } else {
         const lvlIdx = levelRows2.findIndex(lr => lr.label === sr.label);
         const isLvl1 = lvlIdx === 0;
-        const total = isLvl1 ? sr.customerPrice + procFoldedTotal2 : sr.customerPrice;
+        const total = isLvl1 ? level1Plug2 : sr.customerPrice;
         const lvl = packagingLevels[lvlIdx];
         const name = lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || sr.label) : sr.label;
-        const desc = isLvl1 ? `Product Filling, Handling, & Intake (receiving, inspection, staging) — ${name}` : (lvlIdx === 1 ? `Secondary Packout — ${name}` : name);
+        const desc = isLvl1 ? `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${name}` : (lvlIdx === 1 ? `Secondary Packout  -- ${name}` : name);
         items.push({ desc, qty, total });
       }
     });
     // Add line-item processes after Level 1
     const lvl1Idx = items.findIndex(it => it.desc.startsWith("Product Filling"));
-    coPackingProcesses.filter(p => processIncluded[p.id] === false).forEach((proc, _i) => {
+    coPackingProcesses.filter(p => processIncluded[p.id] === 'line').forEach((proc, _i) => {
       const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
       const speed = proc.processSpeedValue; const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
       let uph = 0; if (speed > 0) { if (proc.processSpeedUnit === "units / min") uph = speed * 60; else if (proc.processSpeedUnit === "units / hr") uph = speed; }
@@ -242,7 +244,7 @@ export default function QuotePage() {
     ppuDenominator: ppuUnits,
   };
 
-  // ── CRM push: derive totals/lead-time for the active MOQ (standard mode) ──
+  // -- CRM push: derive totals/lead-time for the active MOQ (standard mode) --
   const crmTotalFeeCost  = additionalFeeCosts.reduce((s, f) => s + f.cost, 0);
   const crmGrandOurCost  = totalOurCosts + crmTotalFeeCost;
   const crmGrandCustomer = adjustedRevenue;
@@ -284,20 +286,10 @@ export default function QuotePage() {
   };
 
   const handlePreview = async () => {
-    setPdfMode(projectType === "copacking" ? "copacking" : "standard");
+    setPdfMode("standard");
     setGenerating(true);
     try {
-      if (projectType === "copacking") {
-        const preview = await buildCoPackingQuotePreview({
-          brandId: selectedBrand, customer, coPackingState,
-          coPackingResults, coPackingProcesses,
-          adjustedRevenue: cpHasAdj ? cpAdjRevenue : undefined,
-          summaryRows: activeSummaryRows, summaryTableRows,
-        });
-        setPreviews([preview]);
-      } else {
-        setPreviews(await buildQuotePreviews(quoteArgs));
-      }
+      setPreviews(await buildQuotePreviews(quoteArgs));
     } finally { setGenerating(false); }
   };
 
@@ -319,15 +311,7 @@ export default function QuotePage() {
 
   // Called from inside PdfPreviewModal when user edits text and hits Apply
   const handleRegenerate = async (overrides: CustomerInfo, idx: number) => {
-    if (pdfMode === "copacking") {
-      const preview = await buildCoPackingQuotePreview({
-        brandId: selectedBrand, customer: overrides, coPackingState,
-        coPackingResults, coPackingProcesses,
-        adjustedRevenue: cpHasAdj ? cpAdjRevenue : undefined,
-        summaryRows: activeSummaryRows, summaryTableRows,
-      });
-      setPreviews([preview]);
-    } else if (pdfMode === "custom") {
+    if (pdfMode === "custom") {
       if (!interstitialResult || parsedQty <= 0) return;
       const preview = await buildCustomQtyPreview({
         brandId: selectedBrand, qty: parsedQty, unitsPerInner: parsedPack,
@@ -345,10 +329,10 @@ export default function QuotePage() {
     void idx; // idx could be used for per-tab regeneration in future
   };
 
-  const th  = "py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900";
-  const thr = "py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900";
-  const td  = "py-2 px-3 text-xs text-gray-700";
-  const tdr = "py-2 px-3 text-xs text-right text-gray-700";
+  const th  = "py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900";
+  const thr = "py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900";
+  const td  = "py-2 px-3 text-xs text-zinc-800";
+  const tdr = "py-2 px-3 text-xs text-right text-zinc-800";
 
   const marginColor = (pct: number) =>
     pct >= 65 ? "text-green-700" : pct >= 50 ? "text-amber-600" : "text-red-600";
@@ -384,20 +368,20 @@ export default function QuotePage() {
 
       <div className="flex-1 overflow-auto px-6 py-6 w-full">
 
-        {/* ── Page header ── */}
+        {/* -- Page header -- */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <div className="w-1 h-5 rounded-full bg-[#e8473f] shrink-0" />
               <div>
-                <h1 className="text-sm font-semibold text-gray-900 tracking-tight leading-none">Quote Overview</h1>
-                <p className="text-[0.65rem] text-gray-400 mt-0.5">Review pricing and export the quote</p>
+                <h1 className="text-sm font-semibold text-zinc-950 tracking-tight leading-none">Quote Overview</h1>
+                <p className="text-[0.65rem] text-zinc-600 mt-0.5">Review pricing and export the quote</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-0 h-7 border border-gray-200 overflow-hidden">
-                <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
+                <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
                   Start Date
                 </span>
                 <div className="w-32">
@@ -410,7 +394,7 @@ export default function QuotePage() {
               </div>
 
               <div className="flex items-center h-7 border border-gray-200 overflow-hidden">
-                <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
+                <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
                   Buffer
                 </span>
                 <input
@@ -435,7 +419,7 @@ export default function QuotePage() {
                     key={u}
                     onClick={() => setBufferUnit(u)}
                     className={`h-7 px-2 text-[0.6rem] font-semibold transition-colors ${
-                      bufferUnit === u ? "bg-[#e8473f] text-white" : "text-gray-400 hover:text-gray-700 bg-gray-50"
+                      bufferUnit === u ? "bg-[#e8473f] text-white" : "text-zinc-600 hover:text-zinc-800 bg-gray-50"
                     }`}
                   >
                     {u}
@@ -459,7 +443,7 @@ export default function QuotePage() {
               className="flex items-center gap-2 bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-50 text-white text-xs font-semibold px-4 h-7 rounded-lg transition-colors"
             >
               <FileText size={12} />
-              {generating ? "Generating…" : projectType === "copacking" ? "Preview & Export" : allMoqResults.length > 0 ? `Preview & Export (${allMoqResults.length})` : "Preview & Export"}
+              {generating ? "Generating..." : projectType === "copacking" ? "Preview & Export" : allMoqResults.length > 0 ? `Preview & Export (${allMoqResults.length})` : "Preview & Export"}
             </button>
             <SaveQuoteButton
               quotePageState={{ customer, selectedBrand, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, additionalFees }}
@@ -471,13 +455,13 @@ export default function QuotePage() {
                 type="button"
                 onClick={() => {
                   if (allMoqResults.length === 0) {
-                    // No MOQ rows — export directly with a synthetic base-quote row
+                    // No MOQ rows  -- export directly with a synthetic base-quote row
                     const totalCustomer = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
                     const totalOur      = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
                     const denom         = parseFloat(formData.ppuDenominator) || 1;
                     const baseRow = {
                       moqRow: { id: 0, moq: "Base", individualUnits: String(denom), unitsPerInner: "0", innersPerMaster: "0" },
-                      casePack: "—", totalCustomerPrice: totalCustomer, totalOurCost: totalOur,
+                      casePack: " --", totalCustomerPrice: totalCustomer, totalOurCost: totalOur,
                       ppuDenominator: denom, ppu: totalCustomer / denom, ppuCost: totalOur / denom,
                       marginDollars: totalCustomer - totalOur,
                       marginPct: totalCustomer > 0 ? ((totalCustomer - totalOur) / totalCustomer) * 100 : 0,
@@ -492,10 +476,10 @@ export default function QuotePage() {
                 }}
                 disabled={xlsxGenerating || hasMoqErrors}
                 title={hasMoqErrors ? "Fix MOQ configuration errors before exporting" : undefined}
-                className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 text-gray-600 text-xs font-medium px-3 h-7 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 text-zinc-700 text-xs font-medium px-3 h-7 rounded-lg transition-colors"
               >
                 <img src={excelLogo} alt="Excel" className="w-3 h-3 object-contain" />
-                {xlsxGenerating ? "…" : ".xlsx"}
+                {xlsxGenerating ? "..." : ".xlsx"}
               </button>
             )}
             {projectType === "copacking" && (
@@ -511,13 +495,13 @@ export default function QuotePage() {
                   } finally { setCpXlsxGenerating(false); }
                 }}
                 disabled={cpXlsxGenerating || coPackingResults.length === 0}
-                className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 text-gray-600 text-xs font-medium px-3 h-7 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 text-zinc-700 text-xs font-medium px-3 h-7 rounded-lg transition-colors"
               >
                 <img src={excelLogo} alt="Excel" className="w-3 h-3 object-contain" />
-                {cpXlsxGenerating ? "Generating…" : ".xlsx"}
+                {cpXlsxGenerating ? "Generating..." : ".xlsx"}
               </button>
             )}
-            <button type="button" className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium px-3 h-7 rounded-lg transition-colors">
+            <button type="button" className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-zinc-700 text-xs font-medium px-3 h-7 rounded-lg transition-colors">
               <img src={workdriveLogo} alt="WorkDrive" className="w-3 h-3 object-contain" />
               WorkDrive
             </button>
@@ -528,22 +512,22 @@ export default function QuotePage() {
               className={`flex items-center gap-1.5 border text-xs font-medium px-3 h-7 rounded-lg transition-colors disabled:opacity-60 ${
                 crmStatus === "success"
                   ? "border-green-300 bg-green-50 text-green-700"
-                  : "border-gray-200 bg-white hover:bg-gray-50 text-gray-600"
+                  : "border-gray-200 bg-white hover:bg-gray-50 text-zinc-700"
               }`}
             >
               {crmStatus === "success" ? (
-                "✓ Sent to CRM"
+                "âœ` Sent to CRM"
               ) : (
                 <>
                   <img src={crmLogo} alt="CRM" className="w-3 h-3 object-contain" />
-                  {crmStatus === "sending" ? "Sending…" : "CRM"}
+                  {crmStatus === "sending" ? "Sending..." : "CRM"}
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* ── Overview Table ── */}
+        {/* -- Overview Table -- */}
         {summaryRows.length > 0 && (() => {
           const fmtPPU2 = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const fmtQty0 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -567,8 +551,23 @@ export default function QuotePage() {
           });
 
           // Total process cost folded into Level 1 ("in total")
-          const procFoldedTotal = coPackingProcesses.reduce((s, proc, i) =>
-            s + (processIncluded[proc.id] !== false ? procCosts[i].custCost : 0), 0);
+          void coPackingProcesses.reduce((s, proc, i) =>
+            s + (processIncluded[proc.id] !== 'line' && processIncluded[proc.id] !== 'exclude' ? procCosts[i].custCost : 0), 0); // procFoldedTotal now absorbed into level1Plug
+
+          // Process costs NOT folded into Level 1 (line items shown separately OR excluded entirely)
+          // Both "line" and "exclude" are deducted from the Level 1 plug
+          const procLineItemTotal = coPackingProcesses.reduce((s, proc, i) =>
+            s + (processIncluded[proc.id] === 'line' || processIncluded[proc.id] === 'exclude' ? procCosts[i].custCost : 0), 0);
+
+          // Pre-compute Level 1 plug using adjusted revenue:
+          // Level1 = adjustedRevenue - setup - level2..N totals - pallets - (line + excluded) process costs
+          const setupTotal2   = activeSummaryRows.find(r => r.label === "Setup / QA Fee")?.customerPrice ?? 0;
+          const palletTotal2  = activeSummaryRows.find(r => r.label === "Pallets & Fees")?.customerPrice ?? 0;
+          const levelRows2Pre = activeSummaryRows.filter(r =>
+            r.label !== "Setup / QA Fee" && r.label !== "Materials" && r.label !== "Pallets & Fees" && !r.label.startsWith("Testing")
+          );
+          const level2PlusTotalPre = levelRows2Pre.slice(1).reduce((s, r) => s + r.customerPrice, 0);
+          const level1Plug = adjustedRevenue - setupTotal2 - level2PlusTotalPre - palletTotal2 - procLineItemTotal;
 
           // summaryTableRows lookup for qty/units
           const strByLabel = (label: string) => summaryTableRows.find(s => !s.isLeadTimeSummary && s.label === label);
@@ -593,7 +592,7 @@ export default function QuotePage() {
             }));
           };
 
-          // Build rows directly from summaryRows — no plug, use actual values
+          // Build rows directly from summaryRows  -- no plug, use actual values
           type OverviewRow = { rowIdx: number; desc: string; qty: number | null; total: number; summaryLabel: string; levelIdx: number | null };
           const rows: OverviewRow[] = [];
           let rowIdx = 0;
@@ -606,10 +605,10 @@ export default function QuotePage() {
               rows.push({ rowIdx: rowIdx++, desc: "Project Setup, Line Dial-In & Quality Assurance", qty: 1, total: sr.customerPrice, summaryLabel: sr.label, levelIdx: null });
 
             } else if (sr.label === "Materials") {
-              rows.push({ rowIdx: rowIdx++, desc: "Raw Materials & Intake", qty, total: sr.customerPrice, summaryLabel: sr.label, levelIdx: null });
+              // Raw materials merged into Level 1  -- not shown as separate line item
 
             } else if (sr.label.startsWith("Testing")) {
-              rows.push({ rowIdx: rowIdx++, desc: sr.label, qty, total: sr.customerPrice, summaryLabel: sr.label, levelIdx: null });
+              // Testing fees merged into Level 1  -- not shown as separate line item
 
             } else if (sr.label === "Pallets & Fees") {
               const palletStr = strByLabel("Pallets & Fees");
@@ -619,14 +618,14 @@ export default function QuotePage() {
             } else {
               // Packaging level
               const lvlIdx = levelRows.findIndex(lr => lr.label === sr.label);
-              // Level 1: add folded process costs
+              // Level 1: use plug (adjusted revenue minus all other lines)
               const isLvl1 = lvlIdx === 0;
-              const total = isLvl1 ? sr.customerPrice + procFoldedTotal : sr.customerPrice;
-              const prefix = lvlIdx === 1 ? "Secondary Packout — " : "";
+              const total = isLvl1 ? level1Plug : sr.customerPrice;
+              const prefix = lvlIdx === 1 ? "Secondary Packout  -- " : "";
               const lvl = packagingLevels[lvlIdx];
               const name = lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || sr.label) : sr.label;
               const desc = isLvl1
-                ? `Product Filling, Handling, & Intake (receiving, inspection, staging) — ${name}`
+                ? `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${name}`
                 : `${prefix}${name}`;
               rows.push({ rowIdx: rowIdx++, desc, qty, total, summaryLabel: sr.label, levelIdx: lvlIdx });
             }
@@ -634,7 +633,7 @@ export default function QuotePage() {
 
           // Processes marked "as line item" appear after Level 1
           const level1RowIdx = rows.findIndex(r => r.levelIdx === 0);
-          const lineItemProcs = coPackingProcesses.filter(p => processIncluded[p.id] === false);
+          const lineItemProcs = coPackingProcesses.filter(p => processIncluded[p.id] === 'line');
           if (lineItemProcs.length > 0 && level1RowIdx >= 0) {
             lineItemProcs.forEach((proc, i) => {
               const pc = procCosts[coPackingProcesses.indexOf(proc)];
@@ -684,18 +683,18 @@ export default function QuotePage() {
                             {hasDetail && (
                               <button type="button"
                                 onClick={() => setOverviewExpanded(e => ({ ...e, [row.rowIdx]: !e[row.rowIdx] }))}
-                                className="text-gray-400 hover:text-gray-700 transition-colors text-[0.65rem]">
-                                {isExpanded ? "▲" : "▼"}
+                                className="text-zinc-600 hover:text-zinc-800 transition-colors text-[0.65rem]">
+                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                               </button>
                             )}
                           </td>
                           <td className={td + " font-medium"}>{row.desc}</td>
-                          <td className={tdr}>{row.qty != null ? fmtQty0(row.qty) : "—"}</td>
-                          <td className={tdr}>{ppu > 0 ? fmtPPU2(ppu) : "—"}</td>
+                          <td className={tdr}>{row.qty != null ? fmtQty0(row.qty) : " --"}</td>
+                          <td className={tdr}>{ppu > 0 ? fmtPPU2(ppu) : " --"}</td>
                           <td className={tdr}>{fmt(row.total)}</td>
                         </tr>
 
-                        {/* ── Breakdown dropdown ── */}
+                        {/* -- Breakdown dropdown -- */}
                         {isExpanded && hasDetail && (
                           <tr key={`${row.rowIdx}-detail`} className="border-b border-gray-100">
                             <td />
@@ -704,13 +703,13 @@ export default function QuotePage() {
 
                                 {/* Detail section rows (packaging cost breakdown) */}
                                 {detail?.rows.filter(dr => dr.isCurrency && (dr.projectDetails ?? 0) > 0).map((dr, di) => (
-                                  <div key={di} className="flex items-center justify-between text-[0.68rem] text-gray-600">
-                                    <span className="text-gray-500">{dr.label}</span>
+                                  <div key={di} className="flex items-center justify-between text-[0.68rem] text-zinc-700">
+                                    <span className="text-zinc-600">{dr.label}</span>
                                     <div className="flex gap-6 tabular-nums">
                                       {dr.projectCosts != null && dr.projectCosts > 0 && (
-                                        <span className="text-gray-500">Our: {fmt(dr.projectCosts)}</span>
+                                        <span className="text-zinc-600">Our: {fmt(dr.projectCosts)}</span>
                                       )}
-                                      {dr.projectDetails != null && <span className="font-semibold text-gray-800">{fmt(dr.projectDetails)}</span>}
+                                      {dr.projectDetails != null && <span className="font-semibold text-zinc-900">{fmt(dr.projectDetails)}</span>}
                                     </div>
                                   </div>
                                 ))}
@@ -719,9 +718,9 @@ export default function QuotePage() {
                                 {isLevel1 && hasProcesses && (
                                   <>
                                     <div className="border-t border-gray-200 my-1.5" />
-                                    <div className="text-[0.58rem] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Processes</div>
+                                    <div className="text-[0.58rem] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Processes</div>
                                     {/* Header */}
-                                    <div className="grid text-[0.58rem] font-semibold text-gray-400 uppercase tracking-wider mb-1 pr-1" style={{ gridTemplateColumns: "1fr 80px 80px 80px 80px" }}>
+                                    <div className="grid text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1 pr-1" style={{ gridTemplateColumns: "1fr 80px 80px 80px auto" }}>
                                       <span>Name</span>
                                       <span className="text-right">Hrs</span>
                                       <span className="text-right">Our Cost</span>
@@ -730,29 +729,32 @@ export default function QuotePage() {
                                     </div>
                                     {coPackingProcesses.map((proc, pi) => {
                                       const pc = procCosts[pi];
-                                      // true = in total (default), false = as line item
-                                      const inTotal = processIncluded[proc.id] !== false;
+                                      const mode = processIncluded[proc.id] ?? `total`;
+                                      const procOpts = [
+                                        { val: "total",   label: "Total",   title: "Fold into Level 1 total" },
+                                        { val: "line",    label: "Line",    title: "Show as separate line item" },
+                                        { val: "exclude", label: "Exclude", title: "Do not include in quote" },
+                                      ];
                                       return (
-                                        <div key={proc.id} className="grid items-center gap-1 py-1 border-b border-gray-100 last:border-0 pr-1" style={{ gridTemplateColumns: "1fr 80px 80px 80px 80px" }}>
-                                          <span className="text-[0.7rem] text-gray-700 font-medium truncate">
+                                        <div key={proc.id} className="grid items-center gap-1 py-1 border-b border-gray-100 last:border-0 pr-1" style={{ gridTemplateColumns: "1fr 80px 80px 80px auto" }}>
+                                          <span className={`text-[0.7rem] font-medium truncate ${mode === "exclude" ? "text-zinc-600 line-through" : "text-zinc-800"}`}>
                                             {proc.name || `Process ${pi + 1}`}
                                           </span>
-                                          <span className="text-[0.68rem] text-right tabular-nums text-gray-500">{pc.hrsRequired > 0 ? pc.hrsRequired.toFixed(1) : "—"}</span>
-                                          <span className="text-[0.68rem] text-right tabular-nums text-gray-600">{pc.ourCost > 0 ? fmt(pc.ourCost) : "—"}</span>
-                                          <span className="text-[0.68rem] text-right tabular-nums font-semibold text-gray-800">{pc.custCost > 0 ? fmt(pc.custCost) : "—"}</span>
-                                          <div className="flex items-center justify-center gap-2">
-                                            <label className="flex items-center gap-0.5 cursor-pointer" title="Include in line item total">
-                                              <input type="radio" name={`proc-${proc.id}`} checked={inTotal}
-                                                onChange={() => setProcessIncluded(prev => ({ ...prev, [proc.id]: true }))}
-                                                className="accent-[#e8473f] w-3 h-3" />
-                                              <span className="text-[0.6rem] text-gray-500">Total</span>
-                                            </label>
-                                            <label className="flex items-center gap-0.5 cursor-pointer" title="Show as separate line item">
-                                              <input type="radio" name={`proc-${proc.id}`} checked={!inTotal}
-                                                onChange={() => setProcessIncluded(prev => ({ ...prev, [proc.id]: false }))}
-                                                className="accent-[#e8473f] w-3 h-3" />
-                                              <span className="text-[0.6rem] text-gray-500">Line</span>
-                                            </label>
+                                          <span className="text-[0.68rem] text-right tabular-nums text-zinc-600">{pc.hrsRequired > 0 ? pc.hrsRequired.toFixed(1) : "--"}</span>
+                                          <span className="text-[0.68rem] text-right tabular-nums text-zinc-700">{pc.ourCost > 0 ? fmt(pc.ourCost) : "--"}</span>
+                                          <span className="text-[0.68rem] text-right tabular-nums font-semibold text-zinc-900">{pc.custCost > 0 ? fmt(pc.custCost) : "--"}</span>
+                                          <div className="flex items-center gap-0 border border-gray-200 rounded overflow-hidden">
+                                            {procOpts.map(opt => (
+                                              <button key={opt.val} type="button" title={opt.title}
+                                                onClick={() => setProcessIncluded(prev => ({ ...prev, [proc.id]: opt.val } as Record<string, "total" | "line" | "exclude">))}
+                                                className={`px-1.5 py-0.5 text-[0.58rem] font-semibold transition-colors border-r border-gray-100 last:border-r-0 ${
+                                                  mode === opt.val
+                                                    ? opt.val === "exclude" ? "bg-gray-500 text-white" : "bg-[#e8473f] text-white"
+                                                    : "text-zinc-600 hover:text-zinc-800 bg-white"
+                                                }`}>
+                                                {opt.label}
+                                              </button>
+                                            ))}
                                           </div>
                                         </div>
                                       );
@@ -764,11 +766,11 @@ export default function QuotePage() {
                                 {charges.length > 0 && (
                                   <>
                                     <div className="border-t border-gray-200 my-1.5" />
-                                    <div className="text-[0.58rem] font-bold text-gray-400 uppercase tracking-widest mb-1">Manual Charges</div>
+                                    <div className="text-[0.58rem] font-bold text-zinc-600 uppercase tracking-widest mb-1">Manual Charges</div>
                                     {charges.map((c, ci) => (
-                                      <div key={ci} className="flex items-center justify-between text-[0.68rem] text-gray-600">
-                                        <span className="text-gray-500">{c.label}</span>
-                                        <span className="font-semibold text-gray-800 tabular-nums">{fmt(c.amount)}</span>
+                                      <div key={ci} className="flex items-center justify-between text-[0.68rem] text-zinc-700">
+                                        <span className="text-zinc-600">{c.label}</span>
+                                        <span className="font-semibold text-zinc-900 tabular-nums">{fmt(c.amount)}</span>
                                       </div>
                                     ))}
                                   </>
@@ -792,10 +794,10 @@ export default function QuotePage() {
           );
         })()}
 
-        {/* ── Tiers + Scenario ── */}
+        {/* -- Tiers + Scenario -- */}
         {(<>
 
-          {/* ── Addition 5 — Pricing Tiers comparison table ── */}
+          {/* -- Addition 5  -- Pricing Tiers comparison table -- */}
           {coPackingState.tiersEnabled && tierResults.length > 0 && (
             <div className="border border-gray-100 rounded-sm overflow-x-auto mb-4">
               <div className="bg-gray-50 border-b border-gray-100 px-3 py-2">
@@ -806,7 +808,7 @@ export default function QuotePage() {
                   <tr className="bg-gray-50">
                     <th className={th}>Cost Component</th>
                     {tierResults.map(tr => (
-                      <th key={tr.tier.id} className={thr}>{tr.tier.label}<br /><span className="font-normal text-gray-400">{tr.tier.units.toLocaleString()} units</span></th>
+                      <th key={tr.tier.id} className={thr}>{tr.tier.label}<br /><span className="font-normal text-zinc-600">{tr.tier.units.toLocaleString()} units</span></th>
                     ))}
                   </tr>
                 </thead>
@@ -817,7 +819,7 @@ export default function QuotePage() {
                       <td className={td}>{label}</td>
                       {tierResults.map(tr => {
                         const r = tr.results.find(r => r.label === label);
-                        return <td key={tr.tier.id} className={tdr}>{r ? fmt(r.customerPrice) : "—"}</td>;
+                        return <td key={tr.tier.id} className={tdr}>{r ? fmt(r.customerPrice) : " --"}</td>;
                       })}
                     </tr>
                   ))}
@@ -847,9 +849,9 @@ export default function QuotePage() {
                         <td className={td}>Savings vs {tierResults[0].tier.label}</td>
                         {tierResults.map((tr, i) => (
                           <td key={tr.tier.id} className={tdr}>
-                            {i === 0 ? "—" : (
-                              <span className={tr.ppu < pilotPPU ? "text-green-600 font-semibold" : "text-gray-400"}>
-                                {tr.ppu < pilotPPU ? `-${fmt(pilotPPU - tr.ppu)}/unit` : "—"}
+                            {i === 0 ? " --" : (
+                              <span className={tr.ppu < pilotPPU ? "text-green-600 font-semibold" : "text-zinc-600"}>
+                                {tr.ppu < pilotPPU ? `-${fmt(pilotPPU - tr.ppu)}/unit` : " --"}
                               </span>
                             )}
                           </td>
@@ -862,91 +864,15 @@ export default function QuotePage() {
             </div>
           )}
 
-          {/* ── Addition 6 — Scenario Comparison ── */}
-          <div className="border border-gray-100 rounded-sm mb-4">
-            <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-black uppercase tracking-wide">Scenario Comparison</span>
-              <div className="flex items-center gap-2 ml-auto">
-                {!showScenarioSave ? (
-                  <button type="button" onClick={() => setShowScenarioSave(true)}
-                    className="text-[0.6rem] font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 px-2 h-5 rounded transition-colors">
-                    Save Scenario
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <input type="text" value={scenarioNameInput} onChange={e => setScenarioNameInput(e.target.value)}
-                      placeholder="Scenario name…"
-                      className="h-5 px-2 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]" />
-                    {(["A", "B"] as const).map(slot => (
-                      <button key={slot} type="button" onClick={() => setScenarioSlot(slot)}
-                        className={`h-5 px-2 text-[0.6rem] font-semibold rounded transition-colors ${scenarioSlot === slot ? "bg-[#e8473f] text-white" : "bg-gray-100 text-gray-500"}`}>
-                        {slot}
-                      </button>
-                    ))}
-                    <button type="button"
-                      onClick={() => { saveScenario(scenarioSlot, scenarioNameInput || `Scenario ${scenarioSlot}`); setShowScenarioSave(false); setScenarioNameInput(""); }}
-                      className="h-5 px-2 text-[0.6rem] font-semibold bg-[#e8473f] text-white rounded hover:bg-[#d43f37] transition-colors">
-                      Save
-                    </button>
-                    <button type="button" onClick={() => setShowScenarioSave(false)}
-                      className="text-gray-400 hover:text-gray-700 text-sm leading-none">×</button>
-                  </div>
-                )}
-                {(scenarioA || scenarioB) && (
-                  <button type="button" onClick={clearScenarios}
-                    className="text-[0.6rem] text-gray-400 hover:text-red-500 transition-colors">Clear</button>
-                )}
-              </div>
-            </div>
-            {scenarioA && scenarioB ? (() => {
-              const ra = computeCoPackingTotals(calcCPResults(scenarioA.state, coPackingProcesses));
-              const rb = computeCoPackingTotals(calcCPResults(scenarioB.state, coPackingProcesses));
-              const ppuA = scenarioA.state.unitsDelivered > 0 ? ra.totalCustomer / scenarioA.state.unitsDelivered : 0;
-              const ppuB = scenarioB.state.unitsDelivered > 0 ? rb.totalCustomer / scenarioB.state.unitsDelivered : 0;
-              const rows: Array<{ label: string; a: string; b: string; delta: string }> = [
-                { label: "Units", a: scenarioA.state.unitsDelivered.toLocaleString(), b: scenarioB.state.unitsDelivered.toLocaleString(), delta: `+${(scenarioB.state.unitsDelivered - scenarioA.state.unitsDelivered).toLocaleString()}` },
-                { label: "Total Cost (Our)", a: fmt(ra.totalOur), b: fmt(rb.totalOur), delta: `+${fmt(rb.totalOur - ra.totalOur)}` },
-                { label: "Total Revenue", a: fmt(ra.totalCustomer), b: fmt(rb.totalCustomer), delta: `+${fmt(rb.totalCustomer - ra.totalCustomer)}` },
-                { label: "PPU (Customer)", a: fmt(ppuA), b: fmt(ppuB), delta: `${ppuB < ppuA ? "-" : "+"}${fmt(Math.abs(ppuB - ppuA))}` },
-                { label: "Margin %", a: fmtPct(ra.margin), b: fmtPct(rb.margin), delta: `${rb.margin > ra.margin ? "+" : ""}${(rb.margin - ra.margin).toFixed(1)}%` },
-              ];
-              return (
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className={th}>Metric</th>
-                      <th className={thr}>{scenarioA.name}</th>
-                      <th className={thr}>{scenarioB.name}</th>
-                      <th className={thr}>Delta</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(row => (
-                      <tr key={row.label} className="border-b border-gray-50 hover:bg-gray-50/50">
-                        <td className={td}>{row.label}</td>
-                        <td className={tdr}>{row.a}</td>
-                        <td className={tdr}>{row.b}</td>
-                        <td className={tdr + " text-gray-500 italic"}>{row.delta}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              );
-            })() : (
-              <div className="px-4 py-3 text-[0.65rem] text-gray-400">
-                {!scenarioA && !scenarioB ? "Save two scenarios to compare them side by side." : scenarioA && !scenarioB ? `Scenario A saved: "${scenarioA.name}". Save Scenario B to compare.` : scenarioB ? `Scenario B saved: "${scenarioB.name}". Save Scenario A to compare.` : ""}
-              </div>
-            )}
-          </div>
         </>)}
 
-        {/* ── Lead Time + Custom Quantity Pricing ── */}
-        {(true) && (
+        {/* Lead Time + Custom Quantity Pricing removed */}
+        {(false as boolean) && (
           <>
             {/* MOQ switcher row */}
             {allMoqResults.length > 0 && (
               <div className="flex items-center gap-2 px-4 mb-3 flex-wrap">
-                <span className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider shrink-0">MOQ:</span>
+                <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider shrink-0">MOQ:</span>
                 {allMoqResults.map((r) => (
                   <button
                     type="button"
@@ -955,21 +881,21 @@ export default function QuotePage() {
                     className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors whitespace-nowrap ${
                       r.moqRow.id === activeSummaryMoq
                         ? "bg-[#e8473f] text-white"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        : "bg-gray-100 text-zinc-600 hover:bg-gray-200"
                     }`}
                   >
-                    {r.moqRow.moq || "—"} MOQ · {r.casePack}pk
+                    {r.moqRow.moq || " --"} MOQ · {r.casePack}pk
                   </button>
                 ))}
                 {activeMoqResult && (
-                  <span className="ml-auto text-[0.6rem] text-gray-400 whitespace-nowrap">
-                    Cost PPU: <span className="font-semibold text-gray-600">{fmt(activeMoqResult.ppuCost)}</span>
+                  <span className="ml-auto text-[0.6rem] text-zinc-600 whitespace-nowrap">
+                    Cost PPU: <span className="font-semibold text-zinc-700">{fmt(activeMoqResult.ppuCost)}</span>
                   </span>
                 )}
               </div>
             )}
 
-            {/* ── Lead Time ── */}
+            {/* -- Lead Time -- */}
             {summaryTableRows.some(r => r.leadTimeWeeks != null) && (
               <div className="border border-gray-100 rounded-sm overflow-hidden mb-4">
                 <div className="bg-gray-50 border-b border-gray-100 px-3 py-2">
@@ -979,17 +905,17 @@ export default function QuotePage() {
                   <table className="w-full border-collapse mb-3">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Component</th>
-                        <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Prod. Days</th>
-                        <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Total Wks</th>
+                        <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Component</th>
+                        <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Prod. Days</th>
+                        <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Total Wks</th>
                       </tr>
                     </thead>
                     <tbody>
                       {summaryTableRows.filter(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary).map((r) => (
                         <tr key={r.label} className="border-b border-gray-50 hover:bg-gray-50/50">
-                          <td className="py-1.5 px-2 text-xs text-gray-700">{r.label}</td>
-                          <td className="py-1.5 px-2 text-right text-xs text-gray-500">{(r.leadTimeWeeks! * 5).toFixed(1)}</td>
-                          <td className="py-1.5 px-2 text-right text-xs font-semibold text-gray-900">{r.leadTimeWeeks!.toFixed(2)}</td>
+                          <td className="py-1.5 px-2 text-xs text-zinc-800">{r.label}</td>
+                          <td className="py-1.5 px-2 text-right text-xs text-zinc-600">{(r.leadTimeWeeks! * 5).toFixed(1)}</td>
+                          <td className="py-1.5 px-2 text-right text-xs font-semibold text-zinc-950">{r.leadTimeWeeks!.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -999,9 +925,9 @@ export default function QuotePage() {
                       const isTotal = r.label === "Estimated Total Lead Time";
                       return (
                         <div key={r.label} className={`flex items-center justify-between px-3 py-2 border-b border-gray-100 last:border-0 ${isTotal ? "bg-blue-50/60" : "bg-gray-50/40"}`}>
-                          <span className={`text-xs ${isTotal ? "font-semibold text-gray-900" : "text-gray-500"}`}>{r.label}</span>
-                          <span className={`text-xs ${isTotal ? "font-bold text-gray-900" : "text-gray-600"}`}>
-                            {r.leadTimeWeeks != null ? `${r.leadTimeWeeks.toFixed(2)} wks` : "—"}
+                          <span className={`text-xs ${isTotal ? "font-semibold text-zinc-950" : "text-zinc-600"}`}>{r.label}</span>
+                          <span className={`text-xs ${isTotal ? "font-bold text-zinc-950" : "text-zinc-700"}`}>
+                            {r.leadTimeWeeks != null ? `${r.leadTimeWeeks.toFixed(2)} wks` : " --"}
                           </span>
                         </div>
                       );
@@ -1011,11 +937,11 @@ export default function QuotePage() {
               </div>
             )}
 
-            {/* ── Custom Quantity Pricing ── */}
+            {/* -- Custom Quantity Pricing -- */}
             <div className="border border-gray-100 rounded-sm overflow-hidden">
               <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 flex items-center gap-2">
                 <span className="text-xs font-semibold text-black uppercase tracking-wide">Custom Quantity Pricing</span>
-                <span className="text-[0.6rem] text-gray-400">— calculate price for a quantity between MOQ breakpoints</span>
+                <span className="text-[0.6rem] text-zinc-600"> -- calculate price for a quantity between MOQ breakpoints</span>
                 <button
                   type="button"
                   onClick={handleCustomPreview}
@@ -1023,7 +949,7 @@ export default function QuotePage() {
                   className="ml-auto flex items-center gap-1.5 h-6 px-3 text-[0.65rem] font-semibold bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 text-white rounded-lg transition-colors whitespace-nowrap"
                 >
                   <FileText size={11} />
-                  {customPreviewing ? "Generating…" : "Preview Quote"}
+                  {customPreviewing ? "Generating..." : "Preview Quote"}
                 </button>
               </div>
               <div className="p-4">
@@ -1050,13 +976,13 @@ export default function QuotePage() {
                         placeholder={interstitialResult ? (((interstitialResult.ppuCustomer - interstitialResult.ppuCost) / interstitialResult.ppuCustomer) * 100).toFixed(1) : "0.0"}
                         className="w-24 h-8 px-2 text-xs text-right border border-amber-300 bg-amber-50 focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium"
                       />
-                      <span className="text-xs text-gray-400">%</span>
+                      <span className="text-xs text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
                     <p className={labelCls}>Adj. PPU</p>
                     <div className="flex items-center h-8 gap-1">
-                      <span className="text-xs text-gray-400">$</span>
+                      <span className="text-xs text-zinc-600">$</span>
                       <input
                         type="number"
                         value={customLastEdited === "margin" && hasMargin ? custPPU.toFixed(4) : customPpuInput}
@@ -1077,8 +1003,8 @@ export default function QuotePage() {
                       ) : isExact ? (
                         <span className="text-[0.65rem] font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded">Exact MOQ match</span>
                       ) : (
-                        <span className="text-[0.65rem] text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded">
-                          Between <span className="font-semibold text-gray-700">{lowerTier?.moqRow.moq ?? "—"}</span> and <span className="font-semibold text-gray-700">{upperTier?.moqRow.moq ?? "no upper tier"}</span>
+                        <span className="text-[0.65rem] text-zinc-600 bg-gray-50 border border-gray-200 px-2 py-1 rounded">
+                          Between <span className="font-semibold text-zinc-800">{lowerTier?.moqRow.moq ?? " --"}</span> and <span className="font-semibold text-zinc-800">{upperTier?.moqRow.moq ?? "no upper tier"}</span>
                         </span>
                       )}
                     </div>
@@ -1088,53 +1014,53 @@ export default function QuotePage() {
                   <>
                     <div className="grid grid-cols-5 gap-3 mb-4">
                       <div className="rounded p-3 border border-gray-100 bg-gray-50">
-                        <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cost PPU</p>
-                        <p className="text-sm font-bold text-gray-900">{fmt(interstitialResult.ppuCost)}</p>
+                        <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Cost PPU</p>
+                        <p className="text-sm font-bold text-zinc-950">{fmt(interstitialResult.ppuCost)}</p>
                       </div>
                       <div className="rounded p-3 border border-[#e8473f]/30 bg-red-50">
-                        <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1">
                           {hasCustomAdj ? "Adj. PPU" : "Customer PPU"}
                         </p>
                         <p className="text-sm font-bold text-[#e8473f]">{fmt(custPPU)}</p>
                         {hasCustomAdj && interstitialResult.ppuCustomer > 0 && (
-                          <p className="text-[0.6rem] text-gray-400 mt-0.5">was {fmt(interstitialResult.ppuCustomer)}</p>
+                          <p className="text-[0.6rem] text-zinc-600 mt-0.5">was {fmt(interstitialResult.ppuCustomer)}</p>
                         )}
                       </div>
                       <div className="rounded p-3 border border-gray-100 bg-gray-50">
-                        <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-1">Margin</p>
-                        <p className={`text-sm font-bold ${custMarginPct < 0 ? "text-red-500" : "text-gray-900"}`}>{fmtPct(custMarginPct)}</p>
+                        <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Margin</p>
+                        <p className={`text-sm font-bold ${custMarginPct < 0 ? "text-red-500" : "text-zinc-950"}`}>{fmtPct(custMarginPct)}</p>
                         {hasCustomAdj && (
-                          <p className="text-[0.6rem] text-gray-400 mt-0.5">
+                          <p className="text-[0.6rem] text-zinc-600 mt-0.5">
                             was {fmtPct(interstitialResult.totalCustomer > 0 ? ((interstitialResult.totalCustomer - interstitialResult.totalOur) / interstitialResult.totalCustomer) * 100 : 0)}
                           </p>
                         )}
                       </div>
                       <div className="rounded p-3 border border-gray-100 bg-gray-50">
-                        <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-1">Δ PPU</p>
+                        <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Î` PPU</p>
                         {hasCustomAdj ? (
-                          <p className={`text-sm font-bold ${custPPU - interstitialResult.ppuCustomer > 0 ? "text-green-600" : custPPU - interstitialResult.ppuCustomer < 0 ? "text-red-500" : "text-gray-400"}`}>
+                          <p className={`text-sm font-bold ${custPPU - interstitialResult.ppuCustomer > 0 ? "text-green-600" : custPPU - interstitialResult.ppuCustomer < 0 ? "text-red-500" : "text-zinc-600"}`}>
                             {custPPU - interstitialResult.ppuCustomer > 0 ? "+" : ""}{fmt(custPPU - interstitialResult.ppuCustomer)}
                           </p>
-                        ) : <p className="text-sm font-bold text-gray-300">—</p>}
+                        ) : <p className="text-sm font-bold text-zinc-500"> --</p>}
                       </div>
                       <div className="rounded p-3 border border-gray-100 bg-gray-50">
-                        <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Revenue</p>
-                        <p className="text-sm font-bold text-gray-900">{fmt(custTotal)}</p>
+                        <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Total Revenue</p>
+                        <p className="text-sm font-bold text-zinc-950">{fmt(custTotal)}</p>
                         {hasCustomAdj && (
-                          <p className="text-[0.6rem] text-gray-400 mt-0.5">was {fmt(interstitialResult.totalCustomer)}</p>
+                          <p className="text-[0.6rem] text-zinc-600 mt-0.5">was {fmt(interstitialResult.totalCustomer)}</p>
                         )}
                       </div>
                     </div>
                     {(lowerTier || upperTier) && !belowMin && (
                       <div className="mb-4">
-                        <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-2">Comparison vs MOQ Tiers</p>
+                        <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Comparison vs MOQ Tiers</p>
                         <table className="w-full border-collapse text-xs">
                           <thead>
                             <tr className="border-b border-gray-200">
-                              <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Tier</th>
-                              <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">MOQ</th>
-                              <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Cost PPU</th>
-                              <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">vs Custom</th>
+                              <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Tier</th>
+                              <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">MOQ</th>
+                              <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Cost PPU</th>
+                              <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">vs Custom</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1148,10 +1074,10 @@ export default function QuotePage() {
                               const isCustomRow = !row!.tier;
                               return (
                                 <tr key={row!.label} className={`border-b border-gray-50 ${isCustomRow ? "bg-red-50/50 font-semibold" : ""}`}>
-                                  <td className="py-1.5 px-2 text-gray-700">{row!.label}</td>
-                                  <td className="py-1.5 px-2 text-right text-gray-700">{isCustomRow ? parsedQty.toLocaleString() : parseInt(row!.tier!.moqRow.moq).toLocaleString()}</td>
-                                  <td className="py-1.5 px-2 text-right text-gray-700">{fmt(tierPpuCost)}</td>
-                                  <td className="py-1.5 px-2 text-right">{isCustomRow ? <span className="text-gray-400">—</span> : <span className={diff > 0 ? "text-red-500" : "text-green-600"}>{diff > 0 ? "+" : ""}{fmt(diff)}</span>}</td>
+                                  <td className="py-1.5 px-2 text-zinc-800">{row!.label}</td>
+                                  <td className="py-1.5 px-2 text-right text-zinc-800">{isCustomRow ? parsedQty.toLocaleString() : parseInt(row!.tier!.moqRow.moq).toLocaleString()}</td>
+                                  <td className="py-1.5 px-2 text-right text-zinc-800">{fmt(tierPpuCost)}</td>
+                                  <td className="py-1.5 px-2 text-right">{isCustomRow ? <span className="text-zinc-600"> --</span> : <span className={diff > 0 ? "text-red-500" : "text-green-600"}>{diff > 0 ? "+" : ""}{fmt(diff)}</span>}</td>
                                 </tr>
                               );
                             })}
@@ -1160,48 +1086,48 @@ export default function QuotePage() {
                       </div>
                     )}
                     <details className="group">
-                      <summary className="cursor-pointer text-[0.65rem] font-semibold text-gray-400 hover:text-gray-600 uppercase tracking-wider select-none list-none flex items-center gap-1">
-                        <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                      <summary className="cursor-pointer text-[0.65rem] font-semibold text-zinc-600 hover:text-zinc-700 uppercase tracking-wider select-none list-none flex items-center gap-1">
+                        <span className="group-open:rotate-90 transition-transform inline-block">â–¶</span>
                         Full cost breakdown ({parsedQty.toLocaleString()} units)
                       </summary>
                       <table className="w-full border-collapse mt-2">
                         <thead>
                           <tr className="border-b border-gray-200">
-                            <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Line Item</th>
-                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Our Cost</th>
-                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Cost PPU</th>
-                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Customer Price</th>
-                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Cust. PPU</th>
-                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Margin %</th>
+                            <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Line Item</th>
+                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Our Cost</th>
+                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Cost PPU</th>
+                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Customer Price</th>
+                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Cust. PPU</th>
+                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Margin %</th>
                           </tr>
                         </thead>
                         <tbody>
                           {interstitialResult.summaryRows.map((row) => (
                             <tr key={row.label} className="border-b border-gray-50 hover:bg-gray-50/50">
-                              <td className="py-1.5 px-2 text-xs text-gray-700">{row.label}</td>
-                              <td className="py-1.5 px-2 text-right text-xs text-gray-700">{fmt(row.ourCosts)}</td>
-                              <td className="py-1.5 px-2 text-right text-xs text-gray-400">{fmt(row.ourCosts / parsedQty)}</td>
-                              <td className="py-1.5 px-2 text-right text-xs text-gray-700">{fmt(row.customerPrice)}</td>
-                              <td className="py-1.5 px-2 text-right text-xs text-gray-400">{fmt(row.customerPrice / parsedQty)}</td>
-                              <td className="py-1.5 px-2 text-right text-xs text-gray-700">{fmtPct(calcMargin(row.customerPrice, row.ourCosts))}</td>
+                              <td className="py-1.5 px-2 text-xs text-zinc-800">{row.label}</td>
+                              <td className="py-1.5 px-2 text-right text-xs text-zinc-800">{fmt(row.ourCosts)}</td>
+                              <td className="py-1.5 px-2 text-right text-xs text-zinc-600">{fmt(row.ourCosts / parsedQty)}</td>
+                              <td className="py-1.5 px-2 text-right text-xs text-zinc-800">{fmt(row.customerPrice)}</td>
+                              <td className="py-1.5 px-2 text-right text-xs text-zinc-600">{fmt(row.customerPrice / parsedQty)}</td>
+                              <td className="py-1.5 px-2 text-right text-xs text-zinc-800">{fmtPct(calcMargin(row.customerPrice, row.ourCosts))}</td>
                             </tr>
                           ))}
                           <tr className="border-t-2 border-gray-900 bg-sky-50">
-                            <td className="py-2 px-2 text-xs font-bold text-gray-900 italic">TOTALS</td>
-                            <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(interstitialResult.totalOur)}</td>
-                            <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(interstitialResult.ppuCost)}</td>
-                            <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(interstitialResult.totalCustomer)}</td>
-                            <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(interstitialResult.ppuCustomer)}</td>
-                            <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmtPct(calcMargin(interstitialResult.totalCustomer, interstitialResult.totalOur))}</td>
+                            <td className="py-2 px-2 text-xs font-bold text-zinc-950 italic">TOTALS</td>
+                            <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(interstitialResult.totalOur)}</td>
+                            <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(interstitialResult.ppuCost)}</td>
+                            <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(interstitialResult.totalCustomer)}</td>
+                            <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(interstitialResult.ppuCustomer)}</td>
+                            <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmtPct(calcMargin(interstitialResult.totalCustomer, interstitialResult.totalOur))}</td>
                           </tr>
                         </tbody>
                       </table>
                     </details>
                   </>
                 ) : parsedQty > 0 ? (
-                  <p className="text-xs text-gray-400 italic">No column data available to calculate.</p>
+                  <p className="text-xs text-zinc-600 italic">No column data available to calculate.</p>
                 ) : (
-                  <p className="text-xs text-gray-400 italic">Enter a quantity above to see pricing.</p>
+                  <p className="text-xs text-zinc-600 italic">Enter a quantity above to see pricing.</p>
                 )}
               </div>
             </div>
@@ -1219,3 +1145,7 @@ export default function QuotePage() {
     </main>
   );
 }
+
+
+
+

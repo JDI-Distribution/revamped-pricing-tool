@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { SectionRequiredProvider, RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
 import Navbar from "@/components/navbar/Navbar";
 import ProjectInfoSection from "@/components/project/ProjectInfoSection";
@@ -40,13 +40,13 @@ function NumInput({ value, onChange, className, placeholder }: {
 }
 
 // ── Shared input styles (mirrors ProjectDetails token set) ───────────────────
-const palletInputBase = "h-9 w-full px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition";
+const palletInputBase = "h-9 w-full px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition";
 const palletInputKey  = `${palletInputBase} rounded-md`;
-const palletPrefix    = "text-[0.6rem] font-medium text-gray-400 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
-const palletSuffix    = "text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
+const palletPrefix    = "text-[0.6rem] font-medium text-zinc-600 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
+const palletSuffix    = "text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
 const palletWithPfx   = `${palletInputBase} rounded-r-md flex-1`;
 const palletWithSfx   = `${palletInputBase} rounded-l-md flex-1`;
-const palletLabel     = "text-[0.65rem] text-gray-500 mb-1 truncate";
+const palletLabel     = "text-[0.65rem] text-zinc-600 mb-1 truncate";
 
 function PalletizationSection({
   formData,
@@ -93,16 +93,24 @@ function PalletizationSection({
     { label: "Outbound Fee Markup %", field: "outboundFeeMarkup",   sym: "%"   },
   ];
 
-  const { notRequired: _palletNR, toggle: _palletToggle } = useSectionRequired();
+  const { notRequired: _palletNR } = useSectionRequired();
   const palletNR = !!_palletNR["section-palletization"];
+  const [palletOpen, setPalletOpen] = useState(true);
+  const [weightOpen, setWeightOpen] = useState(true);
 
   return (
     <div id="section-palletization" className="bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl"><div className="px-5 pt-4 pb-5">
-      <div className="flex items-center gap-2 mb-4">
-        <p className="text-xs font-semibold text-gray-900">Palletization</p>
-        <RequiredToggle sectionId="section-palletization" />
+      {/* Header — matches SectionHeader pattern */}
+      <div className="flex items-center gap-3 mb-4">
+        <button type="button" onClick={() => setPalletOpen(o => !o)} className="flex items-center gap-1.5 group min-w-0">
+          <span className="text-sm font-bold text-zinc-950 group-hover:text-[#e8473f] transition-colors">Palletization</span>
+          {palletOpen && !palletNR
+            ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
+            : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+        </button>
+        <div className="ml-auto shrink-0"><RequiredToggle sectionId="section-palletization" /></div>
       </div>
-      {!palletNR && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-5 gap-y-4 items-start">
+      {palletOpen && !palletNR && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-5 gap-y-4 items-start">
 
         {/* Max Pallet Weight + UOM */}
         <div>
@@ -116,7 +124,7 @@ function PalletizationSection({
             <select
               value={maxWtUom}
               onChange={e => setFormField("maxPalletWeightUom" as keyof ProjectFormData, e.target.value)}
-              className="text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 px-1 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none transition cursor-pointer"
+              className="text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 px-1 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none transition cursor-pointer"
             >
               {["lbs", "kg", "g", "oz", "t"].map(u => <option key={u} value={u}>{u}</option>)}
             </select>
@@ -160,54 +168,62 @@ function PalletizationSection({
         })}
       </div>}
 
-      {/* Weight breakdown output panel */}
-      {!palletNR && (
+      {/* Weight breakdown output panel — toggleable, collapsed when section collapsed */}
+      {palletOpen && !palletNR && (
         <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
-          <table className="w-full border-collapse text-xs">
+          <button type="button"
+            onClick={() => setWeightOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200 hover:bg-gray-200/60 transition-colors">
+            <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Weight Breakdown</span>
+            {weightOpen
+              ? <ChevronUp size={11} className="text-zinc-600" />
+              : <ChevronDown size={11} className="text-zinc-600" />}
+          </button>
+          {weightOpen && <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200">
-                <th className="px-3 py-1.5 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Weight Component</th>
-                <th className="px-3 py-1.5 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">{maxWtUom}</th>
+                <th className="px-3 py-1.5 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Weight Component</th>
+                <th className="px-3 py-1.5 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">{maxWtUom}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               <tr>
-                <td className="px-3 py-1 text-gray-600">Raw Material</td>
-                <td className="px-3 py-1 text-right tabular-nums text-gray-800">
+                <td className="px-3 py-1 text-zinc-700">Raw Material</td>
+                <td className="px-3 py-1 text-right tabular-nums text-zinc-900">
                   {rawWeightLbs > 0 ? rawWeightLbs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
                 </td>
               </tr>
               {scaledColumns.map((col, i) => (
                 <tr key={col.id}>
-                  <td className="px-3 py-1 text-gray-600">{col.level} Packaging</td>
-                  <td className="px-3 py-1 text-right tabular-nums text-gray-800">
+                  <td className="px-3 py-1 text-zinc-700">{col.level} Packaging</td>
+                  <td className="px-3 py-1 text-right tabular-nums text-zinc-900">
                     {levelWeightsLbs[i] > 0 ? levelWeightsLbs[i].toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
                   </td>
                 </tr>
               ))}
               <tr className="border-t border-gray-300 bg-gray-100">
-                <td className="px-3 py-1.5 font-semibold text-gray-700">Total Weight</td>
-                <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-gray-900">
+                <td className="px-3 py-1.5 font-semibold text-zinc-800">Total Weight</td>
+                <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-zinc-950">
                   {totalWeightLbs > 0 ? totalWeightLbs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
                 </td>
               </tr>
               <tr className="bg-gray-50">
-                <td className="px-3 py-1 text-gray-500">Max Weight / Pallet</td>
-                <td className="px-3 py-1 text-right tabular-nums text-gray-600">
+                <td className="px-3 py-1 text-zinc-600">Max Weight / Pallet</td>
+                <td className="px-3 py-1 text-right tabular-nums text-zinc-700">
                   {maxWtLbs.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </td>
               </tr>
               <tr className="bg-gray-100 border-t border-gray-300">
-                <td className="px-3 py-1.5 font-semibold text-gray-700">Pallets Required</td>
-                <td className="px-3 py-1.5 text-right font-semibold text-gray-900">
+                <td className="px-3 py-1.5 font-semibold text-zinc-800">Pallets Required</td>
+                <td className="px-3 py-1.5 text-right font-semibold text-zinc-950">
                   {autoPallets != null ? Math.ceil(totalWeightLbs / maxWtLbs) : "—"}
                 </td>
               </tr>
               <tr className="bg-white">
-                <td className="px-3 py-1 text-gray-600">+ Buffer</td>
+                <td className="px-3 py-1 text-zinc-700">+ Buffer</td>
                 <td className="px-3 py-1 text-right">
                   <div className="flex items-center justify-end gap-1.5">
-                    <span className="text-[0.65rem] text-gray-400 tabular-nums">{buffer > 0 ? `+${buffer}` : "+0"}</span>
+                    <span className="text-[0.65rem] text-zinc-600 tabular-nums">{buffer > 0 ? `+${buffer}` : "+0"}</span>
                     <input
                       type="number"
                       min={0}
@@ -227,7 +243,7 @@ function PalletizationSection({
                 </td>
               </tr>
             </tbody>
-          </table>
+          </table>}
         </div>
       )}
     </div></div>
@@ -263,6 +279,7 @@ interface LeftContentProps {
 
 function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, setProjectType: _setProjectType, coPackingProcesses: _coPackingProcesses, setCoPackingProcesses: _setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees, processLevels: _processLevels, setProcessLevels: _setProcessLevels }: LeftContentProps) {
   const { notRequired } = useSectionRequired();
+  const [pkgLineOpen, setPkgLineOpen] = useState(true);
   return (
     <>
       <ProjectInfoSection />
@@ -312,14 +329,14 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                   if (laborCust <= 0) return null;
                   return (
                     <div key={proc.id} className="border-b border-blue-100 last:border-0 px-3 py-2.5 space-y-1.5">
-                      <div className="text-[0.6rem] font-bold text-gray-700 uppercase tracking-wider truncate">{proc.name || `Process ${i + 1}`}</div>
+                      <div className="text-[0.6rem] font-bold text-zinc-800 uppercase tracking-wider truncate">{proc.name || `Process ${i + 1}`}</div>
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
-                          <div className="text-[0.72rem] font-semibold text-gray-700 tabular-nums">{fmtD(laborOur)}</div>
+                          <div className="text-[0.52rem] text-zinc-600 mb-0.5">Our Cost</div>
+                          <div className="text-[0.72rem] font-semibold text-zinc-800 tabular-nums">{fmtD(laborOur)}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                          <div className="text-[0.52rem] text-zinc-600 mb-0.5">Customer</div>
                           <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">{fmtD(laborCust)}</div>
                         </div>
                       </div>
@@ -335,11 +352,11 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                     <div className="text-[0.55rem] font-bold text-blue-700 uppercase tracking-widest">Total</div>
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
-                        <div className="text-[0.75rem] font-bold text-gray-800 tabular-nums">{fmtD(totalProcOur)}</div>
+                        <div className="text-[0.52rem] text-zinc-600 mb-0.5">Our Cost</div>
+                        <div className="text-[0.75rem] font-bold text-zinc-900 tabular-nums">{fmtD(totalProcOur)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                        <div className="text-[0.52rem] text-zinc-600 mb-0.5">Customer</div>
                         <div className="text-[0.75rem] font-bold text-[#e8473f] tabular-nums">{fmtD(totalProcCust)}</div>
                       </div>
                     </div>
@@ -360,8 +377,9 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
           packagingLevels={packagingLevels}
           setPackagingLevels={setPackagingLevels}
           className="bg-white border border-gray-200 rounded-xl overflow-hidden max-w-4xl w-full"
+          onOpenChange={setPkgLineOpen}
         />
-        {!notRequired["section-packaging-summary"] && summaryRows.length > 0 && (() => {
+        {pkgLineOpen && !notRequired["section-packaging-summary"] && summaryRows.length > 0 && (() => {
           const fmtD = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
           const fmtPct = (v: number) => `${v.toFixed(1)}%`;
           const marginBg = (pct: number) => pct >= 50 ? "bg-green-50 border-green-200 text-green-700" : pct >= 30 ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-red-50 border-red-200 text-red-600";
@@ -392,14 +410,14 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                 const margin = cx > 0 ? ((cx - our) / cx) * 100 : 0;
                 return (
                   <div key={i} className="border-b border-blue-100 last:border-0 px-3 py-2.5 space-y-1.5">
-                    <div className="text-[0.6rem] font-bold text-gray-700 uppercase tracking-wider">{r.label}</div>
+                    <div className="text-[0.6rem] font-bold text-zinc-800 uppercase tracking-wider">{r.label}</div>
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
-                        <div className="text-[0.72rem] font-semibold text-gray-700 tabular-nums">{our > 0 ? fmtD(our) : "—"}</div>
+                        <div className="text-[0.52rem] text-zinc-600 mb-0.5">Our Cost</div>
+                        <div className="text-[0.72rem] font-semibold text-zinc-800 tabular-nums">{our > 0 ? fmtD(our) : "—"}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                        <div className="text-[0.52rem] text-zinc-600 mb-0.5">Customer</div>
                         <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">{cx > 0 ? fmtD(cx) : "—"}</div>
                       </div>
                     </div>
@@ -420,11 +438,11 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                   <div className="text-[0.55rem] font-bold text-blue-700 uppercase tracking-widest">Total</div>
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-[0.52rem] text-gray-400 mb-0.5">Our Cost</div>
-                      <div className="text-[0.75rem] font-bold text-gray-800 tabular-nums">{fmtD(totalOur)}</div>
+                      <div className="text-[0.52rem] text-zinc-600 mb-0.5">Our Cost</div>
+                      <div className="text-[0.75rem] font-bold text-zinc-900 tabular-nums">{fmtD(totalOur)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[0.52rem] text-gray-400 mb-0.5">Customer</div>
+                      <div className="text-[0.52rem] text-zinc-600 mb-0.5">Customer</div>
                       <div className="text-[0.75rem] font-bold text-[#e8473f] tabular-nums">{fmtD(totalCx)}</div>
                     </div>
                   </div>
@@ -449,8 +467,8 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
         <div className="border border-gray-200 rounded-xl overflow-hidden">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Additional Costs & Fees</span>
-              <span className="text-[0.55rem] font-semibold text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase tracking-wider">Internal Only</span>
+              <span className="text-xs font-semibold text-zinc-950 uppercase tracking-wide">Additional Costs & Fees</span>
+              <span className="text-[0.55rem] font-semibold text-zinc-600 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase tracking-wider">Internal Only</span>
             </div>
             <button
               type="button"
@@ -461,7 +479,7 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
             </button>
           </div>
           {additionalFees.length === 0 ? (
-            <p className="py-3 text-center text-[0.65rem] text-gray-400 italic">No additional fees — click Add Row</p>
+            <p className="py-3 text-center text-[0.65rem] text-zinc-600 italic">No additional fees — click Add Row</p>
           ) : (
             <div className="divide-y divide-gray-100">
               {additionalFees.map((row) => (
@@ -471,18 +489,18 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                     value={row.type}
                     onChange={(e) => setAdditionalFees(prev => prev.map(r => r.id === row.id ? { ...r, type: e.target.value } : r))}
                     placeholder="Fee label…"
-                    className="flex-1 h-7 px-2 text-xs text-gray-900 border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300 rounded"
+                    className="flex-1 h-7 px-2 text-xs text-zinc-950 border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500 rounded"
                   />
                   <div className="flex items-center border border-gray-200 rounded overflow-hidden h-7 shrink-0">
                     <button
                       type="button"
                       onClick={() => setAdditionalFees(prev => prev.map(r => r.id === row.id ? { ...r, mode: r.mode === "$" ? "%" : "$" } : r))}
-                      className={`px-2 h-7 text-[0.65rem] font-semibold transition-colors border-r border-gray-200 ${row.mode === "$" ? "bg-[#e8473f] text-white" : "bg-gray-50 text-gray-500 hover:text-gray-800"}`}
+                      className={`px-2 h-7 text-[0.65rem] font-semibold transition-colors border-r border-gray-200 ${row.mode === "$" ? "bg-[#e8473f] text-white" : "bg-gray-50 text-zinc-600 hover:text-zinc-900"}`}
                     >$</button>
                     <button
                       type="button"
                       onClick={() => setAdditionalFees(prev => prev.map(r => r.id === row.id ? { ...r, mode: r.mode === "%" ? "$" : "%" } : r))}
-                      className={`px-2 h-7 text-[0.65rem] font-semibold transition-colors ${row.mode === "%" ? "bg-[#e8473f] text-white" : "bg-gray-50 text-gray-500 hover:text-gray-800"}`}
+                      className={`px-2 h-7 text-[0.65rem] font-semibold transition-colors ${row.mode === "%" ? "bg-[#e8473f] text-white" : "bg-gray-50 text-zinc-600 hover:text-zinc-900"}`}
                     >%</button>
                   </div>
                   <div className="w-28 shrink-0">
@@ -498,7 +516,7 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                   <button
                     type="button"
                     onClick={() => setAdditionalFees(prev => prev.filter(r => r.id !== row.id))}
-                    className="shrink-0 text-gray-300 hover:text-red-400 transition-colors text-sm leading-none"
+                    className="shrink-0 text-zinc-500 hover:text-red-400 transition-colors text-sm leading-none"
                     title="Remove row"
                   >×</button>
                 </div>
@@ -588,21 +606,21 @@ function PriceAdjustmentSection({
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-amber-50/60">
-                <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900">Cost PPU</th>
+                <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900">Cost PPU</th>
                 <th className="py-2 px-3 text-center text-[0.6rem] font-semibold text-amber-700 uppercase tracking-wider border-b-2 border-gray-900">Adjusted PPU</th>
                 <th className="py-2 px-3 text-center text-[0.6rem] font-semibold text-amber-700 uppercase tracking-wider border-b-2 border-gray-900">Margin %</th>
-                <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900 bg-[#FEF2F2]">Total Revenue</th>
+                <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900 bg-[#FEF2F2]">Total Revenue</th>
               </tr>
             </thead>
             <tbody>
               {whatIfRows.length === 0 ? (
                 <tr className="border-b border-gray-100">
-                  <td className="py-1.5 px-3 text-right text-xs text-gray-500 font-medium tabular-nums">
+                  <td className="py-1.5 px-3 text-right text-xs text-zinc-600 font-medium tabular-nums">
                     {computedCost > 0 ? fmt(computedCost) : "—"}
                   </td>
                   <td className="py-1 px-2 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <span className="text-xs text-gray-400">$</span>
+                      <span className="text-xs text-zinc-600">$</span>
                       <CurrencyInput type="dollar"
                         value={adjPpuVal0}
                         onChange={(v) => setWhatIfPpus(prev => ({ ...prev, [0]: String(v) }))}
@@ -611,7 +629,7 @@ function PriceAdjustmentSection({
                       {isCustom0 && (
                         <button type="button"
                           onClick={() => setWhatIfPpus(prev => { const n = { ...prev }; delete n[0]; return n; })}
-                          className="text-gray-300 hover:text-gray-600 text-sm leading-none" title="Reset">↺</button>
+                          className="text-zinc-500 hover:text-zinc-700 text-sm leading-none" title="Reset">↺</button>
                       )}
                     </div>
                   </td>
@@ -626,10 +644,10 @@ function PriceAdjustmentSection({
                         }}
                         className={`w-20 h-6 px-2 text-xs text-right border border-amber-300 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium ${marginColor(marginPct0)}`}
                       />
-                      <span className="text-xs text-gray-400">%</span>
+                      <span className="text-xs text-zinc-600">%</span>
                     </div>
                   </td>
-                  <td className="py-1.5 px-3 text-right text-xs font-semibold text-gray-800 bg-[#FEF2F2]">
+                  <td className="py-1.5 px-3 text-right text-xs font-semibold text-zinc-900 bg-[#FEF2F2]">
                     {adjRevenue0 > 0 ? fmt(adjRevenue0) : "—"}
                   </td>
                 </tr>
@@ -643,12 +661,12 @@ function PriceAdjustmentSection({
                   };
                   return (
                     <tr key={r.moqRow.id} className="border-b border-gray-100 hover:bg-amber-50/20">
-                      <td className="py-1.5 px-3 text-right text-xs text-gray-500 font-medium tabular-nums">
+                      <td className="py-1.5 px-3 text-right text-xs text-zinc-600 font-medium tabular-nums">
                         {costPPU > 0 ? fmt(costPPU) : "—"}
                       </td>
                       <td className="py-1 px-2 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <span className="text-xs text-gray-400">$</span>
+                          <span className="text-xs text-zinc-600">$</span>
                           <NumInput
                             value={whatIfPpus[r.moqRow.id] !== undefined ? parseFloat(whatIfPpus[r.moqRow.id]) : r.ppu}
                             onChange={onAdjPpuChange}
@@ -657,7 +675,7 @@ function PriceAdjustmentSection({
                           {isCustom && (
                             <button type="button"
                               onClick={() => setWhatIfPpus(prev => { const n = { ...prev }; delete n[r.moqRow.id]; return n; })}
-                              className="text-gray-300 hover:text-gray-600 text-sm leading-none" title="Reset to original">↺</button>
+                              className="text-zinc-500 hover:text-zinc-700 text-sm leading-none" title="Reset to original">↺</button>
                           )}
                         </div>
                       </td>
@@ -668,10 +686,10 @@ function PriceAdjustmentSection({
                             onChange={onMarginChange}
                             className={`w-20 h-6 px-2 text-xs text-right border border-amber-300 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium ${marginColor(marginPct)}`}
                           />
-                          <span className="text-xs text-gray-400">%</span>
+                          <span className="text-xs text-zinc-600">%</span>
                         </div>
                       </td>
-                      <td className="py-1.5 px-3 text-right text-xs font-semibold text-gray-800 bg-[#FEF2F2]">
+                      <td className="py-1.5 px-3 text-right text-xs font-semibold text-zinc-900 bg-[#FEF2F2]">
                         {fmt(revenue)}
                       </td>
                     </tr>
@@ -680,12 +698,12 @@ function PriceAdjustmentSection({
               )}
               {whatIfRows.length > 0 && (
                 <tr className="border-t-2 border-gray-900 bg-amber-50">
-                  <td className="py-2 px-3 text-xs font-bold text-gray-900 italic">TOTALS</td>
-                  <td className="py-2 px-3 text-right text-xs text-gray-400">—</td>
+                  <td className="py-2 px-3 text-xs font-bold text-zinc-950 italic">TOTALS</td>
+                  <td className="py-2 px-3 text-right text-xs text-zinc-600">—</td>
                   <td className={`py-2 px-3 text-right text-xs font-bold bg-[#FEF2F2] ${marginColor(wiAvgMargin)}`}>
                     {fmtPct(wiAvgMargin)}
                   </td>
-                  <td className="py-2 px-3 text-right text-xs font-bold text-gray-900 bg-[#FEF2F2]">
+                  <td className="py-2 px-3 text-right text-xs font-bold text-zinc-950 bg-[#FEF2F2]">
                     {fmt(wiTotalRevenue)}
                   </td>
                 </tr>

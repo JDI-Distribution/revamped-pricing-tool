@@ -91,12 +91,12 @@ export function effectiveTypeName(lvl: PackagingLevel): string {
 // ── Shared cell styles ────────────────────────────────────────────────────────
 
 const cellInp =
-  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const cellInpSuffix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const suffixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-gray-500 bg-amber-100/60 rounded-r select-none shrink-0";
-const naCell = "text-[0.65rem] text-gray-300 italic";
+  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-r select-none shrink-0";
+const naCell = "text-[0.65rem] text-zinc-500 italic";
 
 // ── Stable Col helper (defined outside component to avoid remount on every render) ──
 
@@ -117,10 +117,12 @@ interface Props {
   className?: string;
   sectionTitle?: string;
   sectionId?: string;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function PackagingLevels({ packagingLevels, setPackagingLevels, className, sectionTitle = "Packaging Line Setup", sectionId = "section-packaging-summary" }: Props) {
+export default function PackagingLevels({ packagingLevels, setPackagingLevels, className, sectionTitle = "Packaging Line Setup", sectionId = "section-packaging-summary", onOpenChange }: Props) {
   const [sectionOpen, setSectionOpen]     = useState(true);
+  const handleToggle = (open: boolean) => { setSectionOpen(open); onOpenChange?.(open); };
   const [manualChargeOpen, setManualChargeOpen] = useState(false);
   const [outputsOpen, setOutputsOpen]     = useState<Record<string, boolean>>({});
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
@@ -196,14 +198,14 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
       {/* ── Section header ── */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
-        <button type="button" onClick={() => setSectionOpen(o => !o)}
+        <button type="button" onClick={() => handleToggle(!sectionOpen)}
           className="flex items-center gap-1.5 group">
-          <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">
+          <span className="text-sm font-bold text-zinc-950 group-hover:text-[#e8473f] transition-colors">
             {sectionTitle}
           </span>
           {sectionOpen
-            ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
-            : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+            ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
+            : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
         </button>
         <div className="ml-auto shrink-0"><RequiredToggle sectionId={sectionId} /></div>
       </div>
@@ -227,7 +229,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
             <thead>
               <tr>
                 {/* Rate Field label cell */}
-                <th className="w-36 min-w-[140px] px-3 py-2 text-left text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest border-b border-amber-200/70 bg-white sticky left-0 z-10">
+                <th className="w-36 min-w-[140px] px-3 py-2 text-left text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest border-b border-amber-200/70 bg-white sticky left-0 z-10">
                   Rate Field
                 </th>
                 {packagingLevels.map((lvl, index) => {
@@ -242,12 +244,12 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           <button type="button"
                             onClick={() => setCollapsedCols(c => ({ ...c, [lvl.id]: false }))}
                             title={`Expand ${levelLabel}`}
-                            className="flex items-center justify-center w-full text-gray-400 hover:text-white transition-colors">
+                            className="flex items-center justify-center w-full text-zinc-600 hover:text-white transition-colors">
                             <ChevronRight size={12} />
                           </button>
                           {/* vertical label — absolutely positioned so it doesn't stretch the header row */}
                           <span
-                            className="text-[0.65rem] font-bold text-gray-900 uppercase tracking-widest whitespace-nowrap pointer-events-none select-none"
+                            className="text-[0.65rem] font-bold text-zinc-950 uppercase tracking-widest whitespace-nowrap pointer-events-none select-none"
                             style={{
                               position: "absolute",
                               top: "100%",
@@ -266,7 +268,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           <button type="button"
                             onClick={() => setCollapsedCols(c => ({ ...c, [lvl.id]: true }))}
                             title="Collapse column"
-                            className="text-gray-400 hover:text-white transition-colors shrink-0">
+                            className="text-zinc-600 hover:text-white transition-colors shrink-0">
                             <ChevronLeft size={11} />
                           </button>
                         </div>
@@ -280,7 +282,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
             <tbody>
               {/* ── Type row ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Type</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Type</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     {lvl.packagingType === "custom_mode" ? (
@@ -291,7 +293,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           className={`${cellInp} flex-1 min-w-0`} autoFocus />
                         <button type="button"
                           onClick={() => update(lvl.id, { packagingType: "", customTypeName: "" })}
-                          className="shrink-0 text-gray-400 hover:text-[#e8473f] text-sm">×</button>
+                          className="shrink-0 text-zinc-600 hover:text-[#e8473f] text-sm">×</button>
                       </div>
                     ) : (
                       <select
@@ -313,7 +315,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Overage Rate ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Overage Rate</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Overage Rate</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -328,7 +330,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Wage Rate ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Wage Rate</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Wage Rate</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -343,7 +345,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Unit Fill Rate / Min ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Unit Fill Rate / Min</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Unit Fill Rate / Min</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="rate" value={lvl.fillRatePerMin}
@@ -355,7 +357,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Label Print Cost / Unit ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Label Print Cost / Unit</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Print Cost / Unit</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -370,7 +372,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Label Apply Rate / Min ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Label Apply Rate / Min</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Apply Rate / Min</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.labelApplyRate}
@@ -382,7 +384,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Packaging Weight ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Packaging Weight</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Packaging Weight</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -397,7 +399,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── No. of Staff / Stations ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">No. of Staff / Stations</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">No. of Staff / Stations</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.numStaff}
@@ -409,7 +411,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Hrs / Shift ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Hrs / Shift</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Hrs / Shift</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.hrsPerShift}
@@ -421,7 +423,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Working Days ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Working Days</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Working Days</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <CurrencyInput type="integer" value={lvl.workingDays}
@@ -433,7 +435,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Tab Cost / Unit ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Tab Cost / Unit</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Tab Cost / Unit</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     {lvl.tabsEnabled ? (
@@ -452,7 +454,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Eff. Buffer % ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Eff. Buffer %</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Eff. Buffer %</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -467,7 +469,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Labor Mkp % ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Labor Mkp %</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Labor Mkp %</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -482,7 +484,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Unit Mkp % ── */}
               <tr className="border-b border-amber-200/70">
-                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10">Unit Mkp %</td>
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Unit Mkp %</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
@@ -499,7 +501,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               {/* ── Outputs toggle row ── */}
               <tr className="bg-gray-50 border-t-2 border-gray-200">
                 <td className="px-3 py-1 sticky left-0 z-10 bg-gray-50">
-                  <span className="text-[0.55rem] font-semibold uppercase tracking-widest text-gray-400">Outputs</span>
+                  <span className="text-[0.55rem] font-semibold uppercase tracking-widest text-zinc-600">Outputs</span>
                 </td>
                 {packagingLevels.map(lvl => {
                   const isOpen = !!outputsOpen[lvl.id];
@@ -510,7 +512,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                         <button
                           type="button"
                           onClick={() => setOutputsOpen(o => ({ ...o, [lvl.id]: !o[lvl.id] }))}
-                          className="flex items-center gap-1 text-[0.6rem] font-semibold text-gray-400 hover:text-[#e8473f] transition-colors uppercase tracking-wider">
+                          className="flex items-center gap-1 text-[0.6rem] font-semibold text-zinc-600 hover:text-[#e8473f] transition-colors uppercase tracking-wider">
                           {isOpen ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
                           {isOpen ? "Hide" : "Show"}
                         </button>
@@ -584,7 +586,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           <td key={lvl.id} className="px-2 py-0.5 border-l border-amber-200 bg-amber-50/40">
                             {outputsOpen[lvl.id] && (
                               <div className="flex justify-between">
-                                <span className="text-[0.52rem] font-bold text-gray-400 uppercase tracking-wider">Our Cost</span>
+                                <span className="text-[0.52rem] font-bold text-zinc-600 uppercase tracking-wider">Our Cost</span>
                                 <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Customer</span>
                               </div>
                             )}
@@ -599,17 +601,17 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                   const bold   = isCost && (row as { bold?: boolean }).bold;
                   return (
                     <tr key={row.label} className={`border-b ${isCost ? "border-amber-100" : "border-gray-100"} ${bold ? "bg-amber-50/60" : isCost ? "bg-amber-50/20" : "bg-gray-50/60"}`}>
-                      <td className={`px-3 py-1 text-[0.63rem] sticky left-0 z-10 ${bold ? "font-bold text-amber-800 bg-amber-50/60" : isCost ? "text-gray-600 bg-amber-50/30" : "text-gray-500 bg-gray-50/80"}`}>
+                      <td className={`px-3 py-1 text-[0.63rem] sticky left-0 z-10 ${bold ? "font-bold text-amber-800 bg-amber-50/60" : isCost ? "text-zinc-700 bg-amber-50/30" : "text-zinc-600 bg-gray-50/80"}`}>
                         {row.label}
                       </td>
                       {packagingLevels.map((lvl, i) => {
                         if (collapsedCols[lvl.id]) return <td key={lvl.id} className="w-9 border-l border-amber-200 bg-amber-50/40" />;
-                        if (!outputsOpen[lvl.id]) return <td key={lvl.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-gray-300">—</span></td>;
+                        if (!outputsOpen[lvl.id]) return <td key={lvl.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-zinc-500">—</span></td>;
                         return (
                           <td key={lvl.id} className={`px-2 py-1 border-l ${isCost ? "border-amber-200" : "border-gray-200"}`}>
                             {isCost ? (
                               <div className="flex justify-between gap-1">
-                                <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-gray-700" : "font-semibold text-gray-600"}`}>
+                                <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-zinc-800" : "font-semibold text-zinc-700"}`}>
                                   {(row as { our: (i: number) => number }).our(i) > 0 ? fmtD((row as { our: (i: number) => number }).our(i)) : "—"}
                                 </span>
                                 <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-[#e8473f]" : "font-semibold text-[#e8473f]/80"}`}>
@@ -618,10 +620,10 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                               </div>
                             ) : (
                               <div className="flex justify-between gap-1">
-                                <span className="text-[0.72rem] font-semibold text-gray-800 tabular-nums">
+                                <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums">
                                   {(row as { val: (i: number) => string }).val(i)}
                                 </span>
-                                <span className="text-[0.65rem] text-gray-300">—</span>
+                                <span className="text-[0.65rem] text-zinc-500">—</span>
                               </div>
                             )}
                           </td>
@@ -645,12 +647,12 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
             onClick={() => setManualChargeOpen(o => !o)}
             className="w-full flex items-center justify-between px-3 py-2 group"
           >
-            <span className="text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest group-hover:text-amber-700 transition-colors">
+            <span className="text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest group-hover:text-amber-700 transition-colors">
               Manual Charge {allCharges.length > 0 && <span className="text-amber-600">({allCharges.length})</span>}
             </span>
             {manualChargeOpen
-              ? <ChevronUp size={12} className="text-gray-400 group-hover:text-amber-600 transition-colors" />
-              : <ChevronDown size={12} className="text-gray-400 group-hover:text-amber-600 transition-colors" />}
+              ? <ChevronUp size={12} className="text-zinc-600 group-hover:text-amber-600 transition-colors" />
+              : <ChevronDown size={12} className="text-zinc-600 group-hover:text-amber-600 transition-colors" />}
           </button>
 
           {manualChargeOpen && (
@@ -676,18 +678,18 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                     });
                     return (
                       <div key={c.id} className="flex items-center gap-2 text-[0.65rem] bg-white border border-amber-200 rounded px-2 py-1.5">
-                        <span className="font-semibold text-gray-700 flex-1 min-w-0 truncate">{c.name}</span>
-                        <span className="text-[0.6rem] text-gray-400 shrink-0 italic">{assignedLabel}</span>
-                        <span className="text-gray-400 shrink-0 text-[0.6rem]">${c.amount.toFixed(2)} {c.basis === "per_unit" ? "/unit" : "fixed"}</span>
-                        <span className="text-gray-300 shrink-0">→</span>
+                        <span className="font-semibold text-zinc-800 flex-1 min-w-0 truncate">{c.name}</span>
+                        <span className="text-[0.6rem] text-zinc-600 shrink-0 italic">{assignedLabel}</span>
+                        <span className="text-zinc-600 shrink-0 text-[0.6rem]">${c.amount.toFixed(2)} {c.basis === "per_unit" ? "/unit" : "fixed"}</span>
+                        <span className="text-zinc-500 shrink-0">→</span>
                         {chargeRows.map(({ lvl, total, unitsWithOverage }) => (
                           <span key={lvl.id} className="text-[#e8473f] font-semibold tabular-nums shrink-0 text-[0.65rem]">
                             ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            {c.basis === "per_unit" && <span className="text-gray-400 font-normal"> ({unitsWithOverage.toLocaleString()}u)</span>}
+                            {c.basis === "per_unit" && <span className="text-zinc-600 font-normal"> ({unitsWithOverage.toLocaleString()}u)</span>}
                           </span>
                         ))}
                         <button type="button" onClick={() => removeCharge(c.id)}
-                          className="shrink-0 text-gray-300 hover:text-red-400 transition-colors ml-1">
+                          className="shrink-0 text-zinc-500 hover:text-red-400 transition-colors ml-1">
                           <Trash2 size={11} />
                         </button>
                       </div>
@@ -700,22 +702,22 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-1.5 items-end">
                 {/* Row 1: Name + Level + Amount */}
                 <div>
-                  <p className="text-[0.5rem] text-gray-400 mb-0.5">Charge Name</p>
+                  <p className="text-[0.5rem] text-zinc-600 mb-0.5">Charge Name</p>
                   <input
                     type="text"
                     value={draftCharge.name}
                     onChange={e => setDraftCharge(d => ({ ...d, name: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && addCharge()}
                     placeholder="e.g. Tray Insert Cost"
-                    className="h-7 w-full px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
+                    className="h-7 w-full px-2 text-xs text-zinc-800 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-zinc-600 transition"
                   />
                 </div>
                 <div>
-                  <p className="text-[0.5rem] text-gray-400 mb-0.5">Level</p>
+                  <p className="text-[0.5rem] text-zinc-600 mb-0.5">Level</p>
                   <select
                     value={draftCharge.levelId}
                     onChange={e => setDraftCharge(d => ({ ...d, levelId: e.target.value }))}
-                    className="h-7 px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition cursor-pointer"
+                    className="h-7 px-2 text-xs text-zinc-800 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition cursor-pointer"
                   >
                     <option value="">All</option>
                     {packagingLevels.map(lvl => (
@@ -726,14 +728,14 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                   </select>
                 </div>
                 <div>
-                  <p className="text-[0.5rem] text-gray-400 mb-0.5">Amount ($)</p>
+                  <p className="text-[0.5rem] text-zinc-600 mb-0.5">Amount ($)</p>
                   <input
                     type="number" min={0} step={0.01}
                     value={draftCharge.amount}
                     onChange={e => setDraftCharge(d => ({ ...d, amount: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && addCharge()}
                     placeholder="0.00"
-                    className="h-7 w-20 px-2 text-xs text-gray-700 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-gray-400 transition"
+                    className="h-7 w-20 px-2 text-xs text-zinc-800 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-zinc-600 transition"
                   />
                 </div>
               </div>
@@ -742,12 +744,12 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 <div className="flex items-center border border-gray-300 rounded overflow-hidden h-7 text-xs font-semibold">
                   <button type="button"
                     onClick={() => setDraftCharge(d => ({ ...d, basis: "per_unit" }))}
-                    className={`px-2.5 h-7 flex items-center transition-colors text-[0.65rem] ${draftCharge.basis === "per_unit" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-700"}`}>
+                    className={`px-2.5 h-7 flex items-center transition-colors text-[0.65rem] ${draftCharge.basis === "per_unit" ? "bg-gray-800 text-white" : "text-zinc-600 hover:text-zinc-800"}`}>
                     Per Unit
                   </button>
                   <button type="button"
                     onClick={() => setDraftCharge(d => ({ ...d, basis: "fixed" }))}
-                    className={`px-2.5 h-7 flex items-center transition-colors border-l border-gray-300 text-[0.65rem] ${draftCharge.basis === "fixed" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-700"}`}>
+                    className={`px-2.5 h-7 flex items-center transition-colors border-l border-gray-300 text-[0.65rem] ${draftCharge.basis === "fixed" ? "bg-gray-800 text-white" : "text-zinc-600 hover:text-zinc-800"}`}>
                     Fixed
                   </button>
                 </div>
@@ -768,7 +770,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
       {sectionOpen && packagingLevels.length === 0 && (
         <div className="px-5 py-4">
-          <p className="text-xs text-gray-300 italic text-center">No packaging levels — click Add Level</p>
+          <p className="text-xs text-zinc-500 italic text-center">No packaging levels — click Add Level</p>
         </div>
       )}
     </div>

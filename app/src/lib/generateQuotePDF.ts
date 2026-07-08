@@ -319,47 +319,28 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       drawField(label, val, L, fy, colW);
     });
 
-    // ── Packaging breakdown table (right column, aligned with overviewFields) ──
+    // ── Packaging breakdown — single line with arrows (right column) ──
     const packRows = summaryTableRows.filter(str => !str.isLeadTimeSummary && (str.totalUnits ?? 0) > 0);
     const overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined = undefined;
     if (packRows.length > 0) {
-      const tableY = y;
-      const tableW = W / 2 - 2;
-      const col1W  = tableW * 0.6;
-      const rowH   = 5.2;
-
-      // header row
-      sf("bold", 7); doc.setTextColor(...midGray);
-      doc.text("PACKAGING LEVEL", colMid, tableY);
-      doc.text("QTY", colMid + col1W, tableY, { align: "right" });
-
-      doc.setDrawColor(...ltGray); doc.setLineWidth(0.2);
-      doc.line(colMid, tableY + 1.5, colMid + tableW, tableY + 1.5);
-
-      packRows.forEach((row, ri) => {
-        const ry = tableY + 4 + ri * rowH;
-        const isFirst = ri === 0;
-
-        // subtle alternating tint
-        if (ri % 2 === 1) {
-          doc.setFillColor(...rowEven);
-          doc.rect(colMid - 1, ry - 3.5, tableW + 2, rowH, "F");
-        }
-
-        sf(isFirst ? "bold" : "normal", 8.5);
-        doc.setTextColor(...(isFirst ? gray : [60, 60, 60] as [number,number,number]));
-        const displayLabel = row.label.replace(/ & Fees$/i, "");
-        const nameClipped = doc.splitTextToSize(displayLabel, col1W - 2)[0] as string;
-        doc.text(nameClipped, colMid, ry);
-
-        sf("normal", 8.5); doc.setTextColor(...gray);
-        doc.text(Math.round(row.totalUnits ?? 0).toLocaleString(), colMid + col1W, ry, { align: "right" });
+      // Build "Label (qty) → Label (qty) → …" single line
+      const arrow = "  →  ";
+      const parts = packRows.map(row => {
+        const lbl = row.label.replace(/ & Fees$/i, "");
+        const qty = Math.round(row.totalUnits ?? 0).toLocaleString();
+        return `${lbl} (${qty})`;
       });
+      const fullLine = parts.join(arrow);
 
-      // bottom rule under table
-      const tableBottom = tableY + 4 + packRows.length * rowH;
-      doc.setDrawColor(...ltGray); doc.setLineWidth(0.2);
-      doc.line(colMid, tableBottom, colMid + tableW, tableBottom);
+      sf("bold", 7); doc.setTextColor(...midGray);
+      doc.text("PACKAGING STRUCTURE", colMid, y);
+
+      const maxLineW = W / 2 - 2;
+      const wrapped = doc.splitTextToSize(fullLine, maxLineW);
+      sf("normal", 8); doc.setTextColor(...gray);
+      wrapped.forEach((line: string, li: number) => {
+        doc.text(line, colMid, y + 4 + li * 4.5);
+      });
     } else if (customer.projectOverview) {
       // fallback: custom text paragraph
       sf("normal", 8.5); doc.setTextColor(...midGray);
@@ -373,45 +354,6 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     y += overviewSectionH + 4;
     rule(y);
 
-    // ── TIMELINE & DELIVERY ───────────────────────────────────────────────────
-    y += 5;
-    sectionLabel("Timeline & Delivery", L, y);
-    y += 5;
-
-    const ltOv = customer.ltOverrides ?? [];
-    autoTable(doc, {
-      startY: y, margin: { left: L, right: L },
-      head: [["Milestone", "Date / Duration"]],
-      body: [
-        ["Lead Time",                       ltOv[0] ?? (leadTimeWeeks > 0 ? `${leadTimeWeeks.toFixed(2)} Weeks` : "—")],
-        ["Start Date (Week Of)",             ltOv[1] ?? fmtDate(startDate)],
-        ["Estimated Ship Date (Week Of)",    ltOv[2] ?? fmtDate(shipDate)],
-      ],
-      styles: {
-        font: "helvetica", fontSize: 8.5,
-        cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
-        textColor: gray, lineColor: ltGray, lineWidth: 0.2,
-        fillColor: [255, 255, 255],
-      },
-      headStyles: {
-        fontStyle: "bold", fontSize: 8,
-        fillColor: [240, 240, 240],
-        textColor: midGray,
-      },
-      alternateRowStyles: { fillColor: rowEven },
-      columnStyles: {
-        0: { halign: "left",  cellWidth: "auto", fontStyle: "bold" },
-        1: { halign: "right", cellWidth: 52 },
-      },
-      tableLineColor: ltGray, tableLineWidth: 0.2,
-    });
-    const leadTimeSnapshot: AutoTableSnapshot = {
-      body: (doc as any).lastAutoTable.body.map((row: any) => ({
-        cells: Object.values(row.cells).map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height, raw: String(c.raw ?? "") })),
-      })),
-      finalY: (doc as any).lastAutoTable.finalY,
-    };
-
     // ── Page-break helper ─────────────────────────────────────────────────────
     const MARGIN_BOTTOM = 20;
     const checkPageBreak = (neededMm: number) => {
@@ -422,7 +364,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     };
 
     // ── PRICING BREAKDOWN ─────────────────────────────────────────────────────
-    y = (doc as any).lastAutoTable.finalY + 7;
+    y += 7;
 
     const body: string[][] = [];
 
@@ -542,6 +484,44 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       tableLineColor: ltGray, tableLineWidth: 0.2,
     });
     const pricingSnapshot: AutoTableSnapshot = {
+      body: (doc as any).lastAutoTable.body.map((row: any) => ({
+        cells: Object.values(row.cells).map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height, raw: String(c.raw ?? "") })),
+      })),
+      finalY: (doc as any).lastAutoTable.finalY,
+    };
+
+    // ── TIMELINE & DELIVERY ───────────────────────────────────────────────────
+    y = (doc as any).lastAutoTable.finalY + 7;
+    checkPageBreak(40);
+    rule(y, ltGray, 0.2);
+    y += 5;
+    sectionLabel("Timeline & Delivery", L, y);
+    y += 5;
+
+    const ltOv = customer.ltOverrides ?? [];
+    autoTable(doc, {
+      startY: y, margin: { left: L, right: L },
+      head: [["Milestone", "Date / Duration"]],
+      body: [
+        ["Lead Time",                       ltOv[0] ?? (leadTimeWeeks > 0 ? `${leadTimeWeeks.toFixed(2)} Weeks` : "—")],
+        ["Start Date (Week Of)",             ltOv[1] ?? fmtDate(startDate)],
+        ["Estimated Ship Date (Week Of)",    ltOv[2] ?? fmtDate(shipDate)],
+      ],
+      styles: {
+        font: "helvetica", fontSize: 8.5,
+        cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
+        textColor: gray, lineColor: ltGray, lineWidth: 0.2,
+        fillColor: [255, 255, 255],
+      },
+      headStyles: { fontStyle: "bold", fontSize: 8, fillColor: [240, 240, 240], textColor: midGray },
+      alternateRowStyles: { fillColor: rowEven },
+      columnStyles: {
+        0: { halign: "left",  cellWidth: "auto", fontStyle: "bold" },
+        1: { halign: "right", cellWidth: 52 },
+      },
+      tableLineColor: ltGray, tableLineWidth: 0.2,
+    });
+    const leadTimeSnapshot: AutoTableSnapshot = {
       body: (doc as any).lastAutoTable.body.map((row: any) => ({
         cells: Object.values(row.cells).map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height, raw: String(c.raw ?? "") })),
       })),

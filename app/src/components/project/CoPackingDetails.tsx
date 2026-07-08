@@ -5,18 +5,18 @@ import { uid } from "@/lib/uid";
 
 // ── Style constants ───────────────────────────────────────────────────────────
 const inputCls =
-  "h-9 w-full px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md";
+  "h-9 w-full px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md";
 const prefixBadge =
-  "text-[0.6rem] font-medium text-gray-400 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
+  "text-[0.6rem] font-medium text-zinc-600 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
 const suffixBadge =
-  "text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
+  "text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
 const inputWithPrefix =
-  "h-9 w-full px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-r-md flex-1";
+  "h-9 w-full px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-r-md flex-1";
 const inputWithSuffix =
-  "h-9 w-full px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md flex-1";
+  "h-9 w-full px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md flex-1";
 const card        = "border border-gray-200 rounded-xl p-5";
-const labelCls    = "text-[0.65rem] text-gray-500 mb-1 block";
-const sectionHead = "text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest mb-2";
+const labelCls    = "text-[0.65rem] text-zinc-600 mb-1 block";
+const sectionHead = "text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest mb-2";
 
 // ── Shared components ─────────────────────────────────────────────────────────
 interface FieldProps {
@@ -60,7 +60,7 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
 function Toggle({ enabled, onToggle, label }: { enabled: boolean; onToggle: () => void; label: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
-      <span className="text-[0.65rem] text-gray-500">{label}</span>
+      <span className="text-[0.65rem] text-zinc-600">{label}</span>
       <button type="button" role="switch" aria-checked={enabled} onClick={onToggle}
         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabled ? "bg-[#e8473f]" : "bg-gray-200"}`}>
         <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
@@ -81,9 +81,9 @@ function HrsInput({ value, onChange }: { value: number; onChange: (v: number) =>
         value={value || ""}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
         placeholder="0"
-        className="h-9 w-20 px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
+        className="h-9 w-20 px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
       />
-      <span className="text-[0.65rem] text-gray-400">hrs</span>
+      <span className="text-[0.65rem] text-zinc-600">hrs</span>
     </div>
   );
 }
@@ -100,15 +100,15 @@ function LaborHrsDisplay({ calcHrs, minHrs }: { calcHrs: number; minHrs: number 
   const minApplied = minHrs > 0 && calcHrs < minHrs;
   const mins = billed * 60;
   return (
-    <p className="text-[0.65rem] text-gray-400 mt-2">
+    <p className="text-[0.65rem] text-zinc-600 mt-2">
       {minApplied ? (
-        <>Est. Labor: <span className="line-through text-gray-300">{calcHrs.toFixed(2)} hrs</span>{" "}
+        <>Est. Labor: <span className="line-through text-zinc-500">{calcHrs.toFixed(2)} hrs</span>{" "}
           → billed <span className="font-semibold text-amber-600">{billed.toFixed(2)} hrs</span>
           <span className="ml-1 text-amber-500">(minimum applied)</span>
           <span className="ml-1">({mins.toFixed(0)} min)</span>
         </>
       ) : (
-        <>Est. Labor: <span className="font-semibold text-gray-600">{calcHrs.toFixed(2)} hrs</span>
+        <>Est. Labor: <span className="font-semibold text-zinc-700">{calcHrs.toFixed(2)} hrs</span>
           <span className="ml-1">({mins.toFixed(0)} min)</span>
         </>
       )}
@@ -161,9 +161,9 @@ function autoCoPackingUnits(level: string, primaryUnits: number, unitsPerInner: 
   }
 }
 
-const cpSelectCls   = "h-8 w-full px-2 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
-const cpInputYellow = "h-8 w-full px-2 border border-amber-300 text-xs text-gray-900 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400 transition rounded-md";
-const cpThCls       = "text-[0.6rem] font-semibold text-gray-400 uppercase tracking-widest pb-2";
+const cpSelectCls   = "h-8 w-full px-2 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
+const cpInputYellow = "h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400 transition rounded-md";
+const cpThCls       = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-widest pb-2";
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function CoPackingDetails() {
@@ -316,14 +316,14 @@ export default function CoPackingDetails() {
       <div className="flex items-start gap-3 pb-2">
         <div className="mt-0.5 w-1 h-5 rounded-full bg-[#e8473f] shrink-0" />
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 tracking-tight leading-none">Co-Packing Details</h2>
-          <p className="text-[0.65rem] text-gray-400 mt-1">Labor & handling charges</p>
+          <h2 className="text-sm font-semibold text-zinc-950 tracking-tight leading-none">Co-Packing Details</h2>
+          <p className="text-[0.65rem] text-zinc-600 mt-1">Labor & handling charges</p>
         </div>
       </div>
 
       {/* ── Customer Project Overview ── */}
       <div className={card}>
-        <p className="text-xs font-semibold text-gray-900 mb-4">Customer Project Overview</p>
+        <p className="text-xs font-semibold text-zinc-950 mb-4">Customer Project Overview</p>
 
         {/* Numeric inputs row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-4 items-start mb-5">
@@ -339,7 +339,7 @@ export default function CoPackingDetails() {
                 onChange={e => set("sachetSizeG", parseFloat(e.target.value) || 0)}
                 placeholder="5" className={`${inputCls} flex-1`} />
               <select value={unitSizeUnit} onChange={e => set("unitSizeUnit", e.target.value)}
-                className="h-9 px-1.5 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md shrink-0">
+                className="h-9 px-1.5 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md shrink-0">
                 {UNIT_SIZE_OPTS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -383,7 +383,7 @@ export default function CoPackingDetails() {
                     {s.rawMaterialSource === opt.val && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </span>
                   <button type="button" onClick={() => setCoPackingField("rawMaterialSource", opt.val)}
-                    className={`text-xs text-left transition-colors ${s.rawMaterialSource === opt.val ? "font-semibold text-gray-900" : "text-gray-500"}`}>
+                    className={`text-xs text-left transition-colors ${s.rawMaterialSource === opt.val ? "font-semibold text-zinc-950" : "text-zinc-600"}`}>
                     {opt.label}
                   </button>
                 </label>
@@ -393,18 +393,18 @@ export default function CoPackingDetails() {
         </div>
 
         {totalUnits > 0 && (
-          <div className="flex gap-4 text-[0.65rem] text-gray-400 flex-wrap">
-            <span>Delivered: <span className="font-semibold text-gray-600">{totalUnits.toLocaleString()}</span></span>
-            {s.sachetSizeG > 0 && <span>Unit size: <span className="font-semibold text-gray-600">{s.sachetSizeG} {unitSizeUnit}</span></span>}
-            {innersDelivered > 0 && <span>Inners: <span className="font-semibold text-gray-600">{innersDelivered.toLocaleString()}</span></span>}
-            {shippersDelivered > 0 && <span>Shippers: <span className="font-semibold text-gray-600">{shippersDelivered.toLocaleString()}</span></span>}
+          <div className="flex gap-4 text-[0.65rem] text-zinc-600 flex-wrap">
+            <span>Delivered: <span className="font-semibold text-zinc-700">{totalUnits.toLocaleString()}</span></span>
+            {s.sachetSizeG > 0 && <span>Unit size: <span className="font-semibold text-zinc-700">{s.sachetSizeG} {unitSizeUnit}</span></span>}
+            {innersDelivered > 0 && <span>Inners: <span className="font-semibold text-zinc-700">{innersDelivered.toLocaleString()}</span></span>}
+            {shippersDelivered > 0 && <span>Shippers: <span className="font-semibold text-zinc-700">{shippersDelivered.toLocaleString()}</span></span>}
           </div>
         )}
       </div>
 
       {/* ── Inbound / Raw Material ── */}
       <div className={card}>
-        <p className="text-xs font-semibold text-gray-900 mb-4">Inbound / Raw Material</p>
+        <p className="text-xs font-semibold text-zinc-950 mb-4">Inbound / Raw Material</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-4 items-start">
           <SubSection title="Overage">
             <Field label="Overage Rate" field="inboundOverage" value={s.inboundOverage} onChange={set} suffix="%" isPct placeholder="15" />
@@ -420,9 +420,9 @@ export default function CoPackingDetails() {
               return (
                 <div>
                   <span className={labelCls}># of Intake Pallets (auto)</span>
-                  <div className="h-9 px-3 flex items-center text-xs text-gray-700 font-semibold bg-gray-50 border border-gray-200 rounded-md tabular-nums">
+                  <div className="h-9 px-3 flex items-center text-xs text-zinc-800 font-semibold bg-gray-50 border border-gray-200 rounded-md tabular-nums">
                     {autoPallets > 0 ? autoPallets : "—"}
-                    {autoPallets > 0 && <span className="ml-1.5 text-[0.6rem] text-gray-400 font-normal">{rawLbs.toLocaleString("en-US", { maximumFractionDigits: 0 })} lbs total</span>}
+                    {autoPallets > 0 && <span className="ml-1.5 text-[0.6rem] text-zinc-600 font-normal">{rawLbs.toLocaleString("en-US", { maximumFractionDigits: 0 })} lbs total</span>}
                   </div>
                 </div>
               );
@@ -436,8 +436,8 @@ export default function CoPackingDetails() {
               <Field label="Overage Rate" field="rawOverage" value={s.rawOverage ?? 0} onChange={set} suffix="%" isPct placeholder="0" />
               <Field label="Raw Material Markup" field="rawMaterialMarkup" value={s.rawMaterialMarkup ?? 3.0} onChange={set} suffix="%" isPct placeholder="300" />
               {s.sachetSizeG > 0 && (
-                <p className="text-[0.6rem] text-gray-400">
-                  Total grams req: <span className="font-semibold text-gray-600">
+                <p className="text-[0.6rem] text-zinc-600">
+                  Total grams req: <span className="font-semibold text-zinc-700">
                     {(s.unitsDelivered * s.sachetSizeG * (1 + (s.rawOverage ?? 0))).toLocaleString("en-US", { maximumFractionDigits: 0 })} g
                   </span>
                 </p>
@@ -478,7 +478,7 @@ export default function CoPackingDetails() {
         return (
           <div className={card}>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-gray-900">Testing</p>
+              <p className="text-xs font-semibold text-zinc-950">Testing</p>
               <Toggle
                 enabled={s.testingEnabled}
                 onToggle={() => setCoPackingField("testingEnabled", !s.testingEnabled)}
@@ -498,8 +498,8 @@ export default function CoPackingDetails() {
                   <table className="w-full border-collapse mb-2">
                     <thead>
                       <tr className="border-b border-gray-100">
-                        <th className="text-left text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 pr-3">Test Type</th>
-                        <th className="text-right text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 w-28">Cost / test</th>
+                        <th className="text-left text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 pr-3">Test Type</th>
+                        <th className="text-right text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 w-28">Cost / test</th>
                         <th className="w-6" />
                       </tr>
                     </thead>
@@ -511,7 +511,7 @@ export default function CoPackingDetails() {
                               <select
                                 value={row.testType}
                                 onChange={e => updateRow(row.id, { testType: e.target.value, customTestName: "" })}
-                                className="flex-1 h-8 px-2 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
+                                className="flex-1 h-8 px-2 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
                               >
                                 <option value="" disabled>— select test type —</option>
                                 {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -522,7 +522,7 @@ export default function CoPackingDetails() {
                                   value={row.customTestName}
                                   onChange={e => updateRow(row.id, { customTestName: e.target.value })}
                                   placeholder="Custom test name"
-                                  className="w-36 h-8 px-2 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
+                                  className="w-36 h-8 px-2 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
                                 />
                               )}
                             </div>
@@ -537,7 +537,7 @@ export default function CoPackingDetails() {
                           </td>
                           <td className="py-1.5 pl-2">
                             <button type="button" onClick={() => removeRow(row.id)}
-                              className="text-gray-300 hover:text-red-400 text-base leading-none transition-colors" title="Remove">×</button>
+                              className="text-zinc-500 hover:text-red-400 text-base leading-none transition-colors" title="Remove">×</button>
                           </td>
                         </tr>
                       ))}
@@ -548,23 +548,23 @@ export default function CoPackingDetails() {
                     + Add Test
                   </button>
                   <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                    <span className="text-[0.65rem] text-gray-500">Markup on total testing cost:</span>
+                    <span className="text-[0.65rem] text-zinc-600">Markup on total testing cost:</span>
                     <div className="flex items-center w-28">
                       <CurrencyInput type="percent" value={(s.testingMarkup ?? 0.20) * 100}
                         onChange={v => setCoPackingField("testingMarkup", v / 100)} className={inputWithSuffix} />
                       <span className={suffixBadge}>%</span>
                     </div>
                     {totalOur > 0 && (
-                      <span className="text-[0.6rem] text-gray-400 ml-auto">
-                        Our cost: <span className="font-semibold text-gray-600">${totalOur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        {" · "}Customer: <span className="font-semibold text-gray-600">${totalCx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-[0.6rem] text-zinc-600 ml-auto">
+                        Our cost: <span className="font-semibold text-zinc-700">${totalOur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        {" · "}Customer: <span className="font-semibold text-zinc-700">${totalCx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </span>
                     )}
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="text-[0.65rem] text-gray-400 mt-1">Toggle on to include testing and quality documentation costs.</p>
+              <p className="text-[0.65rem] text-zinc-600 mt-1">Toggle on to include testing and quality documentation costs.</p>
             )}
           </div>
         );
@@ -617,7 +617,7 @@ export default function CoPackingDetails() {
         return (
           <div className={card}>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-gray-900">Blending</p>
+              <p className="text-xs font-semibold text-zinc-950">Blending</p>
               <Toggle enabled={s.blendingEnabled} onToggle={() => setCoPackingField("blendingEnabled", !s.blendingEnabled)} label="Include Blending Step" />
             </div>
 
@@ -698,17 +698,17 @@ export default function CoPackingDetails() {
                             value={batchSize || ""}
                             onChange={e => setCoPackingField("blendingBatchSize", parseFloat(e.target.value) || 0)}
                             placeholder="e.g. 50"
-                            className="h-9 flex-1 px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md" />
+                            className="h-9 flex-1 px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md" />
                           <select value={batchUnit}
                             onChange={e => setCoPackingField("blendingBatchSizeUnit", e.target.value)}
-                            className="h-9 px-2 border border-l-0 border-amber-200 text-xs text-gray-700 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-r-md">
+                            className="h-9 px-2 border border-l-0 border-amber-200 text-xs text-zinc-800 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-r-md">
                             {BATCH_SIZE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </div>
                       </div>
                       {batchSize > 0 && (
-                        <div className="text-[0.65rem] text-gray-400 pb-2 whitespace-nowrap">
-                          {batches} batch{batches !== 1 ? "es" : ""} = <span className="font-semibold text-gray-700">{fmtAmt(batchSize * batches)} {batchUnit}</span>
+                        <div className="text-[0.65rem] text-zinc-600 pb-2 whitespace-nowrap">
+                          {batches} batch{batches !== 1 ? "es" : ""} = <span className="font-semibold text-zinc-800">{fmtAmt(batchSize * batches)} {batchUnit}</span>
                           {s.blendingOverage > 0 && (
                             <span className="ml-1 text-amber-600">→ order <span className="font-semibold">{fmtAmt(totalRequired)} {batchUnit}</span></span>
                           )}
@@ -747,7 +747,7 @@ export default function CoPackingDetails() {
                           <span className={`text-[0.6rem] font-semibold tabular-nums ${pctOk ? "text-green-600" : pctOver ? "text-red-500" : "text-amber-500"}`}>
                             {pctSum.toFixed(2)}% {pctOk ? "✓" : pctOver ? `(+${(pctSum - 100).toFixed(2)}% over)` : `(${(100 - pctSum).toFixed(2)}% remaining)`}
                           </span>
-                          <span className="text-[0.6rem] text-gray-400">Target: 100%</span>
+                          <span className="text-[0.6rem] text-zinc-600">Target: 100%</span>
                         </div>
                       </div>
                     )}
@@ -756,11 +756,11 @@ export default function CoPackingDetails() {
                     <table className="w-full border-collapse text-xs">
                       <thead>
                         <tr className="border-b-2 border-gray-200">
-                          <th className="text-left text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 pr-3">Ingredient</th>
-                          <th className="text-right text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 px-2 w-20">%</th>
+                          <th className="text-left text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 pr-3">Ingredient</th>
+                          <th className="text-right text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 px-2 w-20">%</th>
                           {batchSize > 0 && <>
-                            <th className="text-right text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 px-2 w-28">Per Batch</th>
-                            <th className="text-right text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 pl-2 w-32">
+                            <th className="text-right text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 px-2 w-28">Per Batch</th>
+                            <th className="text-right text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 pl-2 w-32">
                               {batches > 1 ? `Total (${batches} batches)` : "Total Required"}
                               {s.blendingOverage > 0 && <span className="text-amber-500 ml-1">+ovg</span>}
                             </th>
@@ -771,7 +771,7 @@ export default function CoPackingDetails() {
                       <tbody>
                         {ingredientRows.length === 0 && (
                           <tr>
-                            <td colSpan={5} className="py-4 text-center text-[0.65rem] text-gray-300 italic">
+                            <td colSpan={5} className="py-4 text-center text-[0.65rem] text-zinc-500 italic">
                               Add ingredients and enter their % composition
                             </td>
                           </tr>
@@ -787,7 +787,7 @@ export default function CoPackingDetails() {
                                   <input type="text" value={ing.name}
                                     onChange={e => updateIngredient(ing.id, { name: e.target.value })}
                                     placeholder="e.g. Whey Protein Isolate"
-                                    className="h-7 w-full px-2 border border-transparent hover:border-amber-200 focus:border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-transparent hover:bg-amber-50/30 focus:bg-amber-50/50 focus:outline-none transition rounded-md" />
+                                    className="h-7 w-full px-2 border border-transparent hover:border-amber-200 focus:border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-transparent hover:bg-amber-50/30 focus:bg-amber-50/50 focus:outline-none transition rounded-md" />
                                 </div>
                               </td>
                               {/* % input */}
@@ -797,20 +797,20 @@ export default function CoPackingDetails() {
                                     value={ing.pct || ""}
                                     onChange={e => updateIngredient(ing.id, { percentage: parseFloat(e.target.value) || 0 })}
                                     placeholder="0"
-                                    className="h-7 w-14 px-2 text-right border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 transition rounded-l-md" />
-                                  <span className="h-7 flex items-center px-1.5 border border-l-0 border-amber-200 text-[0.6rem] text-gray-400 bg-amber-50/50 rounded-r-md select-none">%</span>
+                                    className="h-7 w-14 px-2 text-right border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 transition rounded-l-md" />
+                                  <span className="h-7 flex items-center px-1.5 border border-l-0 border-amber-200 text-[0.6rem] text-zinc-600 bg-amber-50/50 rounded-r-md select-none">%</span>
                                 </div>
                               </td>
                               {/* Per-batch amount (read-only, derived) */}
                               {batchSize > 0 && <>
-                                <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">
+                                <td className="py-1.5 px-2 text-right tabular-nums text-zinc-700">
                                   {ing.amtPerBatch > 0 ? `${fmtAmt(ing.amtPerBatch)} ${batchUnit}` : "—"}
                                 </td>
                                 {/* Total required with overage */}
                                 <td className="py-1.5 pl-2 text-right">
                                   {ing.totalRequired > 0 ? (
                                     <>
-                                      <span className={`font-semibold tabular-nums ${s.blendingOverage > 0 ? "text-amber-700" : "text-gray-700"}`}>
+                                      <span className={`font-semibold tabular-nums ${s.blendingOverage > 0 ? "text-amber-700" : "text-zinc-800"}`}>
                                         {fmtAmt(ing.totalRequired)} {batchUnit}
                                       </span>
                                       {s.blendingOverage > 0 && ing.totalBase > 0 && (
@@ -825,7 +825,7 @@ export default function CoPackingDetails() {
                               {/* Delete */}
                               <td className="py-1.5 pl-1">
                                 <button type="button" onClick={() => removeIngredient(ing.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 text-base leading-none transition-all" title="Remove">×</button>
+                                  className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 text-base leading-none transition-all" title="Remove">×</button>
                               </td>
                             </tr>
                           );
@@ -836,18 +836,18 @@ export default function CoPackingDetails() {
                       {ingredientRows.length > 0 && (
                         <tfoot>
                           <tr className="border-t-2 border-gray-200">
-                            <td className="pt-2 text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider">Total</td>
+                            <td className="pt-2 text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Total</td>
                             <td className="pt-2 px-2 text-right">
                               <span className={`font-bold tabular-nums text-xs ${pctOk ? "text-green-600" : pctOver ? "text-red-500" : "text-amber-500"}`}>
                                 {pctSum.toFixed(2)}%
                               </span>
                             </td>
                             {batchSize > 0 && <>
-                              <td className="pt-2 px-2 text-right text-gray-600 tabular-nums text-xs font-semibold">
+                              <td className="pt-2 px-2 text-right text-zinc-700 tabular-nums text-xs font-semibold">
                                 {fmtAmt(batchSize)} {batchUnit}
                               </td>
                               <td className="pt-2 pl-2 text-right">
-                                <span className={`font-bold tabular-nums text-xs ${s.blendingOverage > 0 ? "text-amber-700" : "text-gray-800"}`}>
+                                <span className={`font-bold tabular-nums text-xs ${s.blendingOverage > 0 ? "text-amber-700" : "text-zinc-900"}`}>
                                   {fmtAmt(totalRequired)} {batchUnit}
                                 </span>
                               </td>
@@ -873,7 +873,7 @@ export default function CoPackingDetails() {
                 </div>
               </div>
             ) : (
-              <p className="text-[0.65rem] text-gray-400 mt-1">Toggle on to add a blending step before Primary Fill.</p>
+              <p className="text-[0.65rem] text-zinc-600 mt-1">Toggle on to add a blending step before Primary Fill.</p>
             )}
           </div>
         );
@@ -883,8 +883,8 @@ export default function CoPackingDetails() {
       <div className={card}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-xs font-semibold text-gray-900">Packaging Summary</p>
-            <p className="text-[0.6rem] text-gray-400 mt-0.5">Configure packaging levels — details auto-populate the columns below</p>
+            <p className="text-xs font-semibold text-zinc-950">Packaging Summary</p>
+            <p className="text-[0.6rem] text-zinc-600 mt-0.5">Configure packaging levels — details auto-populate the columns below</p>
           </div>
           <button type="button" onClick={cpAddSummaryRow}
             className="flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors">
@@ -905,7 +905,7 @@ export default function CoPackingDetails() {
             <tbody>
               {cpSummaryRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-xs text-gray-300 italic">
+                  <td colSpan={5} className="py-4 text-center text-xs text-zinc-500 italic">
                     No packaging levels — click Add Row
                   </td>
                 </tr>
@@ -934,19 +934,19 @@ export default function CoPackingDetails() {
                           value={isFirst ? s.unitsDelivered : row.units}
                           onChange={(v) => isFirst ? setUnitsDelivered(v) : cpUpdateSummaryRow(row.id, { units: v, isAutoUnits: false })}
                           placeholder="0"
-                          className={`${cpInputYellow} flex-1 min-w-0 ${row.isAutoUnits ? "text-gray-500" : "font-semibold"}`}
+                          className={`${cpInputYellow} flex-1 min-w-0 ${row.isAutoUnits ? "text-zinc-600" : "font-semibold"}`}
                         />
                         {row.isAutoUnits && (
                           <button type="button" onClick={() => cpSyncSummaryRowUnits(row.id)}
                             title="Resync from derived value"
-                            className="shrink-0 text-gray-400 hover:text-[#e8473f] transition-colors text-[0.7rem] leading-none">↺</button>
+                            className="shrink-0 text-zinc-600 hover:text-[#e8473f] transition-colors text-[0.7rem] leading-none">↺</button>
                         )}
                       </div>
                     </td>
                     {/* Cost / Unit */}
                     <td className="pr-2 pb-2">
                       <div className="flex items-center gap-0.5">
-                        <span className="text-xs text-gray-400 shrink-0">$</span>
+                        <span className="text-xs text-zinc-600 shrink-0">$</span>
                         <CurrencyInput type="dollar"
                           value={row.costPerUnit}
                           onChange={(v) => cpUpdateSummaryRow(row.id, { costPerUnit: v })}
@@ -959,7 +959,7 @@ export default function CoPackingDetails() {
                     <td className="pb-2">
                       {cpSummaryRows.length > 1 && (
                         <button type="button" onClick={() => cpRemoveSummaryRow(row.id)}
-                          className="text-gray-300 hover:text-red-400 transition-colors" title="Remove row">🗑</button>
+                          className="text-zinc-500 hover:text-red-400 transition-colors" title="Remove row">🗑</button>
                       )}
                     </td>
                   </tr>
@@ -975,18 +975,18 @@ export default function CoPackingDetails() {
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-sm font-semibold text-gray-900 shrink-0">Packaging & Packout</h2>
+            <h2 className="text-sm font-semibold text-zinc-950 shrink-0">Packaging & Packout</h2>
             <div className="flex items-center gap-1 flex-wrap">
               {cpCols.map((col, i) => (
                 <span key={col.id}
-                  className="h-5 px-2 text-[0.6rem] font-semibold rounded-full bg-gray-100 text-gray-600 flex items-center whitespace-nowrap">
+                  className="h-5 px-2 text-[0.6rem] font-semibold rounded-full bg-gray-100 text-zinc-700 flex items-center whitespace-nowrap">
                   {col.type || `Level ${i + 1}`}
                 </span>
               ))}
             </div>
           </div>
           <button type="button" onClick={cpAddColumn}
-            className="w-6 h-6 flex items-center justify-center border border-gray-200 text-gray-500 hover:border-[#e8473f] hover:text-[#e8473f] hover:bg-red-50 transition-colors">
+            className="w-6 h-6 flex items-center justify-center border border-gray-200 text-zinc-600 hover:border-[#e8473f] hover:text-[#e8473f] hover:bg-red-50 transition-colors">
             +
           </button>
         </div>
@@ -1006,10 +1006,10 @@ export default function CoPackingDetails() {
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 pt-2 pb-1 align-bottom">
                     <div className="flex items-center justify-between gap-1.5">
-                      <p className="text-[0.6rem] font-medium text-gray-400 truncate">{col.type || `Level ${idx + 1}`}</p>
+                      <p className="text-[0.6rem] font-medium text-zinc-600 truncate">{col.type || `Level ${idx + 1}`}</p>
                       {cpCols.length > 1 && (
                         <button type="button" onClick={() => cpRemoveColumn(idx)}
-                          className="shrink-0 text-gray-300 hover:text-red-400 transition-colors p-0.5"
+                          className="shrink-0 text-zinc-500 hover:text-red-400 transition-colors p-0.5"
                           title={`Remove Level ${idx + 1}`}>🗑</button>
                       )}
                     </div>
@@ -1019,10 +1019,10 @@ export default function CoPackingDetails() {
 
               {/* ── Units (read-only from Packaging Summary) ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Units</td>
+                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Units</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
-                    <div className={`${cpInputYellow} font-medium flex items-center justify-end text-gray-400 cursor-default select-none bg-gray-50`}>
+                    <div className={`${cpInputYellow} font-medium flex items-center justify-end text-zinc-600 cursor-default select-none bg-gray-50`}>
                       {(cpSummaryRows[idx]?.units ?? 0).toLocaleString("en-US")}
                     </div>
                   </td>
@@ -1031,7 +1031,7 @@ export default function CoPackingDetails() {
 
               {/* ── Eff. Buffer % ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Eff. Buffer %</td>
+                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Eff. Buffer %</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
                     <div className="flex items-center">
@@ -1044,7 +1044,7 @@ export default function CoPackingDetails() {
 
               {/* ── Labor Mkp % ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Labor Mkp %</td>
+                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Labor Mkp %</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
                     <div className="flex items-center">
@@ -1057,7 +1057,7 @@ export default function CoPackingDetails() {
 
               {/* ── Unit Mkp % ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Unit Mkp %</td>
+                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Unit Mkp %</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
                     <div className="flex items-center">
@@ -1070,7 +1070,7 @@ export default function CoPackingDetails() {
 
               {/* ── Level ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Level</td>
+                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Level</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
                     <select value={col.level} onChange={(e) => {
@@ -1086,7 +1086,7 @@ export default function CoPackingDetails() {
 
               {/* ── Type (plain text — drives the column header label) ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-gray-500">Type</td>
+                <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Type</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
                     <input type="text" value={col.type}
@@ -1102,7 +1102,7 @@ export default function CoPackingDetails() {
 
               {/* ── Overage Rate ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Overage Rate</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Overage Rate</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <div className="flex items-center">
@@ -1115,7 +1115,7 @@ export default function CoPackingDetails() {
 
               {/* ── Wage Rate ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Wage Rate</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Wage Rate</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <div className="flex items-center">
@@ -1128,7 +1128,7 @@ export default function CoPackingDetails() {
 
               {/* ── Unit Fill Rate / Min ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Unit Fill Rate / Min</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Unit Fill Rate / Min</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <CurrencyInput type="rate" value={col.fillRatePerMin} onChange={(v) => cpUpdateColumn(idx, { fillRatePerMin: v })} placeholder="12" className={inputCls} />
@@ -1138,7 +1138,7 @@ export default function CoPackingDetails() {
 
               {/* ── Packaging Weight (g) ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Packaging Weight</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Packaging Weight</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <div className="flex items-center">
@@ -1151,7 +1151,7 @@ export default function CoPackingDetails() {
 
               {/* ── No. of Staff / Stations ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">No. of Staff / Stations</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">No. of Staff / Stations</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <CurrencyInput type="integer" value={col.numStaff} onChange={(v) => cpUpdateColumn(idx, { numStaff: v })} placeholder="1" className={inputCls} />
@@ -1161,7 +1161,7 @@ export default function CoPackingDetails() {
 
               {/* ── Hrs / Shift ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Hrs / Shift</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Hrs / Shift</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <CurrencyInput type="rate" value={col.hrsPerShift} onChange={(v) => cpUpdateColumn(idx, { hrsPerShift: v })} placeholder="7" className={inputCls} />
@@ -1171,7 +1171,7 @@ export default function CoPackingDetails() {
 
               {/* ── Working Days ── */}
               <tr className="border-b border-gray-50">
-                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Working Days</td>
+                <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Working Days</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1.5">
                     <CurrencyInput type="integer" value={col.workingDays} onChange={(v) => cpUpdateColumn(idx, { workingDays: v })} placeholder="5" className={inputCls} />
@@ -1181,7 +1181,7 @@ export default function CoPackingDetails() {
 
               {/* ── Label toggle + inline conditional rows ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-2 pr-3 text-xs font-medium text-gray-500">Label</td>
+                <td className="sticky left-0 z-10 bg-white py-2 pr-3 text-xs font-medium text-zinc-600">Label</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-2">
                     <Toggle enabled={col.labelEnabled} onToggle={() => cpUpdateColumn(idx, { labelEnabled: !col.labelEnabled })} label="" />
@@ -1191,7 +1191,7 @@ export default function CoPackingDetails() {
               {cpCols.some(c => c.labelEnabled) && (
                 <>
                   <tr className="border-b border-gray-50">
-                    <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Label Print Cost / Unit</td>
+                    <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Label Print Cost / Unit</td>
                     {cpCols.map((col, idx) => (
                       <td key={col.id} className="px-2 py-1.5">
                         {col.labelEnabled ? (
@@ -1199,17 +1199,17 @@ export default function CoPackingDetails() {
                             <span className={prefixBadge}>$</span>
                             <CurrencyInput type="dollar" value={col.labelPrintCost} onChange={(v) => cpUpdateColumn(idx, { labelPrintCost: v })} placeholder="0.00" className={`${inputWithPrefix} min-w-0`} />
                           </div>
-                        ) : <span className="text-[0.6rem] text-gray-300 italic">—</span>}
+                        ) : <span className="text-[0.6rem] text-zinc-500 italic">—</span>}
                       </td>
                     ))}
                   </tr>
                   <tr className="border-b border-gray-50">
-                    <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Label Apply Rate / Min</td>
+                    <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Label Apply Rate / Min</td>
                     {cpCols.map((col, idx) => (
                       <td key={col.id} className="px-2 py-1.5">
                         {col.labelEnabled ? (
                           <CurrencyInput type="rate" value={col.labelApplyRate} onChange={(v) => cpUpdateColumn(idx, { labelApplyRate: v })} placeholder="0" className={inputCls} />
-                        ) : <span className="text-[0.6rem] text-gray-300 italic">—</span>}
+                        ) : <span className="text-[0.6rem] text-zinc-500 italic">—</span>}
                       </td>
                     ))}
                   </tr>
@@ -1218,7 +1218,7 @@ export default function CoPackingDetails() {
 
               {/* ── Tabs toggle + inline conditional row ── */}
               <tr>
-                <td className="sticky left-0 z-10 bg-white py-2 pr-3 text-xs font-medium text-gray-500">Tabs</td>
+                <td className="sticky left-0 z-10 bg-white py-2 pr-3 text-xs font-medium text-zinc-600">Tabs</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-2">
                     <Toggle enabled={col.tabsEnabled} onToggle={() => cpUpdateColumn(idx, { tabsEnabled: !col.tabsEnabled })} label="" />
@@ -1227,7 +1227,7 @@ export default function CoPackingDetails() {
               </tr>
               {cpCols.some(c => c.tabsEnabled) && (
                 <tr className="border-b border-gray-50">
-                  <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-gray-600">Tab Cost / Unit</td>
+                  <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Tab Cost / Unit</td>
                   {cpCols.map((col, idx) => (
                     <td key={col.id} className="px-2 py-1.5">
                       {col.tabsEnabled ? (
@@ -1235,7 +1235,7 @@ export default function CoPackingDetails() {
                           <span className={prefixBadge}>$</span>
                           <CurrencyInput type="dollar" value={col.tabCostPerUnit} onChange={(v) => cpUpdateColumn(idx, { tabCostPerUnit: v })} placeholder="0.00" className={`${inputWithPrefix} min-w-0`} />
                         </div>
-                      ) : <span className="text-[0.6rem] text-gray-300 italic">—</span>}
+                      ) : <span className="text-[0.6rem] text-zinc-500 italic">—</span>}
                     </td>
                   ))}
                 </tr>
@@ -1249,14 +1249,14 @@ export default function CoPackingDetails() {
       {/* ── Total labor summary ── */}
       {totalCalcHrs > 0 && (
         <div className="flex items-center gap-2 px-1">
-          <span className="text-[0.65rem] text-gray-400">Total Est. Labor:</span>
-          <span className="text-[0.65rem] font-semibold text-gray-700">{totalCalcHrs.toFixed(2)} hrs across all steps</span>
+          <span className="text-[0.65rem] text-zinc-600">Total Est. Labor:</span>
+          <span className="text-[0.65rem] font-semibold text-zinc-800">{totalCalcHrs.toFixed(2)} hrs across all steps</span>
         </div>
       )}
 
       {/* ── Pallets ── */}
       <div className={card}>
-        <p className="text-xs font-semibold text-gray-900 mb-4">Packout 3 — Palletization & Outbound</p>
+        <p className="text-xs font-semibold text-zinc-950 mb-4">Packout 3 — Palletization & Outbound</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-4 items-start">
           <Field label="# of Outbound Pallets" field="outboundPallets"      value={s.outboundPallets}      onChange={set} placeholder="4" />
           <Field label="Outbound Fee / Pallet" field="outboundFeePerPallet" value={s.outboundFeePerPallet} onChange={set} prefix="$" placeholder="195" />
@@ -1267,7 +1267,7 @@ export default function CoPackingDetails() {
       {/* ── Addition 3 — Overhead ── */}
       <div className={card}>
         <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-semibold text-gray-900">Overhead & Indirect Costs</p>
+          <p className="text-xs font-semibold text-zinc-950">Overhead & Indirect Costs</p>
           <Toggle enabled={s.overheadEnabled} onToggle={() => setCoPackingField("overheadEnabled", !s.overheadEnabled)} label="Include overhead" />
         </div>
         {s.overheadEnabled ? (
@@ -1278,13 +1278,13 @@ export default function CoPackingDetails() {
             <Field label="Fixed Overhead Markup"      field="fixedOverheadMarkup" value={s.fixedOverheadMarkup ?? 0.20} onChange={set} suffix="%" isPct placeholder="20" />
           </div>
         ) : (
-          <p className="text-[0.65rem] text-gray-400 mt-1">Enable to allocate indirect and overhead costs as a line item.</p>
+          <p className="text-[0.65rem] text-zinc-600 mt-1">Enable to allocate indirect and overhead costs as a line item.</p>
         )}
       </div>
 
       {/* ── Minimum Charges ── */}
       <div className={card}>
-        <p className="text-xs font-semibold text-gray-900 mb-4">Minimum Charges</p>
+        <p className="text-xs font-semibold text-zinc-950 mb-4">Minimum Charges</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 max-w-md">
           <Field label="Minimum Job Charge (Customer)" field="minimumJobCharge" value={s.minimumJobCharge} onChange={set} prefix="$" placeholder="0" />
           {/* Addition 4 — global min labor */}
@@ -1293,47 +1293,47 @@ export default function CoPackingDetails() {
             <HrsInput value={s.globalMinLaborHrs ?? 0} onChange={v => setCoPackingField("globalMinLaborHrs", v)} />
           </div>
         </div>
-        <p className="text-[0.6rem] text-gray-400 mt-2">Set to $0 / 0 hrs to disable minimums.</p>
+        <p className="text-[0.6rem] text-zinc-600 mt-2">Set to $0 / 0 hrs to disable minimums.</p>
       </div>
 
       {/* ── Addition 5 — Scaled Pricing Tiers ── */}
       <div className={card}>
         <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-semibold text-gray-900">Scaled Pricing Tiers</p>
+          <p className="text-xs font-semibold text-zinc-950">Scaled Pricing Tiers</p>
           <Toggle enabled={s.tiersEnabled} onToggle={handleTiersToggle} label="Enable pricing tiers" />
         </div>
         {s.tiersEnabled ? (
           <div className="mt-4 space-y-3">
-            <p className="text-[0.65rem] text-gray-400">Define unit quantities per tier. All other inputs stay the same. Setup fee is fixed across tiers.</p>
+            <p className="text-[0.65rem] text-zinc-600">Define unit quantities per tier. All other inputs stay the same. Setup fee is fixed across tiers.</p>
             <div className="space-y-2">
               {tiers.map((tier) => (
                 <div key={tier.id} className="flex items-center gap-3 p-2 border border-gray-100 rounded-lg">
                   <input type="text" value={tier.label}
                     onChange={e => updateTier(tier.id, { label: e.target.value })}
                     disabled={tier.locked}
-                    className={`flex-1 h-7 px-2 border border-amber-200 text-xs rounded-md ${tier.locked ? "bg-gray-50 text-gray-400" : "bg-amber-50/50 text-gray-900"}`} />
+                    className={`flex-1 h-7 px-2 border border-amber-200 text-xs rounded-md ${tier.locked ? "bg-gray-50 text-zinc-600" : "bg-amber-50/50 text-zinc-950"}`} />
                   <div className="flex items-center gap-1 w-32">
-                    <span className="text-[0.6rem] text-gray-400 shrink-0">Units:</span>
+                    <span className="text-[0.6rem] text-zinc-600 shrink-0">Units:</span>
                     {tier.locked ? (
-                      <span className="text-xs text-gray-500 font-medium">{tier.units.toLocaleString()}</span>
+                      <span className="text-xs text-zinc-600 font-medium">{tier.units.toLocaleString()}</span>
                     ) : (
                       <input type="number" value={tier.units || ""}
                         onChange={e => updateTier(tier.id, { units: parseInt(e.target.value) || 0 })}
                         placeholder="0"
-                        className="w-20 h-7 px-2 border border-amber-200 text-xs rounded-md bg-amber-50/50 text-gray-900" />
+                        className="w-20 h-7 px-2 border border-amber-200 text-xs rounded-md bg-amber-50/50 text-zinc-950" />
                     )}
                   </div>
                   <div className="flex items-center gap-1 w-32">
-                    <span className="text-[0.6rem] text-gray-400 shrink-0">Pallets:</span>
+                    <span className="text-[0.6rem] text-zinc-600 shrink-0">Pallets:</span>
                     <input type="number"
                       value={tier.inboundPalletsOverride !== null ? tier.inboundPalletsOverride : ""}
                       onChange={e => updateTier(tier.id, { inboundPalletsOverride: e.target.value ? parseInt(e.target.value) : null })}
                       placeholder="auto"
-                      className="w-16 h-7 px-2 border border-amber-200 text-xs rounded-md bg-amber-50/50 text-gray-900" />
+                      className="w-16 h-7 px-2 border border-amber-200 text-xs rounded-md bg-amber-50/50 text-zinc-950" />
                   </div>
                   {!tier.locked && (
                     <button type="button" onClick={() => removeTier(tier.id)}
-                      className="text-gray-300 hover:text-red-500 text-base leading-none transition-colors" title="Remove tier">×</button>
+                      className="text-zinc-500 hover:text-red-500 text-base leading-none transition-colors" title="Remove tier">×</button>
                   )}
                 </div>
               ))}
@@ -1346,7 +1346,7 @@ export default function CoPackingDetails() {
             )}
           </div>
         ) : (
-          <p className="text-[0.65rem] text-gray-400 mt-1">Enable to compare pricing across multiple volume scenarios.</p>
+          <p className="text-[0.65rem] text-zinc-600 mt-1">Enable to compare pricing across multiple volume scenarios.</p>
         )}
       </div>
 
@@ -1357,7 +1357,7 @@ export default function CoPackingDetails() {
           onChange={e => setCoPackingField("pricingAssumptions", e.target.value)}
           placeholder="Customer supplies all materials (product, film, cartons). Pricing assumes production rates and handling consistent with prior testing..."
           rows={3}
-          className="w-full px-3 py-2 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md resize-y" />
+          className="w-full px-3 py-2 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md resize-y" />
       </div>
 
     </div>

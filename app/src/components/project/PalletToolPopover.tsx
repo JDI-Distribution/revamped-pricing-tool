@@ -76,7 +76,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
   // Toggle pill styles (reuse same pattern as days/weeks toggle)
   const pillBase   = "h-6 px-2 text-[0.6rem] font-semibold transition-colors border-r border-amber-200 last:border-r-0";
   const pillActive = `${pillBase} bg-[#e8473f] text-white`;
-  const pillIdle   = `${pillBase} bg-amber-50/50 text-gray-400 hover:text-gray-700`;
+  const pillIdle   = `${pillBase} bg-amber-50/50 text-zinc-600 hover:text-zinc-800`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
@@ -86,7 +86,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <p className="text-xs font-semibold text-gray-800">🧮 Pallet Calculator</p>
+          <p className="text-xs font-semibold text-zinc-900">🧮 Pallet Calculator</p>
           <div className="flex items-center gap-2">
             {/* lbs / kg toggle */}
             <div className="flex items-center border border-amber-200 rounded-md overflow-hidden">
@@ -99,7 +99,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
                 </button>
               ))}
             </div>
-            <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button type="button" onClick={onClose} className="text-zinc-600 hover:text-zinc-700 transition-colors">
               <X size={14} />
             </button>
           </div>
@@ -107,27 +107,27 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
 
         <div className="px-4 py-3 space-y-3">
           {/* Context */}
-          <p className="text-[0.6rem] text-gray-400 uppercase tracking-wider font-semibold">
+          <p className="text-[0.6rem] text-zinc-600 uppercase tracking-wider font-semibold">
             {moqQty.toLocaleString()} units · {unitsPerInner}pk
           </p>
 
           {/* Weight Breakdown */}
           <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
-            <p className="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider mb-2">Weight Breakdown</p>
-            <div className="flex justify-between text-xs text-gray-600">
+            <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Weight Breakdown</p>
+            <div className="flex justify-between text-xs text-zinc-700">
               <span>Raw Materials</span>
               <span className="font-medium">{fmtW(rawLbs)} {unitLabel}</span>
             </div>
             {colWeights.map((c, i) => (
-              <div key={i} className="flex justify-between text-xs text-gray-600">
+              <div key={i} className="flex justify-between text-xs text-zinc-700">
                 <span>{c.label}</span>
                 <span className="font-medium">{fmtW(c.lbs)} {unitLabel}</span>
               </div>
             ))}
             {colWeights.length === 0 && (
-              <p className="text-[0.6rem] text-gray-400 italic">No packaging weights configured</p>
+              <p className="text-[0.6rem] text-zinc-600 italic">No packaging weights configured</p>
             )}
-            <div className="border-t border-gray-200 pt-1.5 flex justify-between text-xs font-semibold text-gray-800">
+            <div className="border-t border-gray-200 pt-1.5 flex justify-between text-xs font-semibold text-zinc-900">
               <span>Total</span>
               <span>{fmtW(totalLbs)} {unitLabel}</span>
             </div>
@@ -136,7 +136,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
           {/* Inputs */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="flex-1 text-xs text-gray-600">Max Weight / Pallet</span>
+              <span className="flex-1 text-xs text-zinc-700">Max Weight / Pallet</span>
               <div className="flex items-center border border-amber-200 rounded-md overflow-hidden">
                 <input
                   type="text"
@@ -145,13 +145,13 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
                   onChange={(e) => handleMaxWeightChange(e.target.value)}
                   className="w-16 h-7 px-2 text-xs text-right bg-amber-50/50 focus:outline-none"
                 />
-                <span className="px-2 text-[0.6rem] text-gray-400 bg-amber-50/50 h-7 flex items-center border-l border-amber-200">
+                <span className="px-2 text-[0.6rem] text-zinc-600 bg-amber-50/50 h-7 flex items-center border-l border-amber-200">
                   {unitLabel}
                 </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="flex-1 text-xs text-gray-600">Buffer Pallets</span>
+              <span className="flex-1 text-xs text-zinc-700">Buffer Pallets</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -164,15 +164,15 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
 
           {/* Result */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="flex justify-between text-xs text-gray-600 mb-1">
+            <div className="flex justify-between text-xs text-zinc-700 mb-1">
               <span>ceil({fmtW(totalLbs)} ÷ {fmtW(maxWeightLbs)})</span>
               <span>{calc} pallets</span>
             </div>
-            <div className="flex justify-between text-xs text-gray-600 mb-2">
+            <div className="flex justify-between text-xs text-zinc-700 mb-2">
               <span>+ Buffer</span>
               <span>{buffer} pallets</span>
             </div>
-            <div className="border-t border-amber-200 pt-2 flex justify-between text-sm font-bold text-gray-900">
+            <div className="border-t border-amber-200 pt-2 flex justify-between text-sm font-bold text-zinc-950">
               <span>Recommended</span>
               <span>{total} pallets</span>
             </div>
@@ -189,7 +189,7 @@ type="button"             onClick={() => onUse(total)}
           </button>
           <button
 type="button"             onClick={onClose}
-            className="h-8 px-3 text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg transition-colors"
+            className="h-8 px-3 text-xs font-semibold text-zinc-600 hover:text-zinc-800 border border-gray-200 rounded-lg transition-colors"
           >
             Close
           </button>

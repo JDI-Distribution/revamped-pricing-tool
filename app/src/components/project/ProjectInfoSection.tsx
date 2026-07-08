@@ -4,14 +4,14 @@ import { useProject } from "@/lib/ProjectContext";
 import { BRANDS } from "@/lib/generateQuotePDF";
 import CompanySearchInput from "./CompanySearchInput";
 
-const labelCls = "text-[0.58rem] font-semibold text-gray-400 uppercase tracking-wider mb-1 block";
+const labelCls = "text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1 block";
 const inputCls =
-  "h-8 w-full px-2.5 text-xs text-gray-900 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300";
+  "h-8 w-full px-2.5 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500";
 
 function GroupDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 mt-5 mb-3">
-      <span className="text-[0.58rem] font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap">{label}</span>
+      <span className="text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-widest whitespace-nowrap">{label}</span>
       <div className="flex-1 h-px bg-gray-200" />
     </div>
   );
@@ -28,10 +28,10 @@ export default function ProjectInfoSection() {
         {/* Section header */}
         <div className="flex items-center gap-2 mb-1">
           <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 group">
-            <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">Project Info</span>
+            <span className="text-sm font-bold text-zinc-950 group-hover:text-[#e8473f] transition-colors">Project Info</span>
             {open
-              ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
-              : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+              ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
+              : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
           </button>
         </div>
 
@@ -102,7 +102,7 @@ export default function ProjectInfoSection() {
                       className={`h-7 px-3 text-[0.65rem] font-semibold rounded-full border transition-all whitespace-nowrap ${
                         selectedBrand === b.id
                           ? "text-white border-transparent shadow-sm"
-                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                          : "bg-white text-zinc-600 border-gray-200 hover:border-gray-400"
                       }`}
                       style={selectedBrand === b.id ? { backgroundColor: b.accent, borderColor: b.accent } : {}}
                     >
@@ -126,7 +126,7 @@ export default function ProjectInfoSection() {
                 value={customer.projectOverview}
                 onChange={(e) => setCustomerField("projectOverview", e.target.value)}
                 rows={2}
-                className="w-full px-2.5 py-1.5 text-xs text-gray-900 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300 resize-none"
+                className="w-full px-2.5 py-1.5 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500 resize-none"
                 placeholder="Auto-generated from project data if left blank…"
               />
             </div>

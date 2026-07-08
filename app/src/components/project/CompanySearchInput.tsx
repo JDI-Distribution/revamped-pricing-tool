@@ -4,7 +4,7 @@ import { Loader2, Search } from "lucide-react";
 import { useProject } from "@/lib/ProjectContext";
 
 const inputCls =
-  "h-7 w-full pl-2 pr-6 text-xs text-gray-900 border border-amber-200 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-gray-300";
+  "h-7 w-full pl-2 pr-6 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500";
 
 const API_BASE = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api";
 
@@ -128,7 +128,7 @@ export default function CompanySearchInput() {
           placeholder="Search or type company name…"
           className={inputCls}
         />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
           {loading
             ? <Loader2 size={12} className="animate-spin" />
             : <Search size={12} />}
@@ -149,9 +149,9 @@ export default function CompanySearchInput() {
                 i === highlighted ? "bg-amber-50" : "hover:bg-gray-50"
               }`}
             >
-              <p className="text-xs font-semibold text-gray-900 truncate">{r.accountName}</p>
+              <p className="text-xs font-semibold text-zinc-950 truncate">{r.accountName}</p>
               {(r.contactName || r.email) && (
-                <p className="text-[0.6rem] text-gray-400 truncate">
+                <p className="text-[0.6rem] text-zinc-600 truncate">
                   {[r.contactName, r.email].filter(Boolean).join(" · ")}
                 </p>
               )}

@@ -7,6 +7,8 @@ import { CoPackingProcess, RecipeIngredient } from "@/lib/types";
 import { uid as _uid } from "@/lib/uid";
 import { RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
 import { useProject } from "@/lib/ProjectContext";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 const uid = () => String(_uid());
 
 // ── Collapse context + Col helper ────────────────────────────────────────────
@@ -21,17 +23,17 @@ function Col({ proc, children }: { proc: CoPackingProcess; children: React.React
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const cellInp =
-  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const cellInpSuffix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const cellInpPrefix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-[0.7rem] text-gray-900 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-r";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-r";
 const suffixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-gray-500 bg-amber-100/60 rounded-r select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-r select-none shrink-0";
 const prefixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-300 border-r-0 text-[0.58rem] text-gray-500 bg-amber-100/60 rounded-l select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-300 border-r-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-l select-none shrink-0";
 const labelCell =
-  "px-3 py-1 text-[0.68rem] font-semibold text-gray-700 bg-[#ede8dc] sticky left-0 z-10";
+  "px-3 py-1 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10";
 
 // ── Unit conversion to grams ──────────────────────────────────────────────────
 const TO_GRAMS: Record<string, number> = {
@@ -66,6 +68,157 @@ function calculateProcessHours(proc: CoPackingProcess, totalQty: number): number
 }
 
 
+// ── Recipe PDF export ─────────────────────────────────────────────────────────
+const BASE_URL = import.meta.env.BASE_URL ?? "/";
+const LOGO_SRCS_REC: Record<string, string> = {
+  jdi:         `${BASE_URL}logo_jdi.png`,
+  brewglitter: `${BASE_URL}logo_brewglitter.png`,
+  bakell:      `${BASE_URL}logo_bakell.png`,
+  pfg:         `${BASE_URL}logo_pfg.png`,
+};
+
+async function loadLogoDataUrl(src: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const MAX_W = 400;
+      const scale = Math.min(1, MAX_W / img.naturalWidth);
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.85), w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function exportRecipePDF(proc: CoPackingProcess, batchGrams: number, customer: { customer?: string; name?: string; email?: string; productName?: string }, brandId: string) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const L = 14, R = pageW - 14;
+  const gray    = [30, 30, 30]   as [number,number,number];
+  const midGray = [100,100,100]  as [number,number,number];
+  const ltGray  = [200,200,200]  as [number,number,number];
+  const amber   = [200,120,46]   as [number,number,number];
+
+  const sf = (style: "normal"|"bold"|"italic" = "normal", size = 9) => {
+    doc.setFont("helvetica", style); doc.setFontSize(size);
+  };
+
+  let y = 14;
+
+  // Logo
+  const logoSrc = LOGO_SRCS_REC[brandId] ?? LOGO_SRCS_REC["jdi"];
+  const logoData = await loadLogoDataUrl(logoSrc);
+  if (logoData) {
+    const maxW = 52, maxH = 16;
+    const ratio = Math.min(maxW / logoData.w, maxH / logoData.h);
+    const drawW = logoData.w * ratio;
+    const drawH = logoData.h * ratio;
+    try { doc.addImage(logoData.dataUrl, "JPEG", L, y, drawW, drawH); } catch { /* skip */ }
+    y += drawH + 6;
+  }
+
+  // Title
+  sf("bold", 16); doc.setTextColor(...amber);
+  doc.text("Recipe Composition", L, y);
+  y += 7;
+
+  sf("normal", 9); doc.setTextColor(...midGray);
+  doc.text(`Process: ${proc.name || "—"}`, L, y);
+  y += 5;
+
+  // Customer info block
+  if (customer.customer || customer.name) {
+    sf("normal", 8); doc.setTextColor(...midGray);
+    const custLines = [
+      customer.customer && `Customer: ${customer.customer}`,
+      customer.name     && `Contact:  ${customer.name}`,
+      customer.email    && `Email:    ${customer.email}`,
+      customer.productName && `Product:  ${customer.productName}`,
+    ].filter(Boolean) as string[];
+    custLines.forEach(line => { doc.text(line, L, y); y += 4.5; });
+  }
+
+  // Date
+  sf("normal", 8); doc.setTextColor(...midGray);
+  doc.text(`Date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, R, 14, { align: "right" });
+
+  y += 3;
+  doc.setDrawColor(...ltGray); doc.setLineWidth(0.3);
+  doc.line(L, y, R, y); y += 6;
+
+  // Batch summary
+  sf("bold", 9); doc.setTextColor(...amber);
+  doc.text("Batch Size", L, y); y += 4;
+  sf("normal", 9); doc.setTextColor(...gray);
+  if (batchGrams > 0) {
+    doc.text(`${batchGrams.toLocaleString("en-US", { maximumFractionDigits: 0 })} g`, L, y);
+    doc.text(`${(batchGrams/1000).toFixed(3)} kg`, L + 40, y);
+    doc.text(`${(batchGrams/453.592).toFixed(3)} lbs`, L + 80, y);
+  } else {
+    doc.text("—", L, y);
+  }
+  y += 8;
+
+  // Composition bar (text representation)
+  const sum = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
+  sf("bold", 8); doc.setTextColor(...midGray);
+  doc.text(`Total Composition: ${sum.toFixed(1)}%  ${Math.abs(sum-100) < 0.01 ? "✓ Complete" : sum > 100 ? `(${(sum-100).toFixed(1)}% over)` : `(${(100-sum).toFixed(1)}% remaining)`}`, L, y);
+  y += 6;
+
+  // Ingredients table
+  sf("bold", 9); doc.setTextColor(...amber);
+  doc.text("Ingredients", L, y); y += 4;
+
+  const tableBody: string[][] = proc.recipeIngredients.map(ing => {
+    const grams = (ing.percentage / 100) * batchGrams;
+    return [
+      ing.name || "—",
+      `${(ing.percentage || 0).toFixed(1)}%`,
+      batchGrams > 0 ? `${grams.toFixed(1)} g` : "—",
+      batchGrams > 0 ? `${(grams/1000).toFixed(3)} kg` : "—",
+      batchGrams > 0 ? `${(grams/453.592).toFixed(3)} lbs` : "—",
+    ];
+  });
+
+  if (tableBody.length === 0) {
+    sf("italic", 8); doc.setTextColor(...midGray);
+    doc.text("No ingredients defined.", L, y);
+  } else {
+    autoTable(doc, {
+      startY: y, margin: { left: L, right: L },
+      head: [["Ingredient", "% Composition", "Grams", "Kilograms", "Pounds"]],
+      body: tableBody,
+      styles: { font: "helvetica", fontSize: 9, cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 }, textColor: gray, lineColor: ltGray, lineWidth: 0.2 },
+      headStyles: { fontStyle: "bold", fillColor: [245,235,220], textColor: amber },
+      alternateRowStyles: { fillColor: [250,250,250] },
+      columnStyles: {
+        0: { halign: "left", cellWidth: "auto" },
+        1: { halign: "right", cellWidth: 28 },
+        2: { halign: "right", cellWidth: 28 },
+        3: { halign: "right", cellWidth: 28 },
+        4: { halign: "right", cellWidth: 28 },
+      },
+      tableLineColor: ltGray, tableLineWidth: 0.2,
+    });
+  }
+
+  const filename = [
+    (proc.name || "recipe").replace(/\s+/g, "_"),
+    (customer.customer || "").replace(/\s+/g, "_"),
+    new Date().toISOString().slice(0,10),
+  ].filter(Boolean).join("_") + ".pdf";
+
+  doc.save(filename);
+}
+
 // ── Recipe Popover ────────────────────────────────────────────────────────────
 const ING_COLORS_POP = ["bg-blue-400","bg-emerald-400","bg-violet-400","bg-orange-400","bg-pink-400","bg-teal-400","bg-yellow-400","bg-red-400"];
 
@@ -79,6 +232,8 @@ function RecipePopover({ proc, onClose, anchorRef, addIngredient, removeIngredie
 }) {
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [exporting, setExporting] = useState(false);
+  const { customer, selectedBrand } = useProject();
 
   // Position below the anchor button
   useEffect(() => {
@@ -116,7 +271,15 @@ function RecipePopover({ proc, onClose, anchorRef, addIngredient, removeIngredie
           <span className="text-[0.65rem] font-bold text-amber-800 uppercase tracking-wider">Recipe Composition</span>
           <span className="text-[0.58rem] text-amber-500 ml-2">— {proc.name}</span>
         </div>
-        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg leading-none">×</button>
+        <div className="flex items-center gap-2">
+          <button type="button" title="Export recipe as PDF" disabled={exporting}
+            onClick={async () => { setExporting(true); try { await exportRecipePDF(proc, batchGrams, customer, selectedBrand); } finally { setExporting(false); } }}
+            className="flex items-center gap-1 px-2 py-0.5 text-[0.6rem] font-semibold bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-50 text-white rounded transition-colors">
+            <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M2 2h9l3 3v9a1 1 0 01-1 1H2a1 1 0 01-1-1V3a1 1 0 011-1zm8 0v3h3M4 9h8M4 12h5"/></svg>
+            {exporting ? "..." : "PDF"}
+          </button>
+          <button type="button" onClick={onClose} className="text-zinc-600 hover:text-zinc-800 text-lg leading-none">×</button>
+        </div>
       </div>
 
       {/* Batch size info */}
@@ -156,23 +319,23 @@ function RecipePopover({ proc, onClose, anchorRef, addIngredient, removeIngredie
                 <input type="text" value={ing.name}
                   onChange={e => updateIngredient(proc.id, ing.id, { name: e.target.value })}
                   placeholder="Ingredient name…"
-                  className="h-6 flex-1 min-w-0 px-2 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-gray-300" />
+                  className="h-6 flex-1 min-w-0 px-2 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-zinc-500" />
                 <div className="flex items-center shrink-0">
                   <input type="number" min={0} max={100} step={0.1}
                     value={ing.percentage || ""}
                     onChange={e => updateIngredient(proc.id, ing.id, { percentage: parseFloat(e.target.value) || 0 })}
                     placeholder="0"
                     className="h-6 w-14 px-1.5 text-xs border border-gray-200 rounded-l text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-400" />
-                  <span className="h-6 px-1.5 text-[0.6rem] text-gray-500 border border-l-0 border-gray-200 bg-gray-50 flex items-center rounded-r select-none">%</span>
+                  <span className="h-6 px-1.5 text-[0.6rem] text-zinc-600 border border-l-0 border-gray-200 bg-gray-50 flex items-center rounded-r select-none">%</span>
                 </div>
                 <button type="button" onClick={() => removeIngredient(proc.id, ing.id)}
-                  className="text-gray-300 hover:text-red-400 text-base leading-none shrink-0">×</button>
+                  className="text-zinc-500 hover:text-red-400 text-base leading-none shrink-0">×</button>
               </div>
               {ing.percentage > 0 && batchGrams > 0 && (
                 <div className="ml-4 flex gap-3 text-[0.58rem] text-amber-700 tabular-nums">
-                  <span><span className="text-gray-400">g </span>{ingGrams.toFixed(1)}</span>
-                  <span><span className="text-gray-400">kg </span>{(ingGrams/1000).toFixed(3)}</span>
-                  <span><span className="text-gray-400">lbs </span>{(ingGrams/453.592).toFixed(3)}</span>
+                  <span><span className="text-zinc-600">g </span>{ingGrams.toFixed(1)}</span>
+                  <span><span className="text-zinc-600">kg </span>{(ingGrams/1000).toFixed(3)}</span>
+                  <span><span className="text-zinc-600">lbs </span>{(ingGrams/453.592).toFixed(3)}</span>
                 </div>
               )}
             </div>
@@ -335,10 +498,10 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <button type="button" onClick={() => setSectionOpen(o => !o)}
           className="flex items-center gap-1.5 group">
-          <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">Processes</span>
+          <span className="text-sm font-bold text-zinc-950 group-hover:text-[#e8473f] transition-colors">Processes</span>
           {sectionOpen && !notRequired["section-processes"]
-            ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
-            : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+            ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
+            : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
         </button>
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <button type="button" onClick={addProcess}
@@ -358,7 +521,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
             {/* ── Column headers ── */}
             <thead>
               <tr>
-                <th className="px-3 py-2 text-left text-[0.55rem] font-semibold text-gray-500 uppercase tracking-widest border-b border-amber-200/70 bg-white sticky left-0 z-10" style={{ width: 140, minWidth: 140 }}>
+                <th className="px-3 py-2 text-left text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest border-b border-amber-200/70 bg-white sticky left-0 z-10" style={{ width: 140, minWidth: 140 }}>
                   Rate Field
                 </th>
                 {processes.map((proc, idx) => {
@@ -372,10 +535,10 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         onClick={() => toggleCol(proc.id)}
                         title={`Expand ${proc.name || `Process ${idx + 1}`}`}>
                         <div className="flex items-center justify-center h-full py-2">
-                          <ChevronRight size={12} className="text-gray-400" />
+                          <ChevronRight size={12} className="text-zinc-600" />
                         </div>
                         <span
-                          className="absolute text-[0.5rem] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap"
+                          className="absolute text-[0.5rem] font-bold text-zinc-600 uppercase tracking-widest whitespace-nowrap"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", bottom: 8, left: "50%", translate: "-50% 0" }}>
                           {proc.name || `P${idx + 1}`}
                         </span>
@@ -398,7 +561,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                             const effectiveUph = upm * 60 * buffer;
                             const hrs = effectiveUph > 0 ? totalUnits / effectiveUph : calcHrs;
                             if (!isFilling || hrs <= 0 || hrs >= 100000) return null;
-                            return <span className="text-[0.55rem] text-gray-400 tabular-nums font-normal">~{hrs.toFixed(1)} hrs · {(upm * 60).toFixed(0)} u/hr</span>;
+                            return <span className="text-[0.55rem] text-zinc-600 tabular-nums font-normal">~{hrs.toFixed(1)} hrs · {(upm * 60).toFixed(0)} u/hr</span>;
                           })()}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -413,13 +576,13 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           )}
                           <button type="button" onClick={() => toggleCol(proc.id)}
                             title="Collapse column"
-                            className="text-gray-400 hover:text-white transition-colors">
+                            className="text-zinc-600 hover:text-white transition-colors">
                             <ChevronLeft size={11} />
                           </button>
                           {processes.length > 1 && (
                             <button type="button" onClick={() => removeProcess(proc.id)}
                               title={`Remove Process ${idx + 1}`}
-                              className="text-gray-400 hover:text-red-400 transition-colors">
+                              className="text-zinc-600 hover:text-red-400 transition-colors">
                               <Trash2 size={11} />
                             </button>
                           )}
@@ -483,12 +646,12 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                   return (
                     <Col key={proc.id} proc={proc}>
                       <div className="flex items-center gap-1">
-                        <div className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-gray-700 bg-amber-50/60 flex items-center tabular-nums rounded-l select-none">
-                          {computed > 0 ? computed.toLocaleString("en-US") : <span className="text-gray-300">auto</span>}
+                        <div className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-zinc-800 bg-amber-50/60 flex items-center tabular-nums rounded-l select-none">
+                          {computed > 0 ? computed.toLocaleString("en-US") : <span className="text-zinc-500">auto</span>}
                         </div>
                         <select value={proc.batchSizeUnit}
                           onChange={e => update(proc.id, { batchSizeUnit: e.target.value })}
-                          className="h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-gray-700 bg-amber-100/60 focus:outline-none rounded-r shrink-0 w-14">
+                          className="h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-zinc-800 bg-amber-100/60 focus:outline-none rounded-r shrink-0 w-14">
                           {BATCH_SIZE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </div>
@@ -507,10 +670,10 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         value={proc.processSpeedValue || ""}
                         onChange={e => update(proc.id, { processSpeedValue: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
-                        className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
+                        className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
                       <select value={proc.processSpeedUnit}
                         onChange={e => update(proc.id, { processSpeedUnit: e.target.value })}
-                        className="h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-gray-700 bg-amber-100/60 focus:outline-none rounded-r shrink-0 w-24">
+                        className="h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-zinc-800 bg-amber-100/60 focus:outline-none rounded-r shrink-0 w-24">
                         <optgroup label="Throughput">
                           {SPEED_UNITS_THROUGHPUT.map(u => <option key={u} value={u}>{u}</option>)}
                         </optgroup>
@@ -673,7 +836,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
               {/* ── Outputs toggle row ── */}
               <tr className="bg-gray-50 border-t-2 border-gray-200">
                 <td className="px-3 py-1 sticky left-0 z-10 bg-gray-50">
-                  <span className="text-[0.55rem] font-semibold uppercase tracking-widest text-gray-400">Outputs</span>
+                  <span className="text-[0.55rem] font-semibold uppercase tracking-widest text-zinc-600">Outputs</span>
                 </td>
                 {processes.map(proc =>
                   collapsedCols[proc.id]
@@ -682,7 +845,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       <td key={proc.id} className="px-2 py-1 border-l border-amber-200 bg-amber-50/40">
                         <button type="button"
                           onClick={() => setOutputsOpen(o => ({ ...o, [proc.id]: !o[proc.id] }))}
-                          className="flex items-center gap-1 text-[0.6rem] font-semibold text-gray-400 hover:text-[#e8473f] transition-colors uppercase tracking-wider">
+                          className="flex items-center gap-1 text-[0.6rem] font-semibold text-zinc-600 hover:text-[#e8473f] transition-colors uppercase tracking-wider">
                           {outputsOpen[proc.id] ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
                           {outputsOpen[proc.id] ? "Hide" : "Show"}
                         </button>
@@ -764,7 +927,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           <td key={proc.id} className="px-2 py-0.5 border-l border-amber-200 bg-amber-50/40">
                             {outputsOpen[proc.id] && (
                               <div className="flex justify-between">
-                                <span className="text-[0.52rem] font-bold text-gray-400 uppercase tracking-wider">Our Cost</span>
+                                <span className="text-[0.52rem] font-bold text-zinc-600 uppercase tracking-wider">Our Cost</span>
                                 <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Customer</span>
                               </div>
                             )}
@@ -779,17 +942,17 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                   const bold   = isCost && (row as { bold?: boolean }).bold;
                   return (
                     <tr key={row.label} className={`border-b ${isCost ? "border-amber-100" : "border-gray-100"} ${bold ? "bg-amber-50/60" : isCost ? "bg-amber-50/20" : "bg-gray-50/60"}`}>
-                      <td className={`px-3 py-1 text-[0.63rem] sticky left-0 z-10 ${bold ? "font-bold text-amber-800 bg-amber-50/60" : isCost ? "text-gray-600 bg-amber-50/30" : "text-gray-500 bg-gray-50/80"}`}>
+                      <td className={`px-3 py-1 text-[0.63rem] sticky left-0 z-10 ${bold ? "font-bold text-amber-800 bg-amber-50/60" : isCost ? "text-zinc-700 bg-amber-50/30" : "text-zinc-600 bg-gray-50/80"}`}>
                         {row.label}
                       </td>
                       {processes.map((proc, i) => {
                         if (collapsedCols[proc.id]) return <td key={proc.id} className="w-9 border-l border-amber-200 bg-amber-50/40" />;
-                        if (!outputsOpen[proc.id]) return <td key={proc.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-gray-300">—</span></td>;
+                        if (!outputsOpen[proc.id]) return <td key={proc.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-zinc-500">—</span></td>;
                         return (
                           <td key={proc.id} className={`px-2 py-1 border-l ${isCost ? "border-amber-200" : "border-gray-200"}`}>
                             {isCost ? (
                               <div className="flex justify-between gap-1">
-                                <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-gray-700" : "font-semibold text-gray-600"}`}>
+                                <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-zinc-800" : "font-semibold text-zinc-700"}`}>
                                   {(row as { our: (i: number) => number }).our(i) > 0 ? fmtD((row as { our: (i: number) => number }).our(i)) : "—"}
                                 </span>
                                 <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-[#e8473f]" : "font-semibold text-[#e8473f]/80"}`}>
@@ -797,7 +960,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[0.7rem] tabular-nums text-gray-700 font-medium">
+                              <span className="text-[0.7rem] tabular-nums text-zinc-800 font-medium">
                                 {(row as { val: (i: number) => string }).val(i)}
                               </span>
                             )}
@@ -867,7 +1030,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                       <span className={`text-[0.55rem] font-semibold tabular-nums ${isOk ? "text-green-600" : isOver ? "text-red-500" : "text-amber-500"}`}>
                                         {sum.toFixed(1)}% {isOk ? "✓" : isOver ? `(+${(sum-100).toFixed(1)}%)` : `(${(100-sum).toFixed(1)}% left)`}
                                       </span>
-                                      <span className="text-[0.5rem] text-gray-400">target 100%</span>
+                                      <span className="text-[0.5rem] text-zinc-600">target 100%</span>
                                     </div>
                                   </div>
                                 )}
@@ -883,7 +1046,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-[0.6rem] text-gray-300 italic">—</span>
+                              <span className="text-[0.6rem] text-zinc-500 italic">—</span>
                             )}
                           </Col>
                         );
@@ -904,13 +1067,13 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           const isBlending = proc.name.toLowerCase().includes("blending") && recipeOpen[proc.id];
                           if (!isBlending) return (
                             <Col key={proc.id} proc={proc}>
-                              <span className="text-[0.6rem] text-gray-300 italic">—</span>
+                              <span className="text-[0.6rem] text-zinc-500 italic">—</span>
                             </Col>
                           );
                           const ing = proc.recipeIngredients[ingIdx];
                           if (!ing) return (
                             <Col key={proc.id} proc={proc}>
-                              <span className="text-[0.6rem] text-gray-300 italic">—</span>
+                              <span className="text-[0.6rem] text-zinc-500 italic">—</span>
                             </Col>
                           );
                           // Use batch size (total material with overage) as total grams
@@ -926,9 +1089,9 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                   <input type="text" value={ing.name}
                                     onChange={e => updateIngredient(proc.id, ing.id, { name: e.target.value })}
                                     placeholder="Ingredient name…"
-                                    className="h-6 flex-1 min-w-0 px-2 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 rounded transition placeholder:text-gray-300" />
+                                    className="h-6 flex-1 min-w-0 px-2 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 rounded transition placeholder:text-zinc-500" />
                                   <button type="button" onClick={() => removeIngredient(proc.id, ing.id)}
-                                    className="text-gray-300 hover:text-red-400 transition-colors text-sm leading-none shrink-0" title="Remove">×</button>
+                                    className="text-zinc-500 hover:text-red-400 transition-colors text-sm leading-none shrink-0" title="Remove">×</button>
                                 </div>
                                 <div className="flex gap-1 items-center">
                                   <input type="number" min={0} max={100} step={0.1}
@@ -936,7 +1099,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                     onChange={e => updateIngredient(proc.id, ing.id, { percentage: parseFloat(e.target.value) || 0 })}
                                     placeholder="%"
                                     className="h-6 w-12 px-1.5 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none rounded-l text-right tabular-nums" />
-                                  <span className="h-6 px-1 text-[0.55rem] text-gray-500 border border-l-0 border-amber-300 bg-amber-100/60 flex items-center rounded-r select-none">%</span>
+                                  <span className="h-6 px-1 text-[0.55rem] text-zinc-600 border border-l-0 border-amber-300 bg-amber-100/60 flex items-center rounded-r select-none">%</span>
                                 </div>
                                 {ing.percentage > 0 && batchGrams > 0 && (
                                   <div className="text-[0.55rem] text-amber-700 tabular-nums space-y-0.5">
@@ -962,7 +1125,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         const isBlending = proc.name.toLowerCase().includes("blending") && recipeOpen[proc.id];
                         if (!isBlending) return (
                           <Col key={proc.id} proc={proc}>
-                            <span className="text-[0.6rem] text-gray-300 italic">—</span>
+                            <span className="text-[0.6rem] text-zinc-500 italic">—</span>
                           </Col>
                         );
                         const sum    = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);

@@ -156,13 +156,13 @@ export default function NavbarSaveButton() {
       {newQuoteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <p className="text-sm font-semibold text-gray-900 mb-1">Start a new quote?</p>
-            <p className="text-xs text-gray-500 mb-5">Unsaved changes will be lost.</p>
+            <p className="text-sm font-semibold text-zinc-950 mb-1">Start a new quote?</p>
+            <p className="text-xs text-zinc-600 mb-5">Unsaved changes will be lost.</p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setNewQuoteOpen(false)}
-                className="flex-1 h-10 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex-1 h-10 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
@@ -190,7 +190,7 @@ export default function NavbarSaveButton() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={(e) => e.target === e.currentTarget && setRenameOpen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <p className="text-sm font-semibold text-gray-900 mb-3">Rename Quote</p>
+            <p className="text-sm font-semibold text-zinc-950 mb-3">Rename Quote</p>
             <input
               autoFocus
               type="text"
@@ -202,7 +202,7 @@ export default function NavbarSaveButton() {
             />
             <div className="flex gap-3">
               <button type="button" onClick={() => setRenameOpen(false)}
-                className="flex-1 h-10 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                className="flex-1 h-10 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
               <button type="button" onClick={handleRename} disabled={saving || !renameName.trim()}
@@ -236,7 +236,7 @@ export default function NavbarSaveButton() {
               </div>
             </div>
             <div className="px-6 py-5">
-              <label className="block text-[0.65rem] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <label className="block text-[0.65rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
                 Quote Name
               </label>
               <input
@@ -250,7 +250,7 @@ export default function NavbarSaveButton() {
               />
               <div className="flex gap-3">
                 <button type="button" onClick={() => setModalOpen(false)}
-                  className="flex-1 h-11 text-sm font-medium text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                  className="flex-1 h-11 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
                 <button type="button" onClick={handleSaveNew} disabled={saving || !quoteName.trim()}
@@ -261,7 +261,7 @@ export default function NavbarSaveButton() {
             </div>
             {loadingList === false && existing.length > 0 && (
               <div className="px-6 pb-5 border-t border-gray-100 pt-4">
-                <p className="text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider mb-2">Or update existing</p>
+                <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Or update existing</p>
                 <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
                   {existing.slice(0, 8).map(q => (
                     <button type="button" key={q.id}
@@ -279,7 +279,7 @@ export default function NavbarSaveButton() {
                         } catch { showToast("error", "Update failed"); }
                         finally { setSaving(false); }
                       }}
-                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors">
+                      className="w-full text-left px-3 py-2 text-xs text-zinc-800 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors">
                       {q.quote_name}
                     </button>
                   ))}
@@ -297,7 +297,7 @@ export default function NavbarSaveButton() {
           type="button"
           onClick={handleNewQuote}
           title="New quote"
-          className="h-8 px-2 flex items-center gap-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+          className="h-8 px-2 flex items-center gap-1 text-zinc-600 hover:text-zinc-800 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
         >
           <FilePlus size={13} />
           <span className="text-[0.65rem] font-medium hidden lg:inline">New</span>
@@ -312,9 +312,9 @@ export default function NavbarSaveButton() {
               onClick={handleAutoSave}
               disabled={saving}
               title={hasUnsavedChanges ? "Save changes" : "Saved"}
-              className="flex items-center gap-1.5 px-2.5 text-[0.65rem] font-semibold text-gray-700 hover:bg-gray-50 h-full transition-colors disabled:opacity-50 max-w-32"
+              className="flex items-center gap-1.5 px-2.5 text-[0.65rem] font-semibold text-zinc-800 hover:bg-gray-50 h-full transition-colors disabled:opacity-50 max-w-32"
             >
-              <Save size={12} className={hasUnsavedChanges ? "text-[#e8473f]" : "text-gray-400"} />
+              <Save size={12} className={hasUnsavedChanges ? "text-[#e8473f]" : "text-zinc-600"} />
               <span className="truncate">{savedQuoteName}</span>
               {hasUnsavedChanges && (
                 <span className="w-1.5 h-1.5 rounded-full bg-[#e8473f] shrink-0" />
@@ -324,7 +324,7 @@ export default function NavbarSaveButton() {
               type="button"
               onClick={() => { setRenameName(savedQuoteName ?? ""); setRenameOpen(true); }}
               title="Rename quote"
-              className="flex items-center px-1.5 text-gray-300 hover:text-gray-600 border-l border-gray-200 h-full transition-colors"
+              className="flex items-center px-1.5 text-zinc-500 hover:text-zinc-700 border-l border-gray-200 h-full transition-colors"
             >
               <Pencil size={10} />
             </button>
@@ -336,7 +336,7 @@ export default function NavbarSaveButton() {
             onClick={() => setModalOpen(true)}
             disabled={saving}
             title="Save current quote"
-            className="h-8 px-3 flex items-center gap-1.5 text-[0.65rem] font-semibold text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="h-8 px-3 flex items-center gap-1.5 text-[0.65rem] font-semibold text-zinc-800 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             <Save size={12} />
             <span>Save</span>

@@ -10,10 +10,10 @@ interface Props {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const inp  = "w-full h-7 px-2 text-xs text-gray-900 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition placeholder:text-gray-300";
-const ta   = "w-full px-2 py-1.5 text-xs text-gray-900 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition placeholder:text-gray-300 resize-none";
-const lbl  = "block text-[0.58rem] font-semibold text-gray-400 uppercase tracking-wider mb-0.5";
-const inpR = "w-full h-7 px-2 text-xs text-gray-900 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition text-right placeholder:text-gray-300";
+const inp  = "w-full h-7 px-2 text-xs text-zinc-950 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition placeholder:text-zinc-500";
+const ta   = "w-full px-2 py-1.5 text-xs text-zinc-950 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition placeholder:text-zinc-500 resize-none";
+const lbl  = "block text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-0.5";
+const inpR = "w-full h-7 px-2 text-xs text-zinc-950 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition text-right placeholder:text-zinc-500";
 
 // ── PDF zones: yStart/yEnd in mm on A4 (297mm tall) → right-panel section ────
 const PDF_H = 297;
@@ -164,7 +164,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
   const topBar = (
     <div className="shrink-0 h-12 bg-white border-b border-gray-100 flex items-center px-4 gap-3 shadow-sm z-10">
       <button type="button" onClick={onClose}
-        className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors shrink-0">
+        className="w-7 h-7 flex items-center justify-center rounded-full text-zinc-600 hover:bg-gray-100 transition-colors shrink-0">
         <X size={15} />
       </button>
 
@@ -174,7 +174,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
           {previews.map((p, i) => (
             <button key={p.filename} type="button" onClick={() => setIndex(i)}
               className={`shrink-0 h-7 px-3 text-[0.65rem] font-semibold rounded-full transition-colors whitespace-nowrap ${
-                i === index ? "bg-[#e8473f] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                i === index ? "bg-[#e8473f] text-white" : "bg-gray-100 text-zinc-600 hover:bg-gray-200"
               }`}>
               MOQ {p.moqLabel} · {p.packLabel}pk
             </button>
@@ -182,8 +182,8 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
         </div>
       )}
       {previews.length === 1 && (
-        <span className="text-xs font-semibold text-gray-800 flex-1 min-w-0 truncate">
-          Edit Quote <span className="font-normal text-gray-400 text-[0.62rem]">— click a section strip on the PDF to jump to it</span>
+        <span className="text-xs font-semibold text-zinc-900 flex-1 min-w-0 truncate">
+          Edit Quote <span className="font-normal text-zinc-600 text-[0.62rem]">— click a section strip on the PDF to jump to it</span>
         </span>
       )}
 
@@ -191,12 +191,12 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
         {previews.length > 1 && (
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setIndex(i => Math.max(0, i - 1))} disabled={index === 0}
-              className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md text-gray-500 hover:border-[#e8473f] hover:text-[#e8473f] disabled:opacity-30 transition-colors">
+              className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md text-zinc-600 hover:border-[#e8473f] hover:text-[#e8473f] disabled:opacity-30 transition-colors">
               <ChevronLeft size={12} />
             </button>
-            <span className="text-[0.65rem] text-gray-400 w-10 text-center">{index + 1} / {previews.length}</span>
+            <span className="text-[0.65rem] text-zinc-600 w-10 text-center">{index + 1} / {previews.length}</span>
             <button type="button" onClick={() => setIndex(i => Math.min(previews.length - 1, i + 1))} disabled={index === previews.length - 1}
-              className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md text-gray-500 hover:border-[#e8473f] hover:text-[#e8473f] disabled:opacity-30 transition-colors">
+              className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md text-zinc-600 hover:border-[#e8473f] hover:text-[#e8473f] disabled:opacity-30 transition-colors">
               <ChevronRight size={12} />
             </button>
           </div>
@@ -215,7 +215,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
         </button>
         {previews.length > 1 && (
           <button type="button" onClick={() => previews.forEach(p => triggerDownload(p))}
-            className="flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold border border-gray-200 rounded-lg text-gray-700 hover:border-[#e8473f] hover:text-[#e8473f] transition-colors">
+            className="flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold border border-gray-200 rounded-lg text-zinc-800 hover:border-[#e8473f] hover:text-[#e8473f] transition-colors">
             All {previews.length}
           </button>
         )}
@@ -275,8 +275,8 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
               <SecHead id="sec-leadtime" label="Lead Time Table" active={activeZone === "sec-leadtime"} />
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[1fr_auto] bg-gray-50 border-b border-gray-200 px-2 py-1">
-                  <span className="text-[0.58rem] font-bold text-gray-500 uppercase tracking-wider">Description</span>
-                  <span className="text-[0.58rem] font-bold text-gray-500 uppercase tracking-wider text-right w-24">Value</span>
+                  <span className="text-[0.58rem] font-bold text-zinc-600 uppercase tracking-wider">Description</span>
+                  <span className="text-[0.58rem] font-bold text-zinc-600 uppercase tracking-wider text-right w-24">Value</span>
                 </div>
                 {ltRows.map((row, i) => (
                   <div key={i} className={`grid grid-cols-[1fr_auto] gap-1.5 px-2 py-1.5 ${i % 2 === 1 ? "bg-gray-50/60" : ""} ${i < ltRows.length - 1 ? "border-b border-gray-100" : ""}`}>
@@ -304,7 +304,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                 {/* Header */}
                 <div className="grid gap-1 px-2 py-1 bg-gray-800" style={{ gridTemplateColumns: "1fr 72px 80px 84px" }}>
                   {["Description", "Qty", "PPU", "Total"].map(h => (
-                    <span key={h} className="text-[0.55rem] font-bold text-gray-300 uppercase tracking-wider last:text-right">{h}</span>
+                    <span key={h} className="text-[0.55rem] font-bold text-zinc-500 uppercase tracking-wider last:text-right">{h}</span>
                   ))}
                 </div>
                 {prRows.map((row, i) => (
@@ -318,16 +318,16 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                   </div>
                 ))}
                 {prRows.length === 0 && (
-                  <p className="text-[0.6rem] text-gray-300 italic px-3 py-2">No rows — generate a quote first.</p>
+                  <p className="text-[0.6rem] text-zinc-500 italic px-3 py-2">No rows — generate a quote first.</p>
                 )}
                 {/* Auto-computed TOTALS row */}
                 {prRows.length > 0 && (
                   <div className="grid gap-1 px-2 py-1.5 bg-gray-100 border-t-2 border-gray-300"
                     style={{ gridTemplateColumns: "1fr 72px 80px 84px" }}>
-                    <span className="text-[0.65rem] font-bold text-gray-700 self-center">TOTALS</span>
-                    <span className="text-[0.65rem] font-bold text-gray-700 text-right self-center" />
-                    <span className="text-[0.65rem] font-bold text-gray-700 text-right self-center" />
-                    <span className="text-[0.65rem] font-bold text-gray-700 text-right self-center">{fmtMoney(grandTotal)}</span>
+                    <span className="text-[0.65rem] font-bold text-zinc-800 self-center">TOTALS</span>
+                    <span className="text-[0.65rem] font-bold text-zinc-800 text-right self-center" />
+                    <span className="text-[0.65rem] font-bold text-zinc-800 text-right self-center" />
+                    <span className="text-[0.65rem] font-bold text-zinc-800 text-right self-center">{fmtMoney(grandTotal)}</span>
                   </div>
                 )}
               </div>
@@ -344,7 +344,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
               }`}>
               {saved ? <><Check size={13} /> PDF Updated!</> : regenerating ? "Regenerating…" : "Apply & Regenerate PDF"}
             </button>
-            <p className="text-[0.55rem] text-gray-400 text-center mt-1.5">PDF on the right refreshes after applying</p>
+            <p className="text-[0.55rem] text-zinc-600 text-center mt-1.5">PDF on the right refreshes after applying</p>
           </div>
         </div>
 

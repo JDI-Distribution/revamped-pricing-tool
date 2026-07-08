@@ -13,7 +13,7 @@ const navLinks = [
   { label: "Conversion Calculator", href: "/conversion-calculator", drawer: "conversion" as const },
 ];
 
-const linkCls = "text-sm text-gray-600 hover:text-gray-900 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]";
+const linkCls = "text-sm text-zinc-700 hover:text-zinc-950 transition-colors pb-1 border-b-2 border-transparent hover:border-[#e8473f]";
 
 export default function Navbar() {
   const { pathname } = useLocation();
@@ -64,7 +64,7 @@ export default function Navbar() {
                     onClick={(e) => handleNavClick(link.drawer, e)}
                     className={`${linkCls} ${
                       (link.drawer === "margin" && marginOpen) || (link.drawer === "conversion" && conversionOpen)
-                        ? "border-[#e8473f] text-gray-900"
+                        ? "border-[#e8473f] text-zinc-950"
                         : ""
                     }`}
                   >
@@ -73,7 +73,7 @@ export default function Navbar() {
                 ) : (
                   <Link
                     to={link.href}
-                    className={`${linkCls} ${pathname === link.href ? "border-[#e8473f] text-gray-900" : ""}`}
+                    className={`${linkCls} ${pathname === link.href ? "border-[#e8473f] text-zinc-950" : ""}`}
                   >
                     {link.label}
                   </Link>
@@ -85,7 +85,7 @@ export default function Navbar() {
           {/* Desktop Saved Quotes */}
           <Link
             to="/saved-quotes"
-            className={`hidden md:flex items-center gap-1.5 ${linkCls} ${isSavedPage ? "border-[#e8473f] text-gray-900" : ""}`}
+            className={`hidden md:flex items-center gap-1.5 ${linkCls} ${isSavedPage ? "border-[#e8473f] text-zinc-950" : ""}`}
           >
             <FolderOpen size={14} />
             Saved Quotes
@@ -101,7 +101,7 @@ export default function Navbar() {
             {isQuotePage || isSavedPage ? (
               <Link
                 to="/"
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-5 h-9 rounded-lg transition-colors"
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-zinc-800 text-sm font-medium px-5 h-9 rounded-lg transition-colors"
               >
                 <ChevronLeft size={15} />
                 Back to Pricing
@@ -123,7 +123,7 @@ export default function Navbar() {
               <Link
                 to="/"
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium px-3 h-9 min-w-11 justify-center rounded-lg transition-colors"
+                className="flex items-center gap-1.5 bg-gray-100 text-zinc-800 text-xs font-medium px-3 h-9 min-w-11 justify-center rounded-lg transition-colors"
               >
                 <ChevronLeft size={14} />
                 Back
@@ -141,7 +141,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
-              className="flex items-center justify-center w-11 h-11 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center justify-center w-11 h-11 text-zinc-700 hover:text-zinc-950 transition-colors"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -162,7 +162,7 @@ export default function Navbar() {
                       className={`w-full text-left flex items-center px-5 py-3.5 text-sm font-medium transition-colors ${
                         (link.drawer === "margin" && marginOpen) || (link.drawer === "conversion" && conversionOpen)
                           ? "text-[#e8473f] bg-red-50"
-                          : "text-gray-700 hover:bg-gray-50"
+                          : "text-zinc-800 hover:bg-gray-50"
                       }`}
                     >
                       {link.label}
@@ -172,7 +172,7 @@ export default function Navbar() {
                       to={link.href}
                       onClick={() => setMenuOpen(false)}
                       className={`flex items-center px-5 py-3.5 text-sm font-medium transition-colors ${
-                        pathname === link.href ? "text-[#e8473f] bg-red-50" : "text-gray-700 hover:bg-gray-50"
+                        pathname === link.href ? "text-[#e8473f] bg-red-50" : "text-zinc-800 hover:bg-gray-50"
                       }`}
                     >
                       {link.label}
@@ -185,7 +185,7 @@ export default function Navbar() {
                   to="/saved-quotes"
                   onClick={() => setMenuOpen(false)}
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors ${
-                    isSavedPage ? "text-[#e8473f] bg-red-50" : "text-gray-700 hover:bg-gray-50"
+                    isSavedPage ? "text-[#e8473f] bg-red-50" : "text-zinc-800 hover:bg-gray-50"
                   }`}
                 >
                   <FolderOpen size={15} />

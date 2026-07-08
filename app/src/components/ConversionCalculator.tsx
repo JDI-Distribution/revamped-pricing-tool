@@ -62,9 +62,9 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
     <div className="mb-3">
       <div className="flex items-center gap-2 mb-1">
         <div className="w-1 h-4 rounded-full bg-[#e8473f] shrink-0" />
-        <p className="text-xs font-bold text-gray-900 uppercase tracking-wide">{title}</p>
+        <p className="text-xs font-bold text-zinc-950 uppercase tracking-wide">{title}</p>
       </div>
-      {sub && <p className="text-[0.65rem] text-gray-400 ml-3">{sub}</p>}
+      {sub && <p className="text-[0.65rem] text-zinc-600 ml-3">{sub}</p>}
       <div className="border-b border-gray-100 mt-2" />
     </div>
   );
@@ -115,7 +115,7 @@ function ConverterRow({ leftVal, leftUnit, rightUnit, units, table, onLeftVal, o
     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
       {/* Left side */}
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        {prefix && <span className="text-sm text-gray-400 shrink-0">{prefix}</span>}
+        {prefix && <span className="text-sm text-zinc-600 shrink-0">{prefix}</span>}
         <input
           type="text"
           inputMode="decimal"
@@ -125,14 +125,14 @@ function ConverterRow({ leftVal, leftUnit, rightUnit, units, table, onLeftVal, o
           className={`${inputCls} min-w-0`}
         />
       </div>
-      {between && <span className="text-xs text-gray-400 shrink-0">{between}</span>}
+      {between && <span className="text-xs text-zinc-600 shrink-0">{between}</span>}
       {unitSelect(leftUnit, onLeftUnit)}
 
-      <span className="text-gray-400 text-sm shrink-0">=</span>
+      <span className="text-zinc-600 text-sm shrink-0">=</span>
 
       {/* Right side */}
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        {prefix && <span className="text-sm text-gray-400 shrink-0">{prefix}</span>}
+        {prefix && <span className="text-sm text-zinc-600 shrink-0">{prefix}</span>}
         <input
           type="text"
           inputMode="decimal"
@@ -142,7 +142,7 @@ function ConverterRow({ leftVal, leftUnit, rightUnit, units, table, onLeftVal, o
           className={`${resultCls} min-w-0`}
         />
       </div>
-      {between && <span className="text-xs text-gray-400 shrink-0">{between}</span>}
+      {between && <span className="text-xs text-zinc-600 shrink-0">{between}</span>}
       {unitSelect(rightUnit, onRightUnit)}
     </div>
   );
@@ -216,19 +216,19 @@ function PriceConverter() {
   return (
     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        <span className="text-sm text-gray-400 shrink-0">$</span>
+        <span className="text-sm text-zinc-600 shrink-0">$</span>
         <input type="text" inputMode="decimal" value={leftVal} onChange={(e) => setLeftVal(e.target.value)} placeholder="0.00" className={`${inputCls} min-w-0`} />
       </div>
-      <span className="text-xs text-gray-400 shrink-0">per</span>
+      <span className="text-xs text-zinc-600 shrink-0">per</span>
       <select value={leftUnit} onChange={(e) => setLeftUnit(e.target.value)} className={selectCls}>
         {PRICE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
       </select>
-      <span className="text-gray-400 text-sm shrink-0">=</span>
+      <span className="text-zinc-600 text-sm shrink-0">=</span>
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        <span className="text-sm text-gray-400 shrink-0">$</span>
+        <span className="text-sm text-zinc-600 shrink-0">$</span>
         <input type="text" inputMode="decimal" value={rightStr} onChange={(e) => handleRightEdit(e.target.value)} placeholder="0.00" className={`${resultCls} min-w-0`} />
       </div>
-      <span className="text-xs text-gray-400 shrink-0">per</span>
+      <span className="text-xs text-zinc-600 shrink-0">per</span>
       <select value={rightUnit} onChange={(e) => setRightUnit(e.target.value)} className={selectCls}>
         {PRICE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
       </select>
@@ -271,10 +271,10 @@ export default function ConversionCalculator({ open, onClose, prefill }: Props) 
         {/* Sticky header */}
         <div className="shrink-0 px-5 py-4 border-b border-gray-100 flex items-start justify-between">
           <div>
-            <h2 className="text-sm font-bold text-gray-900">Unit Conversion Calculator</h2>
-            <p className="text-[0.65rem] text-gray-400 mt-0.5">Convert between weight and volume units</p>
+            <h2 className="text-sm font-bold text-zinc-950">Unit Conversion Calculator</h2>
+            <p className="text-[0.65rem] text-zinc-600 mt-0.5">Convert between weight and volume units</p>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors mt-0.5">
+          <button type="button" onClick={onClose} className="text-zinc-600 hover:text-zinc-800 transition-colors mt-0.5">
             <X size={18} />
           </button>
         </div>
@@ -310,17 +310,17 @@ export default function ConversionCalculator({ open, onClose, prefill }: Props) 
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">From</th>
-                    <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">To</th>
-                    <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-gray-400 uppercase tracking-wider">Factor</th>
+                    <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">From</th>
+                    <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">To</th>
+                    <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Factor</th>
                   </tr>
                 </thead>
                 <tbody>
                   {REFS.map((row, i) => (
                     <tr key={i} className={`border-b border-gray-50 last:border-0 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
-                      <td className="py-2 px-3 font-medium text-gray-700">{row.from}</td>
-                      <td className="py-2 px-3 text-gray-700">{row.to}</td>
-                      <td className="py-2 px-3 text-right text-gray-400 font-mono">{row.factor}</td>
+                      <td className="py-2 px-3 font-medium text-zinc-800">{row.from}</td>
+                      <td className="py-2 px-3 text-zinc-800">{row.to}</td>
+                      <td className="py-2 px-3 text-right text-zinc-600 font-mono">{row.factor}</td>
                     </tr>
                   ))}
                 </tbody>

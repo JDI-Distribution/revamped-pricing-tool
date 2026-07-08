@@ -44,9 +44,9 @@ const fmtThroughput = (perHr: number, unit: ThroughputUnit) => {
 
 // ── Null-safe data cell ───────────────────────────────────────────────────────
 function DataCell({ val, formatter, bold }: { val: number | null; formatter: (v: number) => string; bold?: boolean }) {
-  const cls = `py-2 px-2 text-right text-xs ${bold ? "font-bold text-gray-900" : "text-gray-700"}`;
+  const cls = `py-2 px-2 text-right text-xs ${bold ? "font-bold text-zinc-950" : "text-zinc-800"}`;
   if (val === null || val === 0)
-    return <td className={`${cls} text-gray-300`}>—</td>;
+    return <td className={`${cls} text-zinc-500`}>—</td>;
   return <td className={cls}>{formatter(val)}</td>;
 }
 
@@ -56,7 +56,7 @@ function UomSelect<T extends string>({ value, options, onChange }: { value: T; o
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className="text-[0.55rem] font-semibold text-gray-400 bg-transparent border-none outline-none cursor-pointer hover:text-gray-600 ml-1"
+      className="text-[0.55rem] font-semibold text-zinc-600 bg-transparent border-none outline-none cursor-pointer hover:text-zinc-700 ml-1"
     >
       {options.map((u) => <option key={u} value={u}>{u}</option>)}
     </select>
@@ -107,7 +107,7 @@ export default function SummaryTables({
     });
 
   // ── Style tokens ──────────────────────────────────────────────
-  const thBase   = "py-2 px-2 text-right text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-b-2 border-gray-900";
+  const thBase   = "py-2 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap border-b-2 border-gray-900";
 
   return (
     <div className="p-4 flex flex-col gap-3">
@@ -118,16 +118,16 @@ export default function SummaryTables({
         {/* Header bar */}
         <div className="flex items-center bg-gray-50 border-b border-gray-100 px-3 py-2 gap-3">
           <span className="text-xs font-semibold text-black uppercase tracking-wide shrink-0">Details</span>
-          {activeLabel && <span className="text-[0.6rem] text-gray-400 truncate">{activeLabel}</span>}
+          {activeLabel && <span className="text-[0.6rem] text-zinc-600 truncate">{activeLabel}</span>}
           {comboViews.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap ml-auto">
               <button type="button" onClick={() => setSelectedCombo("all")}
-                className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors ${selectedCombo === "all" ? "bg-[#e8473f] text-white" : "text-gray-400 hover:text-gray-600"}`}>
+                className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors ${selectedCombo === "all" ? "bg-[#e8473f] text-white" : "text-zinc-600 hover:text-zinc-700"}`}>
                 All
               </button>
               {comboViews.map((cv, i) => (
                 <button type="button" key={cv.id} onClick={() => setSelectedCombo(cv.id)} title={cv.label}
-                  className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors ${selectedCombo === cv.id ? "bg-[#e8473f] text-white" : "text-gray-400 hover:text-gray-600"}`}>
+                  className={`h-5 px-2 text-[0.6rem] font-semibold rounded-full transition-colors ${selectedCombo === cv.id ? "bg-[#e8473f] text-white" : "text-zinc-600 hover:text-zinc-700"}`}>
                   #{i + 1}
                 </button>
               ))}
@@ -140,7 +140,7 @@ export default function SummaryTables({
             <thead>
               <tr>
                 {/* 1 */}
-                <th className="py-2 px-2 text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider border-b-2 border-gray-900 w-32">Description</th>
+                <th className="py-2 px-2 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900 w-32">Description</th>
                 {/* 2 */}
                 <th className={thBase}>Delivered Qty</th>
                 {/* 3 */}
@@ -176,7 +176,7 @@ export default function SummaryTables({
             <tbody>
               {activeRows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-4 text-center text-xs text-gray-400 italic">
+                  <td colSpan={11} className="py-4 text-center text-xs text-zinc-600 italic">
                     No data yet — fill in project details and columns
                   </td>
                 </tr>
@@ -185,17 +185,17 @@ export default function SummaryTables({
                   const isTotalRow = row.label === "Estimated Total Lead Time";
                   return (
                     <tr key={row.label} className={`border-b border-gray-100 ${isTotalRow ? "bg-blue-50/60" : "bg-gray-50/30"}`}>
-                      <td className={`py-2 px-2 text-xs ${isTotalRow ? "font-semibold text-gray-900" : "text-gray-500 pl-5"}`}>{row.label}</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                      <td className={`py-2 px-2 text-right text-xs ${isTotalRow ? "font-semibold text-gray-900" : "text-gray-600"}`}>
+                      <td className={`py-2 px-2 text-xs ${isTotalRow ? "font-semibold text-zinc-950" : "text-zinc-600 pl-5"}`}>{row.label}</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className={`py-2 px-2 text-right text-xs ${isTotalRow ? "font-semibold text-zinc-950" : "text-zinc-700"}`}>
                         {row.leadTimeWeeks !== null ? fmtLeadTime(row.leadTimeWeeks, leadTimeUnit) : "—"}
                       </td>
                     </tr>
@@ -220,12 +220,12 @@ export default function SummaryTables({
                       className={`border-b border-gray-100 ${hasDetail ? "cursor-pointer hover:bg-gray-50/70" : "hover:bg-gray-50/30"}`}
                     >
                       {/* 1 Description */}
-                      <td className="py-2 px-2 text-xs text-gray-700 font-medium">
+                      <td className="py-2 px-2 text-xs text-zinc-800 font-medium">
                         <div className="flex items-center gap-1">
                           {hasDetail && (
                             expanded
-                              ? <ChevronUp size={10} className="text-gray-400 shrink-0" />
-                              : <ChevronDown size={10} className="text-gray-400 shrink-0" />
+                              ? <ChevronUp size={10} className="text-zinc-600 shrink-0" />
+                              : <ChevronDown size={10} className="text-zinc-600 shrink-0" />
                           )}
                           {row.label}
                           {section?.overageReq != null && (
@@ -260,30 +260,30 @@ export default function SummaryTables({
                     {/* ── Expanded detail sub-rows ── */}
                     {hasDetail && expanded && section!.rows.map((dRow) => (
                       <tr key={dRow.label} className="border-b border-gray-50 bg-gray-50/40">
-                        <td className="py-1 pl-6 pr-2 text-[0.7rem] text-gray-500">{dRow.label}</td>
+                        <td className="py-1 pl-6 pr-2 text-[0.7rem] text-zinc-600">{dRow.label}</td>
                         {/* Qty / Cost PPU / Markup — empty */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
                         {/* Customer PPU — show non-currency project detail (e.g. units/min) */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-500">
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-600">
                           {!dRow.isCurrency && dRow.projectDetails !== null
                             ? dRow.projectDetails.toLocaleString("en-US", { maximumFractionDigits: 2 })
                             : "—"}
                         </td>
                         {/* Total — customer-facing currency value */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-500">
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-600">
                           {dRow.isCurrency && dRow.projectDetails !== null ? fmt(dRow.projectDetails) : "—"}
                         </td>
                         {/* Our Cost */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-500">
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-600">
                           {dRow.isCurrency && dRow.projectCosts !== null ? fmt(dRow.projectCosts) : "—"}
                         </td>
                         {/* Margin $$ / Margin % / Throughput / Lead Time — empty */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-gray-300">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
                       </tr>
                     ))}
                   </Fragment>
@@ -294,17 +294,17 @@ export default function SummaryTables({
               {activeRows.length > 0 && (
                 <>
                   <tr className="border-t-2 border-gray-900 bg-sky-50">
-                    <td className="py-2 px-2 text-xs font-bold text-gray-900 italic">TOTALS</td>
-                    <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{ppuUnits > 0 ? fmt(ppuCost) : "—"}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmtPct(totalMarkupPct)}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{ppuUnits > 0 ? fmt(ppuCustomer) : "—"}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(activeTotalPrice)}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(activeTotalCost)}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmt(totalMarginDollars)}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-gray-900">{fmtPct(totalMarginPct)}</td>
-                    <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
-                    <td className="py-2 px-2 text-right text-xs text-gray-300">—</td>
+                    <td className="py-2 px-2 text-xs font-bold text-zinc-950 italic">TOTALS</td>
+                    <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{ppuUnits > 0 ? fmt(ppuCost) : "—"}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmtPct(totalMarkupPct)}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{ppuUnits > 0 ? fmt(ppuCustomer) : "—"}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(activeTotalPrice)}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(activeTotalCost)}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(totalMarginDollars)}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmtPct(totalMarginPct)}</td>
+                    <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                    <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
                   </tr>
                 </>
               )}

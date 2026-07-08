@@ -92,7 +92,7 @@ export default function SectionSidebar({ sections }: Props) {
               border-l-[3px]
               ${isActive
                 ? "border-[#e8473f] text-[#e8473f] bg-red-50/60 font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-700 hover:bg-gray-100/60"
+                : "border-transparent text-zinc-600 hover:text-zinc-800 hover:bg-gray-100/60"
               }
             `}
           >
@@ -111,7 +111,7 @@ export default function SectionSidebar({ sections }: Props) {
         style={{ top: NAVBAR_H }}
       >
         <div className="px-3 pt-3 pb-2">
-          <span className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-gray-300">Sections</span>
+          <span className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-zinc-500">Sections</span>
         </div>
         <div className="flex-1 overflow-y-auto pb-4 scrollbar-hide">
           {navItems}
@@ -123,7 +123,7 @@ export default function SectionSidebar({ sections }: Props) {
         <button
           type="button"
           onClick={() => setMobileOpen(o => !o)}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 shadow-lg text-gray-500 hover:text-[#e8473f] transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 shadow-lg text-zinc-600 hover:text-[#e8473f] transition-colors"
         >
           {mobileOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
@@ -142,7 +142,7 @@ export default function SectionSidebar({ sections }: Props) {
           style={{ top: NAVBAR_H }}
         >
           <div className="px-3 pt-3 pb-2">
-            <span className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-gray-300">Sections</span>
+            <span className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-zinc-500">Sections</span>
           </div>
           {navItems}
         </aside>

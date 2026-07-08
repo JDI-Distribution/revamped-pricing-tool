@@ -25,14 +25,14 @@ const emptyMoqRow = (): MoqRow => ({
 
 /* ── Design tokens (module-level so they never change reference) ── */
 const inputBase =
-  "h-9 w-full px-3 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition";
+  "h-9 w-full px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition";
 const inputKey        = `${inputBase} rounded-md`;
 const inputWithPrefix = `${inputBase} rounded-r-md flex-1`;
 const inputWithSuffix = `${inputBase} rounded-l-md flex-1`;
 const prefixBadge =
-  "text-[0.6rem] font-medium text-gray-400 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
+  "text-[0.6rem] font-medium text-zinc-600 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
 const suffixBadge =
-  "text-[0.6rem] font-medium text-gray-400 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
+  "text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
 
 
 
@@ -40,10 +40,10 @@ function SectionHeader({ title, open, onToggle, action, sectionId }: { title: st
   return (
     <div className="flex items-center gap-3">
       <button type="button" onClick={onToggle} className="flex items-center gap-1.5 group min-w-0">
-        <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">{title}</span>
+        <span className="text-sm font-bold text-zinc-950 group-hover:text-[#e8473f] transition-colors">{title}</span>
         {open
-          ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
-          : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+          ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
+          : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
       </button>
       {action && <div className="shrink-0">{action}</div>}
       {sectionId && <div className="ml-auto shrink-0"><RequiredToggle sectionId={sectionId} /></div>}
@@ -144,10 +144,10 @@ export default function ProjectDetails({
   const outPanel    = "w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100";
   const outTitle    = "px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60";
   const outRow      = "flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100 last:border-0";
-  const outLbl      = "text-[0.68rem] text-gray-500 leading-tight";
-  const outVal      = "text-[0.72rem] font-semibold text-gray-800 tabular-nums text-right shrink-0 ml-2";
+  const outLbl      = "text-[0.68rem] text-zinc-600 leading-tight";
+  const outVal      = "text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right shrink-0 ml-2";
   const outCostSep  = "px-3 py-1.5 text-[0.52rem] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 border-b border-blue-200";
-  const outOurVal   = "text-[0.72rem] font-semibold text-gray-700 tabular-nums text-right shrink-0 ml-2";
+  const outOurVal   = "text-[0.72rem] font-semibold text-zinc-800 tabular-nums text-right shrink-0 ml-2";
   const outCxVal    = "text-[0.72rem] font-bold text-[#e8473f] tabular-nums text-right shrink-0 ml-2";
   const marginBadge = (our: number, cx: number) => {
     if (cx <= 0 || our <= 0) return null;
@@ -282,7 +282,7 @@ export default function ProjectDetails({
 
             {/* Setup + QA Fee */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Setup + QA Fee</span>
+              <span className="text-xs text-zinc-700">Setup + QA Fee</span>
               <div className="flex items-center w-40">
                 <span className={prefixBadge}>$</span>
                 <CurrencyInput type="dollar" value={parseFloat(formData.setupFeeCustomer) || 0}
@@ -293,7 +293,7 @@ export default function ProjectDetails({
 
             {/* Project Management Fee */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Project Management Fee</span>
+              <span className="text-xs text-zinc-700">Project Management Fee</span>
               <div className="flex items-center w-40">
                 <span className={prefixBadge}>$</span>
                 <CurrencyInput type="dollar" value={parseFloat((formData as any).projectManagementFee) || 0}
@@ -305,7 +305,7 @@ export default function ProjectDetails({
             {/* Unit Size / ea */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-xs text-gray-600 whitespace-nowrap">Unit Size / ea</span>
+                <span className="text-xs text-zinc-700 whitespace-nowrap">Unit Size / ea</span>
                 <button type="button" onClick={openConverter} className="text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] transition-colors shrink-0">
                   Converter →
                 </button>
@@ -315,12 +315,12 @@ export default function ProjectDetails({
                   type="number"
                   value={formData.unitWeight ?? ""}
                   onChange={(e) => setFormField("unitWeight", e.target.value)}
-                  className="w-32 h-9 px-3 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
+                  className="w-32 h-9 px-3 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
                 />
                 <select
                   value={formData.unitWeightUnit ?? "g"}
                   onChange={(e) => handleUnitWeightUnitChange(e.target.value)}
-                  className="text-[0.6rem] font-medium text-gray-500 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
+                  className="text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
                 >
                   {UNIT_OPTS.map((u) => (
                     <option key={u} value={u}>{u}</option>
@@ -331,17 +331,17 @@ export default function ProjectDetails({
 
             {/* Packaging Structure table */}
             <div className="pt-3 pb-2">
-              <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-gray-400 mb-2">Packaging Structure</p>
-              <p className="text-[0.65rem] text-gray-500 mb-3">
-                Define every packaging level this project moves through, from individual unit up to shipper. This sets the shape of the whole quote — labor rates and markups for each level are configured later in <strong className="font-semibold text-gray-700">Packaging Line Setup</strong>.
+              <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-zinc-600 mb-2">Packaging Structure</p>
+              <p className="text-[0.65rem] text-zinc-600 mb-3">
+                Define every packaging level this project moves through, from individual unit up to shipper. This sets the shape of the whole quote — labor rates and markups for each level are configured later in <strong className="font-semibold text-zinc-800">Packaging Line Setup</strong>.
               </p>
               {/* Legend */}
               <div className="flex items-center gap-4 mb-3">
-                <span className="flex items-center gap-1.5 text-[0.6rem] text-gray-400">
+                <span className="flex items-center gap-1.5 text-[0.6rem] text-zinc-600">
                   <span className="w-3 h-3 rounded-sm border border-amber-300 bg-amber-50/80 inline-block" />
                   Type here
                 </span>
-                <span className="flex items-center gap-1.5 text-[0.6rem] text-gray-400">
+                <span className="flex items-center gap-1.5 text-[0.6rem] text-zinc-600">
                   <span className="w-3 h-3 rounded-sm border border-gray-200 bg-gray-50 inline-block" />
                   Calculated
                 </span>
@@ -351,11 +351,11 @@ export default function ProjectDetails({
                 <table className="w-full border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#EDEAE0]">
-                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300 w-[22%]">Level</th>
-                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Units</th>
-                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">UOM</th>
-                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Required Qty</th>
-                      <th className="text-left text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Packaging Cost / Unit</th>
+                      <th className="text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300 w-[22%]">Level</th>
+                      <th className="text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Units</th>
+                      <th className="text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">UOM</th>
+                      <th className="text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Required Qty</th>
+                      <th className="text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider px-3 py-2.5 border-b-2 border-r border-gray-300">Packaging Cost / Unit</th>
                       <th className="border-b-2 border-gray-300 w-10" />
                     </tr>
                   </thead>
@@ -372,7 +372,7 @@ export default function ProjectDetails({
                               value={lvl.customLevelName}
                               onChange={e => updatePackagingLevel(lvl.id, { customLevelName: e.target.value })}
                               placeholder={`e.g. ${["Individual Unit", "Final Kit", "Inner / Case", "Shipper / Outer"][idx] ?? "Custom"}`}
-                              className="h-8 w-full px-2 border border-amber-300 text-[0.65rem] text-gray-800 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded placeholder:text-gray-400 placeholder:italic"
+                              className="h-8 w-full px-2 border border-amber-300 text-[0.65rem] text-zinc-900 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded placeholder:text-zinc-600 placeholder:italic"
                             />
                           </td>
                           {/* # of Units */}
@@ -381,7 +381,7 @@ export default function ProjectDetails({
                               type="integer"
                               value={lvl.units}
                               onChange={v => updatePackagingLevel(lvl.id, { units: v })}
-                              className="h-8 w-full px-2 border border-amber-300 text-xs text-gray-900 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded tabular-nums"
+                              className="h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded tabular-nums"
                             />
                           </td>
                           {/* UOM */}
@@ -389,7 +389,7 @@ export default function ProjectDetails({
                             <select
                               value={lvl.unitsRefId ?? ""}
                               onChange={e => updatePackagingLevel(lvl.id, { unitsRefId: e.target.value || undefined })}
-                              className="h-8 w-full px-1.5 border border-amber-300 text-xs text-gray-700 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded cursor-pointer"
+                              className="h-8 w-full px-1.5 border border-amber-300 text-xs text-zinc-800 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded cursor-pointer"
                             >
                               <option value="">units</option>
                               {priorNamed.map(pl => (
@@ -399,19 +399,19 @@ export default function ProjectDetails({
                           </td>
                           {/* Required Qty — calculated */}
                           <td className="border-r border-gray-200 p-2">
-                            <div className="h-8 flex items-center px-2 border border-gray-200 bg-gray-50 rounded text-xs font-semibold text-gray-600 tabular-nums">
-                              {requiredQty > 0 ? requiredQty.toLocaleString() : <span className="text-gray-300 font-normal">—</span>}
+                            <div className="h-8 flex items-center px-2 border border-gray-200 bg-gray-50 rounded text-xs font-semibold text-zinc-700 tabular-nums">
+                              {requiredQty > 0 ? requiredQty.toLocaleString() : <span className="text-zinc-500 font-normal">—</span>}
                             </div>
                           </td>
                           {/* Cost / Unit */}
                           <td className="border-r border-gray-200 p-2">
                             <div className="flex items-center h-8 border border-amber-300 bg-amber-50/70 rounded overflow-hidden">
-                              <span className="text-[0.6rem] text-gray-400 px-2 select-none border-r border-amber-300 h-full flex items-center bg-amber-50/50">$</span>
+                              <span className="text-[0.6rem] text-zinc-600 px-2 select-none border-r border-amber-300 h-full flex items-center bg-amber-50/50">$</span>
                               <CurrencyInput
                                 type="dollar"
                                 value={lvl.costPerUnit}
                                 onChange={v => updatePackagingLevel(lvl.id, { costPerUnit: v })}
-                                className="flex-1 h-full px-2 text-xs text-gray-900 bg-transparent focus:outline-none tabular-nums"
+                                className="flex-1 h-full px-2 text-xs text-zinc-950 bg-transparent focus:outline-none tabular-nums"
                               />
                             </div>
                           </td>
@@ -445,7 +445,7 @@ export default function ProjectDetails({
 
             {/* PPU Denominator */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">PPU Denominator</span>
+              <span className="text-xs text-zinc-700">PPU Denominator</span>
               <div className="w-40">
                 <CurrencyInput type="integer" value={parseFloat(formData.ppuDenominator) || 0}
                   onChange={v => setFormField("ppuDenominator", String(v))}
@@ -455,7 +455,7 @@ export default function ProjectDetails({
 
             {/* Lead Time Buffer */}
             <div id="section-lead-time" className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Lead Time Buffer</span>
+              <span className="text-xs text-zinc-700">Lead Time Buffer</span>
               <div className="flex items-center h-9 border border-amber-200 rounded-md overflow-hidden w-40">
                 <input
                   type="number"
@@ -479,7 +479,7 @@ export default function ProjectDetails({
                     type="button"
                     onClick={() => setBufferUnit(u)}
                     className={`h-9 px-2 text-[0.6rem] font-semibold transition-colors border-r border-amber-200 last:border-r-0 shrink-0 ${
-                      bufferUnit === u ? "bg-[#e8473f] text-white" : "bg-amber-50/50 text-gray-400 hover:text-gray-700"
+                      bufferUnit === u ? "bg-[#e8473f] text-white" : "bg-amber-50/50 text-zinc-600 hover:text-zinc-800"
                     }`}
                   >
                     {u}
@@ -494,7 +494,7 @@ export default function ProjectDetails({
       </div>{/* end CPO card */}
 
       {/* CPO outputs panel */}
-      {!notRequired["section-cpo"] && <div className={outPanel}>
+      {cpoOpen && !notRequired["section-cpo"] && <div className={outPanel}>
         <div className={outTitle}>Outputs</div>
         {packagingLevels.map((lvl, i) => {
           const qty  = packagingRequiredQtys[i] ?? 0;
@@ -556,7 +556,7 @@ export default function ProjectDetails({
                       onChange={() => setFormField("rawMaterialProvider", opt)}
                       className="accent-[#e8473f] w-3.5 h-3.5"
                     />
-                    <span className="text-xs text-gray-700">
+                    <span className="text-xs text-zinc-800">
                       {opt === "customer" ? "Customer provides raw material" : "We source raw material"}
                     </span>
                   </label>
@@ -565,7 +565,7 @@ export default function ProjectDetails({
 
               {/* Group 1 */}
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5 mb-3 border-b border-gray-200">
-                <span className="text-xs text-gray-600">Overage Rate</span>
+                <span className="text-xs text-zinc-700">Overage Rate</span>
                 <SymInput field="materialOverage" type="number" sym="%" formData={formData} setFormField={setFormField} />
               </div>
 
@@ -575,15 +575,15 @@ export default function ProjectDetails({
                 return (
                   <div className={customerProvides ? "opacity-40 pointer-events-none select-none" : ""}>
                     <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                      <span className="text-xs text-gray-600">Cost / Gram</span>
+                      <span className="text-xs text-zinc-700">Cost / Gram</span>
                       <SymInput field="costPerGram" type="number" sym="$" formData={formData} setFormField={setFormField} />
                     </div>
                     <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                      <span className="text-xs text-gray-600">Leftover Inv. Cost</span>
+                      <span className="text-xs text-zinc-700">Leftover Inv. Cost</span>
                       <SymInput field="leftOverInventoryCost" type="number" sym="$" formData={formData} setFormField={setFormField} />
                     </div>
                     <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5 mb-3 border-b border-gray-200">
-                      <span className="text-xs text-gray-600">Leftover Absorb</span>
+                      <span className="text-xs text-zinc-700">Leftover Absorb</span>
                       <SymInput field="leftOverInventoryAbsorb" type="number" sym="%" formData={formData} setFormField={setFormField} />
                     </div>
                   </div>
@@ -592,7 +592,7 @@ export default function ProjectDetails({
 
               {/* Group 3 */}
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-                <span className="text-xs text-gray-600">Raw Matl Markup</span>
+                <span className="text-xs text-zinc-700">Raw Matl Markup</span>
                 <SymInput field="rawMaterialMarkup" type="number" sym="%" formData={formData} setFormField={setFormField} />
               </div>
           </div>
@@ -601,7 +601,7 @@ export default function ProjectDetails({
       </div>
 
       {/* Raw Material outputs panel */}
-      {!notRequired["section-raw-materials"] && (() => {
+      {rawMatOpen && !notRequired["section-raw-materials"] && (() => {
         const customerProvides = (formData.rawMaterialProvider || "customer") === "customer";
         const overagePct     = parseFloat(formData.materialOverage as string) || 0;
         const reqGrams       = Math.ceil(baseQty * (1 + overagePct / 100)) * unitWeightG;
@@ -636,19 +636,19 @@ export default function ProjectDetails({
           <div className="mt-4">
             {/* Intake Pallet Weight */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Intake Pallet Weight</span>
+              <span className="text-xs text-zinc-700">Intake Pallet Weight</span>
               <div className="flex items-center w-full sm:w-44">
                 <input
                   type="number"
                   value={(formData as any).intakePalletWeightValue ?? ""}
                   onChange={e => setFormField("intakePalletWeightValue" as keyof typeof formData, e.target.value)}
                   placeholder="1200"
-                  className="flex-1 min-w-0 h-9 px-3 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
+                  className="flex-1 min-w-0 h-9 px-3 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
                 />
                 <select
                   value={(formData as any).intakePalletWeightUom ?? "lbs"}
                   onChange={e => setFormField("intakePalletWeightUom" as keyof typeof formData, e.target.value)}
-                  className="text-[0.6rem] font-medium text-gray-500 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
+                  className="text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
                 >
                   {["lbs", "kg", "g", "oz", "t"].map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -657,7 +657,7 @@ export default function ProjectDetails({
 
             {/* # Intake Pallets — auto-calculated default, still editable, with collapsible calc table */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600"># Intake Pallets</span>
+              <span className="text-xs text-zinc-700"># Intake Pallets</span>
               <div className="flex items-center gap-2">
                 <SymInput
                   field="numIntakePallets"
@@ -669,7 +669,7 @@ export default function ProjectDetails({
                 <button
                   type="button"
                   onClick={() => setPalletCalcOpen(o => !o)}
-                  className="flex items-center gap-1 text-[0.65rem] font-medium text-gray-400 hover:text-[#e8473f] transition-colors shrink-0"
+                  className="flex items-center gap-1 text-[0.65rem] font-medium text-zinc-600 hover:text-[#e8473f] transition-colors shrink-0"
                 >
                   {palletCalcOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   How is this calculated?
@@ -679,26 +679,26 @@ export default function ProjectDetails({
             {palletCalcOpen && (
               <div className="ml-50 mb-2 border border-gray-200 rounded-md overflow-hidden max-w-sm">
                 {/* Formula header */}
-                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[0.62rem] text-gray-500 font-mono">
+                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[0.62rem] text-zinc-600 font-mono">
                   ⌈ Raw Material (lbs) ÷ Pallet Weight (lbs) ⌉
                 </div>
                 <table className="w-full text-[0.7rem]">
                   <tbody>
                     <tr className="border-b border-gray-100">
-                      <td className="px-2.5 py-1.5 text-gray-400 font-mono text-[0.6rem]">Raw Material (lbs)</td>
-                      <td className="px-2.5 py-1.5 text-right text-gray-800 font-medium tabular-nums">{fmtN(intakeReqLbs)} lbs</td>
+                      <td className="px-2.5 py-1.5 text-zinc-600 font-mono text-[0.6rem]">Raw Material (lbs)</td>
+                      <td className="px-2.5 py-1.5 text-right text-zinc-900 font-medium tabular-nums">{fmtN(intakeReqLbs)} lbs</td>
                     </tr>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <td className="px-2.5 py-1.5 text-gray-400 font-mono text-[0.6rem]">÷ Pallet Weight (lbs)</td>
-                      <td className="px-2.5 py-1.5 text-right text-gray-800 font-medium tabular-nums">{fmtN(intakePalletWtLbs)} lbs</td>
+                      <td className="px-2.5 py-1.5 text-zinc-600 font-mono text-[0.6rem]">÷ Pallet Weight (lbs)</td>
+                      <td className="px-2.5 py-1.5 text-right text-zinc-900 font-medium tabular-nums">{fmtN(intakePalletWtLbs)} lbs</td>
                     </tr>
                     <tr className="border-b border-gray-100 bg-amber-50/40">
-                      <td className="px-2.5 py-1.5 text-gray-400 font-mono text-[0.6rem]">= {intakePalletWtLbs > 0 ? `${fmtN(intakeReqLbs)} ÷ ${fmtN(intakePalletWtLbs)}` : "—"}</td>
-                      <td className="px-2.5 py-1.5 text-right text-gray-600 tabular-nums">{intakePalletWtLbs > 0 ? (intakeReqLbs / intakePalletWtLbs).toFixed(2) : "—"}</td>
+                      <td className="px-2.5 py-1.5 text-zinc-600 font-mono text-[0.6rem]">= {intakePalletWtLbs > 0 ? `${fmtN(intakeReqLbs)} ÷ ${fmtN(intakePalletWtLbs)}` : "—"}</td>
+                      <td className="px-2.5 py-1.5 text-right text-zinc-700 tabular-nums">{intakePalletWtLbs > 0 ? (intakeReqLbs / intakePalletWtLbs).toFixed(2) : "—"}</td>
                     </tr>
                     <tr>
-                      <td className="px-2.5 py-1.5 text-gray-700 font-semibold">⌈ result ⌉ = # Pallets</td>
-                      <td className="px-2.5 py-1.5 text-right text-gray-900 font-bold tabular-nums">{autoIntakePallets > 0 ? fmtN(autoIntakePallets) : "—"}</td>
+                      <td className="px-2.5 py-1.5 text-zinc-800 font-semibold">⌈ result ⌉ = # Pallets</td>
+                      <td className="px-2.5 py-1.5 text-right text-zinc-950 font-bold tabular-nums">{autoIntakePallets > 0 ? fmtN(autoIntakePallets) : "—"}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -706,11 +706,11 @@ export default function ProjectDetails({
             )}
 
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Inventory Handling Fee</span>
+              <span className="text-xs text-zinc-700">Inventory Handling Fee</span>
               <SymInput field="inventoryHandlingFee" type="number" sym="$" formData={formData} setFormField={setFormField} />
             </div>
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-gray-600">Intake Fee Markup</span>
+              <span className="text-xs text-zinc-700">Intake Fee Markup</span>
               <SymInput field="intakeFeeMarkup" type="number" sym="%" formData={formData} setFormField={setFormField} />
             </div>
           </div>
@@ -719,7 +719,7 @@ export default function ProjectDetails({
       </div>
 
       {/* Inventory Handling outputs panel */}
-      {!notRequired["section-inventory-handling"] && (() => {
+      {invHandlingOpen && !notRequired["section-inventory-handling"] && (() => {
         const numIntakePallets  = parseFloat(formData.numIntakePallets as string) || autoIntakePallets;
         const invHandlingFee    = parseFloat((formData as any).inventoryHandlingFee as string) || 0;
         const intakeMarkup      = parseFloat(formData.intakeFeeMarkup as string) || 0;
@@ -779,9 +779,9 @@ export default function ProjectDetails({
                 <table className="w-full border-collapse mb-2">
                   <thead>
                     <tr className="border-b border-gray-100">
-                      <th className="text-left text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 pr-3">Test Type</th>
-                      <th className="text-right text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 w-20"># SKUs</th>
-                      <th className="text-right text-[0.55rem] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 w-28 pl-3">Cost / test</th>
+                      <th className="text-left text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 pr-3">Test Type</th>
+                      <th className="text-right text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 w-20"># SKUs</th>
+                      <th className="text-right text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-1.5 w-28 pl-3">Cost / test</th>
                       <th className="w-6" />
                     </tr>
                   </thead>
@@ -795,7 +795,7 @@ export default function ProjectDetails({
                               <select
                                 value={row.testType}
                                 onChange={e => updateRow(row.id, { testType: e.target.value, customTestName: "" })}
-                                className={`h-8 px-2 border border-amber-200 text-xs text-gray-900 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md ${row.testType === "Custom" ? "w-28 shrink-0" : "flex-1"}`}
+                                className={`h-8 px-2 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md ${row.testType === "Custom" ? "w-28 shrink-0" : "flex-1"}`}
                               >
                                 <option value="" disabled>— select test type —</option>
                                 {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -806,7 +806,7 @@ export default function ProjectDetails({
                                   value={row.customTestName}
                                   onChange={e => updateRow(row.id, { customTestName: e.target.value })}
                                   placeholder="Custom test name"
-                                  className="flex-1 min-w-0 h-8 px-2 border border-amber-200 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
+                                  className="flex-1 min-w-0 h-8 px-2 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
                                 />
                               )}
                             </div>
@@ -826,7 +826,7 @@ export default function ProjectDetails({
                           </td>
                           <td className="py-1.5 pl-2">
                             <button type="button" onClick={() => removeRow(row.id)}
-                              className="text-gray-300 hover:text-red-400 text-base leading-none transition-colors" title="Remove">×</button>
+                              className="text-zinc-500 hover:text-red-400 text-base leading-none transition-colors" title="Remove">×</button>
                           </td>
                         </tr>
                       );
@@ -838,16 +838,16 @@ export default function ProjectDetails({
                   <Plus size={11} strokeWidth={2.5} />Add Test
                 </button>
                 <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                  <span className="text-[0.65rem] text-gray-500">Markup on total testing cost:</span>
+                  <span className="text-[0.65rem] text-zinc-600">Markup on total testing cost:</span>
                   <div className="flex items-center w-28">
                     <CurrencyInput type="percent" value={testingMarkup}
                       onChange={v => setFormField("testingMarkup", String(v))} className={inputWithSuffix} />
                     <span className={suffixBadge}>%</span>
                   </div>
                   {totalOur > 0 && (
-                    <span className="text-[0.6rem] text-gray-400 ml-auto">
-                      Our cost: <span className="font-semibold text-gray-600">${totalOur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      {" · "}Customer: <span className="font-semibold text-gray-600">${totalCx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-[0.6rem] text-zinc-600 ml-auto">
+                      Our cost: <span className="font-semibold text-zinc-700">${totalOur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      {" · "}Customer: <span className="font-semibold text-zinc-700">${totalCx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </span>
                   )}
                 </div>
@@ -857,7 +857,7 @@ export default function ProjectDetails({
           </div>
 
           {/* Testing outputs panel */}
-          {!notRequired["section-testing"] && <div className={outPanel}>
+          {testingOpen && !notRequired["section-testing"] && <div className={outPanel}>
             <div className={outTitle}>Testing Outputs</div>
             <div className={outRow}><span className={outLbl}>Markup</span><span className={outVal}>{testingMarkup > 0 ? `${testingMarkup}%` : "—"}</span></div>
             <div className={outCostSep}>Testing Costs</div>
@@ -938,9 +938,9 @@ export function MoqSection({
   }, [notRequired["section-moq"]]);
 
   const addRowBtn = "flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors";
-  const inp = "h-8 w-full px-2 border border-amber-300 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
-  const inpRo = "h-8 w-full px-2 border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50 rounded-md select-none tabular-nums";
-  const colHead = "text-[0.6rem] font-semibold text-gray-500 uppercase tracking-widest";
+  const inp = "h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
+  const inpRo = "h-8 w-full px-2 border border-gray-200 text-xs font-semibold text-zinc-800 bg-gray-50 rounded-md select-none tabular-nums";
+  const colHead = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-widest";
 
   const removeMoqRow = (id: number) => setMoqRows(prev => prev.filter(r => r.id !== id));
   const updateMoqRow = (id: number, field: keyof MoqRow, value: string) =>
@@ -989,10 +989,10 @@ export function MoqSection({
         <div className="px-4 pt-3 pb-2 flex items-center gap-3 border-b border-gray-100">
           <button type="button" onClick={() => setMoqOpen(o => !o)}
             className="flex items-center gap-1.5 group">
-            <span className="text-sm font-bold text-gray-900 group-hover:text-[#e8473f] transition-colors">MOQ + Case Pack Configuration</span>
+            <span className="text-sm font-bold text-zinc-950 group-hover:text-[#e8473f] transition-colors">MOQ + Case Pack Configuration</span>
             {moqOpen && !notRequired["section-moq"]
-              ? <ChevronUp size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />
-              : <ChevronDown size={13} className="text-gray-300 group-hover:text-[#e8473f] transition-colors shrink-0" />}
+              ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
+              : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
           </button>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {moqOpen && !notRequired["section-moq"] && (
@@ -1055,12 +1055,12 @@ export function MoqSection({
                   <div key={row.id} className={`rounded-lg border ${isFirst ? "border-amber-300 bg-amber-50/30" : "border-gray-200 bg-white"}`}>
                     {/* Row label */}
                     <div className="px-3 pt-2 pb-1 flex items-center gap-2">
-                      <span className={`text-[0.55rem] font-bold uppercase tracking-widest ${isFirst ? "text-amber-600" : "text-gray-400"}`}>
+                      <span className={`text-[0.55rem] font-bold uppercase tracking-widest ${isFirst ? "text-amber-600" : "text-zinc-600"}`}>
                         {isFirst ? "Base MOQ" : `MOQ Option ${rowIndex + 1}`}
                       </span>
                       {moqResult && naturalPpuCost > 0 && (
-                        <span className="text-[0.55rem] text-gray-400">
-                          Cost PPU: <span className="font-semibold text-gray-600">{fmtCurrency(naturalPpuCost)}</span>
+                        <span className="text-[0.55rem] text-zinc-600">
+                          Cost PPU: <span className="font-semibold text-zinc-700">{fmtCurrency(naturalPpuCost)}</span>
                         </span>
                       )}
                     </div>
@@ -1081,25 +1081,25 @@ export function MoqSection({
                       <div className="space-y-1">
                         <div className="flex items-center gap-1">
                           <div className="flex items-center flex-1 min-w-0">
-                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-gray-500 rounded-l-md shrink-0 select-none whitespace-nowrap">/inn</span>
+                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-zinc-600 rounded-l-md shrink-0 select-none whitespace-nowrap">/inn</span>
                             <CurrencyInput type="integer"
                               value={innerPack}
                               onChange={v => updateMoqRow(row.id, "unitsPerInner", String(v))}
                               placeholder={suggestedCasePack.unitsPerInner > 0 ? String(suggestedCasePack.unitsPerInner) : "0"}
-                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`} />
+                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`} />
                           </div>
-                          <span className="text-[0.6rem] text-gray-400 shrink-0">×</span>
+                          <span className="text-[0.6rem] text-zinc-600 shrink-0">×</span>
                           <div className="flex items-center flex-1 min-w-0">
-                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-gray-500 rounded-l-md shrink-0 select-none whitespace-nowrap">/mst</span>
+                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-zinc-600 rounded-l-md shrink-0 select-none whitespace-nowrap">/mst</span>
                             <CurrencyInput type="integer"
                               value={masterPack}
                               onChange={v => updateMoqRow(row.id, "innersPerMaster", String(v))}
                               placeholder={suggestedCasePack.innersPerMaster > 0 ? String(suggestedCasePack.innersPerMaster) : "0"}
-                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`} />
+                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`} />
                           </div>
                         </div>
                         {(innerCount > 0 || masterCount > 0) && (
-                          <p className="text-[0.58rem] text-gray-400 leading-tight">
+                          <p className="text-[0.58rem] text-zinc-600 leading-tight">
                             {innerCount > 0 && <>{innerCount} inners{masterCount > 0 ? ` · ${masterCount} masters` : ""}</>}
                           </p>
                         )}
@@ -1109,13 +1109,13 @@ export function MoqSection({
 
                       {/* PPU — editable, 2-way with margin */}
                       <div className="flex items-center">
-                        <span className="h-8 px-2 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-gray-500 rounded-l-md shrink-0 select-none">$</span>
+                        <span className="h-8 px-2 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-zinc-600 rounded-l-md shrink-0 select-none">$</span>
                         <input
                           type="number" step="0.0001" min={0}
                           value={displayPpu}
                           onChange={e => handlePpuChange(row.id, e.target.value)}
                           placeholder={naturalPpu > 0 ? naturalPpu.toFixed(4) : "0.0000"}
-                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md tabular-nums"
+                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md tabular-nums"
                         />
                       </div>
 
@@ -1126,9 +1126,9 @@ export function MoqSection({
                           value={displayMargin}
                           onChange={e => handleMarginChange(row.id, e.target.value)}
                           placeholder={moqResult ? moqResult.marginPct.toFixed(2) : "0.00"}
-                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-xs text-gray-900 placeholder:text-gray-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-l-md tabular-nums"
+                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-l-md tabular-nums"
                         />
-                        <span className="h-8 px-2 flex items-center border border-l-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-gray-500 rounded-r-md shrink-0 select-none">%</span>
+                        <span className="h-8 px-2 flex items-center border border-l-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-zinc-600 rounded-r-md shrink-0 select-none">%</span>
                       </div>
 
                       {/* Revenue — read-only */}
@@ -1136,7 +1136,7 @@ export function MoqSection({
                         {revenue != null ? (
                           <span className="text-[#e8473f]">{fmtCurrency(revenue)}</span>
                         ) : (
-                          <span className="text-gray-300 font-normal text-[0.65rem]">—</span>
+                          <span className="text-zinc-500 font-normal text-[0.65rem]">—</span>
                         )}
                       </div>
 
@@ -1144,7 +1144,7 @@ export function MoqSection({
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => setPalletToolRowId(row.id)}
                           title="Pallet calculator"
-                          className="text-gray-300 hover:text-amber-500 transition-colors p-0.5">
+                          className="text-zinc-500 hover:text-amber-500 transition-colors p-0.5">
                           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
                             <rect x="1" y="1" width="14" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/>
                             <text x="8" y="11" textAnchor="middle" fontSize="8" fontWeight="bold">🧮</text>
@@ -1152,7 +1152,7 @@ export function MoqSection({
                         </button>
                         <button type="button" onClick={() => setFillRateRowId(row.id)}
                           title={hasRateOverrides ? "Custom fill rates active" : "Fill rate overrides"}
-                          className={`transition-colors p-0.5 ${hasRateOverrides ? "text-[#e8473f]" : "text-gray-300 hover:text-[#e8473f]"}`}>
+                          className={`transition-colors p-0.5 ${hasRateOverrides ? "text-[#e8473f]" : "text-zinc-500 hover:text-[#e8473f]"}`}>
                           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
                             <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
                             <circle cx="8" cy="8" r="2" fill="currentColor"/>
@@ -1164,35 +1164,35 @@ export function MoqSection({
                         </button>
                         {moqRows.length > 1 && (
                           <button type="button" onClick={() => removeMoqRow(row.id)}
-                            className="text-gray-300 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
+                            className="text-zinc-500 hover:text-red-400 transition-colors p-0.5"><Trash2 size={12} /></button>
                         )}
                       </div>
                     </div>
 
                     {/* Secondary row — cost/gram override + pallet override */}
                     <div className="px-3 pb-2.5 flex items-center gap-4 border-t border-gray-100/60 pt-1.5">
-                      <span className="text-[0.55rem] text-gray-400 uppercase tracking-widest shrink-0">Overrides</span>
+                      <span className="text-[0.55rem] text-zinc-600 uppercase tracking-widest shrink-0">Overrides</span>
                       {/* Pallets */}
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-[0.6rem] text-gray-400 shrink-0">Pallets:</span>
+                        <span className="text-[0.6rem] text-zinc-600 shrink-0">Pallets:</span>
                         <input type="text" inputMode="numeric"
                           value={row.pallets ?? ""}
                           onChange={e => updateMoqRow(row.id, "pallets", e.target.value)}
                           placeholder={autoPallets !== null ? String(autoPallets) : "auto"}
-                          className="h-6 w-16 px-1.5 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md" />
+                          className="h-6 w-16 px-1.5 border border-amber-300 text-[0.7rem] text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md" />
                         {hasRateOverrides && <span className="text-[0.58rem] text-[#e8473f] font-medium shrink-0">⚙ custom rates</span>}
                       </div>
                       {/* Cost/gram */}
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-[0.6rem] text-gray-400 shrink-0">Cost/g:</span>
+                        <span className="text-[0.6rem] text-zinc-600 shrink-0">Cost/g:</span>
                         <input type="text" inputMode="decimal"
                           value={row.costPerGram ?? ""}
                           onChange={e => updateMoqRow(row.id, "costPerGram", e.target.value)}
                           placeholder={derivedCostPerGram !== null ? derivedCostPerGram.toFixed(4) : "0.0000"}
-                          className="h-6 w-24 px-1.5 border border-amber-300 text-[0.7rem] text-gray-900 placeholder:text-gray-400 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md font-mono" />
+                          className="h-6 w-24 px-1.5 border border-amber-300 text-[0.7rem] text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md font-mono" />
                         {row.costPerGram !== undefined && row.costPerGram !== "" && (
                           <button type="button" onClick={() => updateMoqRow(row.id, "costPerGram", "")}
-                            title="Reset to derived" className="text-[0.6rem] text-gray-300 hover:text-[#e8473f] transition-colors">↺</button>
+                            title="Reset to derived" className="text-[0.6rem] text-zinc-500 hover:text-[#e8473f] transition-colors">↺</button>
                         )}
                       </div>
                     </div>
