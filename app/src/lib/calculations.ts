@@ -321,7 +321,10 @@ export function computeDetailSections(
   // ── Pallets — auto-calculated from total project weight ───────────────────────
   const outboundFeeMarkup    = n(formData.outboundFeeMarkup);
   const palletBuffer         = n(formData.palletBuffer);
-  const maxPalletWeightLbs   = n(formData.maxPalletWeightLbs) || 2000;
+  const WEIGHT_TO_LBS: Record<string, number> = { lbs: 1, kg: 2.20462, g: 0.00220462, oz: 0.0625, t: 2204.62 };
+  const maxPalletWeightRaw   = n(formData.maxPalletWeightLbs) || 2000;
+  const maxPalletWeightUom   = formData.maxPalletWeightUom ?? "lbs";
+  const maxPalletWeightLbs   = maxPalletWeightRaw * (WEIGHT_TO_LBS[maxPalletWeightUom] ?? 1);
   const maxPalletWeightG     = maxPalletWeightLbs * 453.592;
 
   // Sum packaging weights: delivered units (no overage) × per-unit packaging weight

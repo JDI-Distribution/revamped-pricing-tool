@@ -1,7 +1,8 @@
 ﻿
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Info, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { MoqRow, ProjectFormData, TestingRow, PackagingLevel } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
 import CurrencyInput, { CurrencyInputType } from "@/components/ui/CurrencyInput";
@@ -13,7 +14,8 @@ import { defaultPackagingLevel } from "@/components/project/PackagingLevels";
 import { RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
 
 // Grams per display unit — for converting when the unit dropdown changes
-const GRAMS_PER: Record<string, number> = { g: 1, kg: 1000, oz: 28.3495, lbs: 453.592, "fl oz": 29.5735, mL: 1, L: 1000, lb: 453.592, mg: 0.001 };
+const GRAMS_PER: Record<string, number> = { g: 1, kg: 1000, oz: 28.3495, lbs: 453.592, "fl oz": 29.5735, mL: 1, L: 1000, lb: 453.592, mg: 0.001, "metric ton": 1000000 };
+const MANUFACTURING_MOQ_UNITS = ["g", "kg", "lb", "lbs", "oz", "metric ton"] as const;
 
 const emptyMoqRow = (): MoqRow => ({
   id: uid(),
@@ -33,6 +35,80 @@ const prefixBadge =
   "text-[0.6rem] font-medium text-zinc-600 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
 const suffixBadge =
   "text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-r-md select-none";
+
+function SetupMarginPopover({
+  anchorRef,
+  ourCost,
+  marginPct,
+  onMarginChange,
+  onClose,
+}: {
+  anchorRef: { current: HTMLButtonElement | null };
+  ourCost: number;
+  marginPct: number;
+  onMarginChange: (marginPct: number) => void;
+  onClose: () => void;
+}) {
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const sellingPrice = marginPct < 100 ? ourCost / (1 - marginPct / 100) : 0;
+  const fmtD = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+  useEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + window.scrollY + 6, left: rect.left + window.scrollX });
+    }
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [anchorRef, onClose]);
+
+  return createPortal(
+    <div ref={popRef}
+      style={{ position: "absolute", top: pos.top, left: pos.left, zIndex: 9999, width: 300 }}
+      className="bg-white border border-gray-200 rounded-xl shadow-xl shadow-gray-200/80 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border-b border-amber-200">
+        <span className="text-[0.65rem] font-bold text-amber-800 uppercase tracking-wider">Setup + QA Margin</span>
+        <button type="button" onClick={onClose} className="text-zinc-600 hover:text-zinc-800 text-lg leading-none">×</button>
+      </div>
+      <div className="px-3 py-2 space-y-2 text-[0.65rem]">
+        <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
+          <span className="text-zinc-500">Our original cost</span>
+          <span className="font-semibold text-zinc-900 tabular-nums">{ourCost > 0 ? fmtD(ourCost) : "—"}</span>
+          <span className="text-zinc-500">Selling price</span>
+          <span className="font-bold text-[#e8473f] tabular-nums">{sellingPrice > 0 ? fmtD(sellingPrice) : "—"}</span>
+        </div>
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <span className="text-zinc-600 shrink-0">Margin</span>
+          <div className="flex items-center flex-1 min-w-0">
+            <CurrencyInput
+              type="rate"
+              value={marginPct}
+              min={0}
+              max={95}
+              onChange={onMarginChange}
+              className="h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l"
+            />
+            <span className="h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-r select-none shrink-0">%</span>
+          </div>
+        </div>
+        <p className="text-[0.56rem] leading-snug text-zinc-500">
+          Formula: our cost ÷ (1 - margin). Changing margin updates the Setup + QA Fee.
+        </p>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 
 
@@ -109,10 +185,15 @@ export default function ProjectDetails({
   const [convOpen,        setConvOpen]        = useState(false);
   const [convPrefill,     setConvPrefill]     = useState<ConversionPrefill | undefined>();
   const [cpoOpen,         setCpoOpen]         = useState(true);
+  const [mfgMoqOpen,      setMfgMoqOpen]      = useState(false);
   const [rawMatOpen,      setRawMatOpen]      = useState(true);
   const [invHandlingOpen, setInvHandlingOpen] = useState(true);
   const [palletCalcOpen,  setPalletCalcOpen]  = useState(false);
+  const [setupMarginOpen, setSetupMarginOpen] = useState(false);
+  const [setupMarginPct,  setSetupMarginPct]  = useState(60);
+  const setupMarginBtnRef = useRef<HTMLButtonElement | null>(null);
   const lastAutoIntakePallets = useRef<string | null>(null);
+  const lastAutoMfgNetFillG = useRef<string | null>(null);
   const [testingOpen,     setTestingOpen]     = useState(true);
   const { setTestingRows, packagingLevels, setPackagingLevels } = useProject();
   const { notRequired } = useSectionRequired();
@@ -138,6 +219,59 @@ export default function ProjectDetails({
     setConvOpen(true);
   };
 
+  const handleSetupMarginChange = (marginPct: number) => {
+    setSetupMarginPct(marginPct);
+    const ourCost = parseFloat(formData.setupFeeOur) || 0;
+    if (ourCost > 0 && marginPct < 100) {
+      const sellingPrice = ourCost / (1 - marginPct / 100);
+      setFormField("setupFeeCustomer", String(Number(sellingPrice.toFixed(2))));
+    }
+  };
+
+  const manufacturerQty = parseFloat(formData.manufacturingMoqQty ?? "") || 0;
+  const manufacturerUom = formData.manufacturingMoqUom ?? "kg";
+  const autoNetFillG = (parseFloat(formData.unitWeight) || 0) * (GRAMS_PER[formData.unitWeightUnit ?? "g"] ?? 1);
+  const autoNetFillGStr = autoNetFillG > 0 ? String(Number(autoNetFillG.toFixed(4))) : "";
+  const finishedNetFillG = parseFloat(formData.manufacturingMoqNetFillG ?? "") || 0;
+  const reservePct = parseFloat(formData.manufacturingMoqReservePct ?? "") || 0;
+  const reserveUnits = parseFloat(formData.manufacturingMoqReserveUnits ?? "") || 0;
+  const roundingIncrement = Math.max(1, parseFloat(formData.manufacturingMoqRoundingIncrement ?? "") || 1);
+  const roundingMode = formData.manufacturingMoqRoundingMode ?? "down";
+  const totalManufacturerGrams = manufacturerQty * (GRAMS_PER[manufacturerUom] ?? 1);
+  const theoreticalFinishedUnits = finishedNetFillG > 0 ? totalManufacturerGrams / finishedNetFillG : 0;
+  const reserveAdjustedUnits = Math.max(0, theoreticalFinishedUnits * (1 - reservePct / 100) - reserveUnits);
+  const recommendedCustomerMoq = reserveAdjustedUnits > 0
+    ? roundingMode === "up"
+      ? Math.ceil(reserveAdjustedUnits / roundingIncrement) * roundingIncrement
+      : roundingMode === "nearest"
+        ? Math.round(reserveAdjustedUnits / roundingIncrement) * roundingIncrement
+        : Math.floor(reserveAdjustedUnits / roundingIncrement) * roundingIncrement
+    : 0;
+  const applyMfgMoqToPpu = formData.manufacturingMoqApplyToPpu === "true";
+  const fmtInt = (n: number) => n > 0 ? Math.round(n).toLocaleString("en-US") : "—";
+  const fmtDec = (n: number) => n > 0 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—";
+  const applyManufacturingMoq = () => {
+    if (recommendedCustomerMoq > 0) {
+      setFormField("ppuDenominator", String(Math.round(recommendedCustomerMoq)));
+    }
+  };
+
+  useEffect(() => {
+    if (applyMfgMoqToPpu && recommendedCustomerMoq > 0) {
+      const next = String(Math.round(recommendedCustomerMoq));
+      if (formData.ppuDenominator !== next) setFormField("ppuDenominator", next);
+    }
+  }, [applyMfgMoqToPpu, recommendedCustomerMoq, formData.ppuDenominator, setFormField]);
+
+  useEffect(() => {
+    const current = formData.manufacturingMoqNetFillG ?? "";
+    const isUntouched = current === "" || current === lastAutoMfgNetFillG.current;
+    if (autoNetFillGStr && isUntouched && current !== autoNetFillGStr) {
+      setFormField("manufacturingMoqNetFillG" as keyof ProjectFormData, autoNetFillGStr);
+    }
+    if (autoNetFillGStr) lastAutoMfgNetFillG.current = autoNetFillGStr;
+  }, [autoNetFillGStr]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── Design tokens ─────────────────────────────────────────── */
   const card       = "bg-white border border-gray-200 rounded-xl overflow-hidden flex-1 min-w-0 max-w-4xl";
   const sectionRow = "flex gap-5 items-start px-4 md:px-6 mb-4";
@@ -147,8 +281,21 @@ export default function ProjectDetails({
   const outLbl      = "text-[0.68rem] text-zinc-600 leading-tight";
   const outVal      = "text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right shrink-0 ml-2";
   const outCostSep  = "px-3 py-1.5 text-[0.52rem] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 border-b border-blue-200";
-  const outOurVal   = "text-[0.72rem] font-semibold text-zinc-800 tabular-nums text-right shrink-0 ml-2";
   const outCxVal    = "text-[0.72rem] font-bold text-[#e8473f] tabular-nums text-right shrink-0 ml-2";
+  const outPairOurVal = "text-[0.72rem] font-semibold text-zinc-800 tabular-nums";
+  const outPairCxVal  = "text-[0.72rem] font-bold text-[#e8473f] tabular-nums";
+  const outputCostPair = (our: number, cx: number) => (
+    <div className="grid grid-cols-2 gap-3 px-3 py-2.5 border-b border-blue-100">
+      <div className="min-w-0">
+        <p className={`${outLbl} mb-1`}>Our Cost</p>
+        <p className={outPairOurVal}>{fv(our, fmtD)}</p>
+      </div>
+      <div className="min-w-0 text-right">
+        <p className={`${outLbl} mb-1`}>Selling Price</p>
+        <p className={outPairCxVal}>{fv(cx, fmtD)}</p>
+      </div>
+    </div>
+  );
   const marginBadge = (our: number, cx: number) => {
     if (cx <= 0 || our <= 0) return null;
     const pct = ((cx - our) / cx) * 100;
@@ -247,7 +394,10 @@ export default function ProjectDetails({
   const intakeOveragePct   = parseFloat(formData.materialOverage as string) || 0;
   const intakeReqGrams     = Math.ceil(baseQty * (1 + intakeOveragePct / 100)) * unitWeightG;
   const intakeReqLbs       = intakeReqGrams / 453.592;
-  const intakePalletWtLbs  = parseFloat((formData as any).intakePalletWeightValue) || 1200;
+  const WEIGHT_TO_LBS: Record<string, number> = { lbs: 1, kg: 2.20462, g: 0.00220462, oz: 0.0625, t: 2204.62 };
+  const intakePalletWtRaw  = parseFloat((formData as any).intakePalletWeightValue) || 1200;
+  const intakePalletWtUom  = (formData as any).intakePalletWeightUom ?? "lbs";
+  const intakePalletWtLbs  = intakePalletWtRaw * (WEIGHT_TO_LBS[intakePalletWtUom] ?? 1);
   const autoIntakePallets  = intakePalletWtLbs > 0 ? Math.ceil(intakeReqLbs / intakePalletWtLbs) : 0;
   const autoIntakePalletsStr = autoIntakePallets > 0 ? String(autoIntakePallets) : "";
 
@@ -282,7 +432,16 @@ export default function ProjectDetails({
 
             {/* Setup + QA Fee */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
-              <span className="text-xs text-zinc-700">Setup + QA Fee</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs text-zinc-700 whitespace-nowrap">Setup + QA Fee</span>
+                <button type="button"
+                  ref={setupMarginBtnRef}
+                  onClick={() => setSetupMarginOpen(o => !o)}
+                  title="Show setup margin"
+                  className="h-4 w-4 inline-flex items-center justify-center rounded-full border border-amber-400 text-amber-700 hover:bg-amber-100 transition-colors shrink-0">
+                  <Info size={10} />
+                </button>
+              </div>
               <div className="flex items-center w-40">
                 <span className={prefixBadge}>$</span>
                 <CurrencyInput type="dollar" value={parseFloat(formData.setupFeeCustomer) || 0}
@@ -342,7 +501,7 @@ export default function ProjectDetails({
                   Type here
                 </span>
                 <span className="flex items-center gap-1.5 text-[0.6rem] text-zinc-600">
-                  <span className="w-3 h-3 rounded-sm border border-gray-200 bg-gray-50 inline-block" />
+                  <span className="w-3 h-3 rounded-sm border border-orange-300 bg-orange-100/90 inline-block" />
                   Calculated
                 </span>
               </div>
@@ -399,7 +558,7 @@ export default function ProjectDetails({
                           </td>
                           {/* Required Qty — calculated */}
                           <td className="border-r border-gray-200 p-2">
-                            <div className="h-8 flex items-center px-2 border border-gray-200 bg-gray-50 rounded text-xs font-semibold text-zinc-700 tabular-nums">
+                            <div className="h-8 flex items-center px-2 border border-orange-300 bg-orange-100/90 rounded text-xs font-semibold text-zinc-800 tabular-nums">
                               {requiredQty > 0 ? requiredQty.toLocaleString() : <span className="text-zinc-500 font-normal">—</span>}
                             </div>
                           </td>
@@ -495,7 +654,7 @@ export default function ProjectDetails({
 
       {/* CPO outputs panel */}
       {cpoOpen && !notRequired["section-cpo"] && <div className={outPanel}>
-        <div className={outTitle}>Outputs</div>
+        <div className={outTitle}>Project Overview Outputs</div>
         {packagingLevels.map((lvl, i) => {
           const qty  = packagingRequiredQtys[i] ?? 0;
           const name = lvl.customLevelName?.trim() || lvl.packagingLevel || `Level ${i + 1}`;
@@ -519,14 +678,7 @@ export default function ProjectDetails({
           <span className={outVal}>{(parseFloat(formData.leadTimeBufferDays) || 0) > 0 ? ((parseFloat(formData.leadTimeBufferDays) || 0) / 7).toFixed(1) : "—"}</span>
         </div>
         <div className={outCostSep}>Setup + QA Costs</div>
-        <div className={outRow}>
-          <span className={outLbl}>Our Cost</span>
-          <span className={outOurVal}>{fv(parseFloat(formData.setupFeeOur) || 0, fmtD)}</span>
-        </div>
-        <div className={outRow}>
-          <span className={outLbl}>Customer Cost</span>
-          <span className={outCxVal}>{fv(parseFloat(formData.setupFeeCustomer) || 0, fmtD)}</span>
-        </div>
+        {outputCostPair(parseFloat(formData.setupFeeOur) || 0, parseFloat(formData.setupFeeCustomer) || 0)}
         {parseFloat((formData as any).projectManagementFee) > 0 && (
           <div className={outRow}>
             <span className={outLbl}>Project Mgmt Fee</span>
@@ -536,6 +688,129 @@ export default function ProjectDetails({
         {marginBadge(parseFloat(formData.setupFeeOur) || 0, parseFloat(formData.setupFeeCustomer) || 0)}
       </div>}
       </div>{/* end section-row CPO */}
+
+      {/* ── Manufacturing MOQ Conversion ────────────────────────────── */}
+      <div className={sectionRow}>
+      <div id="section-manufacturing-moq" className={card}>
+        <div className="px-5 pt-4 pb-1">
+          <SectionHeader title="Manufacturing MOQ Conversion" open={mfgMoqOpen} onToggle={() => setMfgMoqOpen(o => !o)} />
+        </div>
+        {mfgMoqOpen && (
+          <div className="px-5 pb-5">
+            <div className="divide-y divide-gray-100">
+              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                <span className="text-xs text-zinc-700">Manufacturer MOQ</span>
+                <div className="flex items-center w-full sm:w-64">
+                  <CurrencyInput
+                    type="rate"
+                    value={manufacturerQty}
+                    onChange={v => setFormField("manufacturingMoqQty" as keyof ProjectFormData, String(v))}
+                    className="h-9 flex-1 min-w-0 px-3 border border-amber-200 border-r-0 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
+                  />
+                  <select
+                    value={manufacturerUom}
+                    onChange={e => setFormField("manufacturingMoqUom" as keyof ProjectFormData, e.target.value)}
+                    className="text-[0.6rem] font-medium text-zinc-600 border border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
+                  >
+                    {MANUFACTURING_MOQ_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                <span className="text-xs text-zinc-700">Net Fill Weight</span>
+                <div className="flex items-center w-40">
+                  <CurrencyInput
+                    type="rate"
+                    value={finishedNetFillG}
+                    onChange={v => setFormField("manufacturingMoqNetFillG" as keyof ProjectFormData, String(v))}
+                    className={inputWithSuffix}
+                  />
+                  <span className={suffixBadge}>g</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                <span className="text-xs text-zinc-700">Reserve / Yield</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center w-32">
+                    <CurrencyInput
+                      type="percent"
+                      value={reservePct}
+                      onChange={v => setFormField("manufacturingMoqReservePct" as keyof ProjectFormData, String(v))}
+                      className={inputWithSuffix}
+                    />
+                    <span className={suffixBadge}>%</span>
+                  </div>
+                  <div className="flex items-center w-36">
+                    <CurrencyInput
+                      type="integer"
+                      value={reserveUnits}
+                      onChange={v => setFormField("manufacturingMoqReserveUnits" as keyof ProjectFormData, String(v))}
+                      className={inputWithSuffix}
+                    />
+                    <span className={suffixBadge}>units</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
+                <span className="text-xs text-zinc-700">Rounding</span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={roundingMode}
+                    onChange={e => setFormField("manufacturingMoqRoundingMode" as keyof ProjectFormData, e.target.value)}
+                    className="h-9 px-2 border border-amber-200 text-xs text-zinc-800 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md cursor-pointer"
+                  >
+                    <option value="down">Down</option>
+                    <option value="nearest">Nearest</option>
+                    <option value="up">Up</option>
+                  </select>
+                  <div className="flex items-center w-36">
+                    <CurrencyInput
+                      type="integer"
+                      value={roundingIncrement}
+                      onChange={v => setFormField("manufacturingMoqRoundingIncrement" as keyof ProjectFormData, String(v))}
+                      className={inputWithSuffix}
+                    />
+                    <span className={suffixBadge}>units</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 py-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={applyMfgMoqToPpu}
+                    onChange={e => setFormField("manufacturingMoqApplyToPpu" as keyof ProjectFormData, e.target.checked ? "true" : "false")}
+                    className="accent-[#e8473f] w-3.5 h-3.5"
+                  />
+                  <span className="text-xs text-zinc-800">Use for PPU Denominator</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={applyManufacturingMoq}
+                  disabled={recommendedCustomerMoq <= 0}
+                  className="h-8 px-3 text-[0.65rem] font-semibold text-[#e8473f] border border-[#e8473f]/40 rounded-md hover:bg-red-50 hover:border-[#e8473f]/70 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Apply MOQ
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {mfgMoqOpen && <div className={outPanel}>
+        <div className={outTitle}>MOQ Conversion Outputs</div>
+        <div className={outRow}><span className={outLbl}>Total Grams Required</span><span className={outVal}>{fmtDec(totalManufacturerGrams)}</span></div>
+        <div className={outRow}><span className={outLbl}>Theoretical Units</span><span className={outVal}>{fmtInt(theoreticalFinishedUnits)}</span></div>
+        <div className={outRow}><span className={outLbl}>Reserve Adjusted Units</span><span className={outVal}>{fmtInt(reserveAdjustedUnits)}</span></div>
+        <div className={outRow}><span className={outLbl}>Recommended MOQ</span><span className={outVal}>{fmtInt(recommendedCustomerMoq)}</span></div>
+        <div className={outRow}><span className={outLbl}>PPU Denominator</span><span className={outCxVal}>{fmtInt(parseFloat(formData.ppuDenominator) || 0)}</span></div>
+      </div>}
+      </div>
 
       {/* ── Raw Material ── */}
       <div className={sectionRow}><div id="section-raw-materials" className={card}>
@@ -619,8 +894,7 @@ export default function ProjectDetails({
             <div className={outRow}><span className={outLbl}>Materials — Req (lbs)</span><span className={outVal}>{fv(reqLbs, fmtN3)}</span></div>
             <div className={outRow}><span className={outLbl}>Cost per gram</span><span className={outVal}>{fv(cpg, fmtD)}</span></div>
             <div className={outCostSep}>Material Costs</div>
-            <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(rawMatOur, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(rawMatCustomer, fmtD)}</span></div>
+            {outputCostPair(rawMatOur, rawMatCustomer)}
             {marginBadge(rawMatOur, rawMatCustomer)}
           </div>
         );
@@ -732,8 +1006,7 @@ export default function ProjectDetails({
             <div className={outRow}><span className={outLbl}>Inventory Handling Fee</span><span className={outVal}>{fv(invHandlingFee, fmtD)}</span></div>
             <div className={outRow}><span className={outLbl}>Handling Fee Total</span><span className={outVal}>{fv(totalOur, fmtD)}</span></div>
             <div className={outCostSep}>Handling Costs</div>
-            <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCustomer, fmtD)}</span></div>
+            {outputCostPair(totalOur, totalCustomer)}
             {marginBadge(totalOur, totalCustomer)}
           </div>
         );
@@ -861,8 +1134,7 @@ export default function ProjectDetails({
             <div className={outTitle}>Testing Outputs</div>
             <div className={outRow}><span className={outLbl}>Markup</span><span className={outVal}>{testingMarkup > 0 ? `${testingMarkup}%` : "—"}</span></div>
             <div className={outCostSep}>Testing Costs</div>
-            <div className={outRow}><span className={outLbl}>Our Total</span><span className={outOurVal}>{fv(totalOur, fmtD)}</span></div>
-            <div className={outRow}><span className={outLbl}>Customer Total</span><span className={outCxVal}>{fv(totalCx, fmtD)}</span></div>
+            {outputCostPair(totalOur, totalCx)}
             {marginBadge(totalOur, totalCx)}
           </div>}
           </div>
@@ -872,6 +1144,16 @@ export default function ProjectDetails({
       {null /* Blending section removed */}
 
     </div>
+
+    {setupMarginOpen && (
+      <SetupMarginPopover
+        anchorRef={{ current: setupMarginBtnRef.current }}
+        ourCost={parseFloat(formData.setupFeeOur) || 0}
+        marginPct={setupMarginPct}
+        onMarginChange={handleSetupMarginChange}
+        onClose={() => setSetupMarginOpen(false)}
+      />
+    )}
 
     {/* Conversion Calculator — opened from Unit Size field */}
     <ConversionCalculator
@@ -939,7 +1221,7 @@ export function MoqSection({
 
   const addRowBtn = "flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors";
   const inp = "h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
-  const inpRo = "h-8 w-full px-2 border border-gray-200 text-xs font-semibold text-zinc-800 bg-gray-50 rounded-md select-none tabular-nums";
+  const inpRo = "h-8 w-full px-2 border border-orange-300 text-xs font-semibold text-zinc-800 bg-orange-100/90 rounded-md select-none tabular-nums";
   const colHead = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-widest";
 
   const removeMoqRow = (id: number) => setMoqRows(prev => prev.filter(r => r.id !== id));
@@ -1228,4 +1510,3 @@ export function MoqSection({
     </div>
   );
 }
-

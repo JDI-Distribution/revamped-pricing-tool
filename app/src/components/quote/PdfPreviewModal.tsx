@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { X, Download, ChevronLeft, ChevronRight, Check, FilePenLine } from "lucide-react";
 import { QuotePreview, CustomerInfo } from "@/lib/generateQuotePDF";
 
 interface Props {
@@ -51,6 +51,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
   const [regenerating, setRegenerating] = useState(false);
   const [saved,        setSaved]        = useState(false);
   const [activeZone,   setActiveZone]   = useState<string | null>(null);
+  const [editOpen,     setEditOpen]     = useState(false);
   const clickCapRef = useRef<HTMLDivElement>(null);
 
   const current = previews[index];
@@ -188,6 +189,14 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
       )}
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
+        {onRegenerate && (
+          <button type="button" onClick={() => setEditOpen(o => !o)}
+            className={`flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold rounded-lg transition-colors ${
+              editOpen ? "bg-teal-600 text-white" : "border border-gray-200 text-zinc-700 hover:border-teal-500 hover:text-teal-700"
+            }`}>
+            <FilePenLine size={11} /> {editOpen ? "Hide Details" : "Edit PDF Details"}
+          </button>
+        )}
         {previews.length > 1 && (
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setIndex(i => Math.max(0, i - 1))} disabled={index === 0}
@@ -201,7 +210,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
             </button>
           </div>
         )}
-        {onRegenerate && (
+        {editOpen && onRegenerate && (
           <button type="button" onClick={handleApply} disabled={regenerating}
             className={`flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold rounded-lg transition-colors disabled:opacity-40 ${
               saved ? "bg-teal-500 text-white" : "border border-teal-500 text-teal-600 hover:bg-teal-50"
@@ -232,7 +241,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── Left: edit panel (50%) ── */}
-        <div className="flex-1 bg-white border-r border-gray-100 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+        {editOpen && <div className="flex-1 bg-white border-r border-gray-100 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
 
           <div className="px-4 py-3 border-b border-gray-100 bg-teal-600 shrink-0">
             <p className="text-xs font-bold text-white">Quote Details</p>
@@ -346,7 +355,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
             </button>
             <p className="text-[0.55rem] text-zinc-600 text-center mt-1.5">PDF on the right refreshes after applying</p>
           </div>
-        </div>
+        </div>}
 
         {/* ── Right: scrollable PDF + clickable zone overlay ── */}
         <div className="flex-1 bg-gray-200 overflow-auto">
@@ -358,7 +367,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                 className="absolute inset-0 w-full h-full border-0" />
 
               {/* Section jump strips — prominent left-edge tabs */}
-              <div ref={clickCapRef} className="absolute inset-0 pointer-events-none">
+              {editOpen && <div ref={clickCapRef} className="absolute inset-0 pointer-events-none">
                 {ZONES.map(z => {
                   const isActive = activeZone === z.id;
                   return (
@@ -386,7 +395,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                     </button>
                   );
                 })}
-              </div>
+              </div>}
             </div>
           </div>
         </div>

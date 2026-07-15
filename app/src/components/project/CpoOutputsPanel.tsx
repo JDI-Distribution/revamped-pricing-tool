@@ -39,7 +39,7 @@ export default function CpoOutputsPanel({ style }: Props) {
       className="fixed z-10 w-52 bg-[#f0f4f8] border border-[#c8d8e8] rounded-xl p-4 shadow-sm overflow-y-auto max-h-[calc(100vh-80px)]"
       style={style}
     >
-      <p className="text-[0.55rem] font-semibold text-[#4a6080] uppercase tracking-widest mb-3">Outputs</p>
+      <p className="text-[0.55rem] font-semibold text-[#4a6080] uppercase tracking-widest mb-3">Project Overview Outputs</p>
 
       {packagingLevels.length > 0 && packagingLevels.map((lvl, i) => {
         const qty = packagingRequiredQtys[i] ?? 0;

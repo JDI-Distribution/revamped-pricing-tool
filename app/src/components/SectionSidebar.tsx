@@ -71,7 +71,8 @@ export default function SectionSidebar({ sections }: Props) {
                       - 8;
       rightPanel.scrollTo({ top: targetTop, behavior: "smooth" });
     } else {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      const targetTop = el.getBoundingClientRect().top + window.scrollY - NAVBAR_H - 8;
+      window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
     }
 
     setMobileOpen(false);

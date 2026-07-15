@@ -587,7 +587,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                             {outputsOpen[lvl.id] && (
                               <div className="flex justify-between">
                                 <span className="text-[0.52rem] font-bold text-zinc-600 uppercase tracking-wider">Our Cost</span>
-                                <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Customer</span>
+                                <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Selling Price</span>
                               </div>
                             )}
                           </td>

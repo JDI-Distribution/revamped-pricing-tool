@@ -282,21 +282,46 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       ["EMAIL",        brand.email],
     ];
 
-    const fieldLineH = 8;   // label (7pt) + 3.2mm gap to value (9pt) + 4.8mm breathing room
+    const fieldLineH = 10.5;   // allows wrapped values without clipping
     const drawField = (label: string, val: string, x: number, fy: number, maxW: number) => {
       sf("bold", 7); doc.setTextColor(...midGray);
       doc.text(label, x, fy);
       sf("normal", 9); doc.setTextColor(...gray);
-      // clip value to column width
-      const clipped = doc.splitTextToSize(val, maxW)[0] as string;
-      doc.text(clipped, x, fy + 3.5);
+      const wrapped = doc.splitTextToSize(val, maxW).slice(0, 2);
+      doc.text(wrapped, x, fy + 3.5);
     };
 
     const colW = W / 2 - 4;
-    leftFields.forEach(([label, val], i)  => drawField(label, val, L,       y + i * fieldLineH, colW));
-    rightFields.forEach(([label, val], i) => drawField(label, val, colMid,  y + i * fieldLineH, colW));
+    const drawInfoColumn = (fields: [string, string][], x: number, startY: number, width: number, boxed = false) => {
+      const prepared = fields.map(([label, val]) => ({
+        label,
+        lines: doc.splitTextToSize(val, boxed ? width - 5 : width).slice(0, 3) as string[],
+      }));
+      const boxH = prepared.reduce((sum, item) => sum + 4.2 + item.lines.length * 3.8 + 2, 4);
+      if (boxed) {
+        doc.setFillColor(248, 248, 248);
+        doc.setDrawColor(...ltGray);
+        doc.roundedRect(x - 2.5, startY - 4, width + 5, boxH, 1.2, 1.2, "FD");
+      }
 
-    y += leftFields.length * fieldLineH + 4;
+      let cy = startY;
+      prepared.forEach(({ label, lines }) => {
+        sf("bold", 6.8); doc.setTextColor(...midGray);
+        doc.text(label, x, cy);
+        sf("normal", 8.7); doc.setTextColor(...gray);
+        doc.text(lines, x, cy + 3.4);
+        cy += 4.2 + lines.length * 3.8 + 2;
+      });
+      return cy;
+    };
+
+    const leftBottom  = drawInfoColumn(leftFields, L, y, colW);
+    const rightBottom = drawInfoColumn(rightFields, colMid, y, colW, true);
+    doc.setDrawColor(...ltGray);
+    doc.setLineWidth(0.2);
+    doc.line(colMid - 4, y - 4, colMid - 4, Math.max(leftBottom, rightBottom) - 2);
+
+    y = Math.max(leftBottom, rightBottom) + 2;
     rule(y);
 
     // ── PROJECT OVERVIEW ──────────────────────────────────────────────────────
@@ -322,6 +347,12 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     // ── Packaging breakdown — single line with arrows (right column) ──
     const packRows = summaryTableRows.filter(str => !str.isLeadTimeSummary && (str.totalUnits ?? 0) > 0);
     const overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined = undefined;
+    const maxPackagingLineW = W / 2 - 2;
+    const packagingDisplayLines = packRows.flatMap(row => {
+      const lbl = row.label.replace(/ & Fees$/i, "");
+      const qty = Math.round(row.totalUnits ?? 0).toLocaleString();
+      return doc.splitTextToSize(`${lbl}: ${qty}`, maxPackagingLineW) as string[];
+    });
     if (packRows.length > 0) {
       // Build "Label (qty) → Label (qty) → …" single line
       const arrow = "  →  ";
@@ -335,11 +366,11 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       sf("bold", 7); doc.setTextColor(...midGray);
       doc.text("PACKAGING STRUCTURE", colMid, y);
 
-      const maxLineW = W / 2 - 2;
-      const wrapped = doc.splitTextToSize(fullLine, maxLineW);
+      void fullLine;
+      const wrapped = packagingDisplayLines;
       sf("normal", 8); doc.setTextColor(...gray);
       wrapped.forEach((line: string, li: number) => {
-        doc.text(line, colMid, y + 4 + li * 4.5);
+        doc.text(line, colMid, y + 4.5 + li * 4.4);
       });
     } else if (customer.projectOverview) {
       // fallback: custom text paragraph
@@ -350,7 +381,8 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       });
     }
 
-    const overviewSectionH = Math.max(overviewFields.length * fieldLineH, packRows.length > 0 ? 4 + packRows.length * 5.2 + 4 : 0);
+    const packagingLines = packagingDisplayLines.length;
+    const overviewSectionH = Math.max(overviewFields.length * fieldLineH, packRows.length > 0 ? 8 + packagingLines * 4.4 + 4 : 0);
     y += overviewSectionH + 4;
     rule(y);
 
@@ -466,13 +498,14 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         fontStyle: "bold", fontSize: 8,
         fillColor: [240, 240, 240],
         textColor: midGray,
+        halign: "left",
       },
       alternateRowStyles: { fillColor: rowEven },
       columnStyles: {
         0: { halign: "left",  cellWidth: "auto" },
-        1: { halign: "right", cellWidth: 26 },
-        2: { halign: "right", cellWidth: 28 },
-        3: { halign: "right", cellWidth: 28 },
+        1: { halign: "left", cellWidth: 26 },
+        2: { halign: "left", cellWidth: 28 },
+        3: { halign: "left", cellWidth: 28 },
       },
       willDrawCell: (data) => {
         if (data.section === "body" && data.row.index === totalsIdx) {
@@ -536,8 +569,8 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     sf("italic", 7.5); doc.setTextColor(...midGray);
     const disclaimerLines = doc.splitTextToSize(disclaimer, W);
-    const cancelLines     = doc.splitTextToSize(cancelPolicy, W - 28);
-    const footerH = 10 + cancelLines.length * 3.8 + 2 + disclaimerLines.length * 3.5 + 2;
+    const cancelLines     = doc.splitTextToSize(cancelPolicy, W);
+    const footerH = 18 + cancelLines.length * 3.8 + 7 + disclaimerLines.length * 3.5 + 12;
     checkPageBreak(footerH);
 
     rule(y, ltGray, 0.2);
@@ -549,17 +582,15 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     sf("bold", 8); doc.setTextColor(...gray);
     doc.text("Cancellation Policy", L, y);
     sf("normal", 8); doc.setTextColor(...midGray);
-    const cpW = doc.getTextWidth("Cancellation Policy  ");
-    doc.text(cancelLines[0], L + cpW, y);
-    if (cancelLines.length > 1) doc.text(cancelLines.slice(1), L, y + 3.8);
-    y += Math.max(cancelLines.length, 1) * 3.8 + 4;
+    y += 4;
+    doc.text(cancelLines, L, y);
+    y += Math.max(cancelLines.length, 1) * 3.8 + 5;
 
     sf("bold", 8); doc.setTextColor(...gray);
     doc.text("Quote Disclaimer", L, y);
     sf("italic", 7.5); doc.setTextColor(...midGray);
-    const qdW = doc.getTextWidth("Quote Disclaimer  ");
-    doc.text(disclaimerLines[0], L + qdW, y);
-    if (disclaimerLines.length > 1) doc.text(disclaimerLines.slice(1), L, y + 3.5);
+    y += 4;
+    doc.text(disclaimerLines, L, y);
 
     // ── Footer bar ────────────────────────────────────────────────────────────
     const footerY = pageH - 10;

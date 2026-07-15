@@ -16,6 +16,7 @@ export interface RecipeIngredient {
 
 export interface CoPackingProcess {
   id:                  string;
+  processType?:        "Blending/Batching" | "Filling" | "Custom";
   name:                string;
   units:               number;
   perOuter:            number;
@@ -158,6 +159,14 @@ export interface ProjectFormData {
   setupFeeCustomer: string;
   projectManagementFee: string;
   ppuDenominator: string;
+  manufacturingMoqQty?: string;
+  manufacturingMoqUom?: string;
+  manufacturingMoqNetFillG?: string;
+  manufacturingMoqReservePct?: string;
+  manufacturingMoqReserveUnits?: string;
+  manufacturingMoqRoundingMode?: "down" | "nearest" | "up";
+  manufacturingMoqRoundingIncrement?: string;
+  manufacturingMoqApplyToPpu?: string;
   // Material markups
   rawMaterialProvider?: string;  // "customer" | "us"
   materialOverage: string;

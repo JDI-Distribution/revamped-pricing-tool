@@ -420,7 +420,7 @@ export default function CoPackingDetails() {
               return (
                 <div>
                   <span className={labelCls}># of Intake Pallets (auto)</span>
-                  <div className="h-9 px-3 flex items-center text-xs text-zinc-800 font-semibold bg-gray-50 border border-gray-200 rounded-md tabular-nums">
+                  <div className="h-9 px-3 flex items-center text-xs text-zinc-800 font-semibold bg-orange-100/90 border border-orange-300 rounded-md tabular-nums">
                     {autoPallets > 0 ? autoPallets : "—"}
                     {autoPallets > 0 && <span className="ml-1.5 text-[0.6rem] text-zinc-600 font-normal">{rawLbs.toLocaleString("en-US", { maximumFractionDigits: 0 })} lbs total</span>}
                   </div>
@@ -1022,7 +1022,7 @@ export default function CoPackingDetails() {
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Units</td>
                 {cpCols.map((col, idx) => (
                   <td key={col.id} className="px-2 py-1">
-                    <div className={`${cpInputYellow} font-medium flex items-center justify-end text-zinc-600 cursor-default select-none bg-gray-50`}>
+                    <div className={`${cpInputYellow} font-semibold flex items-center justify-end text-zinc-800 cursor-default select-none bg-orange-100/90 border-orange-300`}>
                       {(cpSummaryRows[idx]?.units ?? 0).toLocaleString("en-US")}
                     </div>
                   </td>

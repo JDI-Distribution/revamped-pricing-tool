@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Info, Trash2 } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { CoPackingProcess, RecipeIngredient } from "@/lib/types";
 import { uid as _uid } from "@/lib/uid";
@@ -37,7 +37,7 @@ const labelCell =
 
 // ── Unit conversion to grams ──────────────────────────────────────────────────
 const TO_GRAMS: Record<string, number> = {
-  g: 1, kg: 1000, oz: 28.3495, lbs: 453.592, L: 1000, mL: 1, units: 1, batches: 1,
+  g: 1, kg: 1000, oz: 28.3495, lbs: 453.592, lb: 453.592, "fl oz": 29.5735, L: 1000, mL: 1, units: 1, batches: 1,
 };
 void ((grams: number, toUnit: string) => grams / (TO_GRAMS[toUnit] ?? 1)); // convertFromGrams — kept for future use
 
@@ -45,7 +45,37 @@ void ((grams: number, toUnit: string) => grams / (TO_GRAMS[toUnit] ?? 1)); // co
 const SPEED_UNITS_THROUGHPUT = ["units / min", "units / hr", "kg / hr", "lbs / hr", "g / min", "batches / hr"];
 const SPEED_UNITS_CYCLE      = ["min / unit", "min / batch", "hrs / batch"];
 const BATCH_SIZE_UNITS       = ["g", "kg", "oz", "lbs", "L", "mL", "units", "batches"];
+const PROCESS_NAME_OPTIONS   = ["Blending/Batching", "Filling", "Custom"] as const;
+type ProcessNameOption = typeof PROCESS_NAME_OPTIONS[number];
 // const INGREDIENT_UNITS    = ["g", "kg", "oz", "lbs", "L", "mL"]; // unused after recipe UI simplification
+
+const isProcessNameOption = (value: string): value is ProcessNameOption =>
+  PROCESS_NAME_OPTIONS.includes(value as ProcessNameOption);
+const getProcessType = (proc: CoPackingProcess): ProcessNameOption | "" =>
+  proc.processType ?? (isProcessNameOption(proc.name) ? proc.name : proc.name ? "Custom" : "");
+const displayProcessName = (proc: CoPackingProcess, fallback: string) =>
+  proc.name || getProcessType(proc) || fallback;
+const isBlendingProcess = (proc: CoPackingProcess) => getProcessType(proc) === "Blending/Batching";
+const isFillingProcess  = (proc: CoPackingProcess) => getProcessType(proc) === "Filling";
+
+function formatBatchSize(proc: CoPackingProcess, unitWeightG: number): string {
+  const qtyWithOverage = proc.units > 0 ? Math.ceil(proc.units * (1 + proc.overageRate / 100)) : 0;
+  if (qtyWithOverage <= 0) return "";
+
+  if (proc.batchSizeUnit === "units") {
+    const units = isBlendingProcess(proc) && unitWeightG > 0 ? qtyWithOverage / unitWeightG : qtyWithOverage;
+    return units.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+
+  if (proc.batchSizeUnit === "batches") {
+    return qtyWithOverage.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+
+  const grams = isBlendingProcess(proc) ? qtyWithOverage : qtyWithOverage * unitWeightG;
+  const factor = TO_GRAMS[proc.batchSizeUnit] ?? 1;
+  const converted = factor > 0 ? grams / factor : grams;
+  return converted.toLocaleString("en-US", { maximumFractionDigits: converted >= 100 ? 0 : 3 });
+}
 
 // ── Labor hour calculation (mirrors coPackingCalculations.ts) ─────────────────
 function calculateProcessHours(proc: CoPackingProcess, totalQty: number): number {
@@ -255,7 +285,9 @@ function RecipePopover({ proc, onClose, anchorRef, addIngredient, removeIngredie
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose, anchorRef]);
 
-  const batchGrams = Math.ceil(proc.units * (1 + proc.overageRate / 100)) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
+  const batchGrams = isBlendingProcess(proc)
+    ? proc.units
+    : Math.ceil(proc.units * (1 + proc.overageRate / 100)) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
   const sum = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
   const isOk   = Math.abs(sum - 100) < 0.01;
   const isOver = sum > 100.01;
@@ -355,9 +387,80 @@ function RecipePopover({ proc, onClose, anchorRef, addIngredient, removeIngredie
   );
 }
 
+function GramsInfoPopover({ processes, unitWeightG, unitWeightLabel, anchorRef, onClose }: {
+  processes: CoPackingProcess[];
+  unitWeightG: number;
+  unitWeightLabel: string;
+  anchorRef: { current: HTMLButtonElement | null };
+  onClose: () => void;
+}) {
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const fmtN = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const fmtN2 = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+  useEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + window.scrollY + 6, left: rect.left + window.scrollX });
+    }
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose, anchorRef]);
+
+  return createPortal(
+    <div ref={popRef}
+      style={{ position: "absolute", top: pos.top, left: pos.left, zIndex: 9999, width: 320 }}
+      className="bg-white border border-gray-200 rounded-xl shadow-xl shadow-gray-200/80 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border-b border-amber-200">
+        <span className="text-[0.65rem] font-bold text-amber-800 uppercase tracking-wider">Grams to Units</span>
+        <button type="button" onClick={onClose} className="text-zinc-600 hover:text-zinc-800 text-lg leading-none">×</button>
+      </div>
+      <div className="px-3 py-2 bg-amber-50/40 border-b border-amber-100 text-[0.6rem] text-amber-700">
+        Unit size per ea: <span className="font-bold">{unitWeightG > 0 ? `${fmtN2(unitWeightG)} g` : "—"}</span>
+        <span className="text-amber-500 ml-1">({unitWeightLabel})</span>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {processes.length === 0 ? (
+          <div className="px-3 py-3 text-[0.65rem] text-zinc-500">Select Blending/Batching to see the conversion.</div>
+        ) : processes.map(proc => {
+          const units = unitWeightG > 0 ? proc.units / unitWeightG : 0;
+          return (
+            <div key={proc.id} className="px-3 py-2">
+              <div className="text-[0.65rem] font-semibold text-zinc-800 mb-1">{displayProcessName(proc, "Blending/Batching")}</div>
+              <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[0.6rem]">
+                <span className="text-zinc-500">Raw material grams</span>
+                <span className="font-semibold text-zinc-900 tabular-nums">{proc.units > 0 ? `${fmtN(proc.units)} g` : "—"}</span>
+                <span className="text-zinc-500">Formula</span>
+                <span className="font-semibold text-zinc-900 tabular-nums">grams ÷ g/ea</span>
+                <span className="text-zinc-500">Raw-material equiv. units</span>
+                <span className="font-bold text-amber-700 tabular-nums">{units > 0 ? fmtN(units) : "—"}</span>
+              </div>
+              <p className="mt-2 text-[0.56rem] leading-snug text-zinc-500">
+                This unit count includes raw material overage. Filling units are based on packaged units and process overage.
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function defaultCoPackingProcess(): CoPackingProcess {
   return {
     id:                  uid(),
+    processType:         undefined,
     name:                "",
     units:               0,
     perOuter:            0,
@@ -395,24 +498,52 @@ interface Props {
 export default function CoPackingProcesses({ processes, setProcesses }: Props) {
   const [sectionOpen, setSectionOpen] = useState(true);
   const { notRequired } = useSectionRequired();
-  const { packagingLevels } = useProject();
+  const { packagingLevels, formData } = useProject();
 
-  // First packaging level's required qty (units field of first level)
-  const firstLvlQty = packagingLevels[0]?.units ?? 0;
+  const unitWeightG = (parseFloat(formData.unitWeight) || 0) * (TO_GRAMS[formData.unitWeightUnit ?? "g"] ?? 1);
+  const unitWeightLabel = `${formData.unitWeight || "0"} ${formData.unitWeightUnit ?? "g"}`;
+  const packagingRequiredQtys: number[] = [];
+  for (let i = 0; i < packagingLevels.length; i++) {
+    const lvl = packagingLevels[i];
+    if (!lvl.unitsRefId) {
+      packagingRequiredQtys.push(lvl.units);
+    } else {
+      const refIdx = packagingLevels.findIndex(l => l.id === lvl.unitsRefId);
+      const refQty = refIdx >= 0 ? packagingRequiredQtys[refIdx] ?? 0 : 0;
+      packagingRequiredQtys.push(lvl.units > 0 ? Math.ceil(refQty / lvl.units) : 0);
+    }
+  }
 
+  const firstLvlQty = packagingRequiredQtys[0] ?? 0;
+  const rawMaterialBaseQty = packagingRequiredQtys[0] ?? packagingLevels[0]?.units ?? 0;
+  const rawMaterialOveragePct = parseFloat(formData.materialOverage as string) || 0;
+  const totalRawMaterialGrams = unitWeightG > 0 && rawMaterialBaseQty > 0
+    ? Math.ceil(rawMaterialBaseQty * (1 + rawMaterialOveragePct / 100)) * unitWeightG
+    : 0;
   // Refs to track last auto-computed values per process id, so we don't clobber user edits
   const lastAutoUnits = useRef<Record<string, number>>({});
+  const migratedBlendingBatchUnits = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (firstLvlQty <= 0) return;
+    if (firstLvlQty <= 0 && totalRawMaterialGrams <= 0) return;
     setProcesses(prev => prev.map(proc => {
+      const nextAutoUnits = isBlendingProcess(proc) ? totalRawMaterialGrams : firstLvlQty;
+      if (nextAutoUnits <= 0) return proc;
       const prevAutoUnits = lastAutoUnits.current[proc.id];
-      const unitsUntouched = proc.units === 0 || proc.units === prevAutoUnits || lastAutoUnits.current[proc.id] === undefined;
-      lastAutoUnits.current[proc.id] = firstLvlQty;
-      if (unitsUntouched && proc.units !== firstLvlQty) return { ...proc, units: firstLvlQty };
+      const unitsUntouched = proc.units === 0 || proc.units === prevAutoUnits || prevAutoUnits === undefined;
+      lastAutoUnits.current[proc.id] = nextAutoUnits;
+      if (unitsUntouched && proc.units !== nextAutoUnits) return { ...proc, units: nextAutoUnits };
       return proc;
     }));
-  }, [firstLvlQty]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [firstLvlQty, totalRawMaterialGrams, processes.map(p => `${p.id}:${getProcessType(p)}`).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setProcesses(prev => prev.map(proc =>
+      isBlendingProcess(proc) && proc.batchSizeUnit === "units" && !migratedBlendingBatchUnits.current.has(proc.id)
+        ? (migratedBlendingBatchUnits.current.add(proc.id), { ...proc, batchSizeUnit: "g" })
+        : proc
+    ));
+  }, [processes.map(p => `${p.id}:${getProcessType(p)}:${p.batchSizeUnit}`).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (id: string, patch: Partial<CoPackingProcess>) =>
     setProcesses(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -459,16 +590,28 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
       p.id === procId ? { ...p, recipeIngredients: p.recipeIngredients.map(i => i.id === ingId ? { ...i, ...patch } : i) } : p
     ));
 
-  const handleNameChange = (id: string, name: string) => {
+  const handleProcessTypeChange = (id: string, processType: ProcessNameOption) => {
     const proc = processes.find(p => p.id === id);
     if (!proc) return;
-    const wasBlending = proc.name.toLowerCase() === "blending";
-    const isBlending  = name.toLowerCase() === "blending";
-    const patch: Partial<CoPackingProcess> = { name };
+    const wasBlending = isBlendingProcess(proc);
+    const isBlending  = processType === "Blending/Batching";
+    const patch: Partial<CoPackingProcess> = {
+      processType,
+      name: processType === "Custom" ? (isProcessNameOption(proc.name) ? "" : proc.name) : processType,
+      batchSizeUnit: processType === "Blending/Batching" ? "g" : "units",
+      processSpeedUnit: processType === "Blending/Batching" ? "g / min" : proc.processSpeedUnit,
+      units: processType === "Blending/Batching"
+        ? (totalRawMaterialGrams > 0 ? totalRawMaterialGrams : proc.units)
+        : (firstLvlQty > 0 ? firstLvlQty : proc.units),
+    };
     if (isBlending && !wasBlending && proc.recipeIngredients.length === 0) {
       patch.recipeIngredients = [defaultIngredient(), defaultIngredient()];
     }
     update(id, patch);
+  };
+
+  const handleCustomNameChange = (id: string, name: string) => {
+    update(id, { processType: "Custom", name });
   };
 
 
@@ -476,7 +619,13 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
   const [laborDetailsOpen, setLaborDetailsOpen] = useState(false);
   const [outputsOpen,      setOutputsOpen]      = useState<Record<string, boolean>>({});
   const [recipeOpen,       setRecipeOpen]       = useState<Record<string, boolean>>({});
+  const [gramsInfoProcId, setGramsInfoProcId] = useState<string | null>(null);
+  const gramsInfoBtnRefs = useRef<Record<string, { current: HTMLButtonElement | null }>>({});
   const recipeBtnRefs = useRef<Record<string, { current: HTMLButtonElement | null }>>({});
+  const getGramsInfoBtnRef = (id: string) => {
+    if (!gramsInfoBtnRefs.current[id]) gramsInfoBtnRefs.current[id] = { current: null };
+    return gramsInfoBtnRefs.current[id];
+  };
   const getRecipeBtnRef = (id: string) => {
     if (!recipeBtnRefs.current[id]) recipeBtnRefs.current[id] = { current: null };
     return recipeBtnRefs.current[id];
@@ -490,6 +639,9 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
   const visibleCols = processes.filter(p => !collapsedCols[p.id]).length;
   const collapsedCount = numCols - visibleCols;
   const tableMinWidth = 140 + visibleCols * 168 + collapsedCount * 36;
+  const visibleProcesses = processes.filter(p => !collapsedCols[p.id]);
+  const visibleHasBlending = visibleProcesses.some(isBlendingProcess);
+  const quantityRowLabel = visibleHasBlending ? "Quantity" : "# of Units";
 
   return (
     <div id="section-processes" className="bg-white border border-gray-200 rounded-xl overflow-hidden max-w-4xl flex-1 min-w-0">
@@ -533,14 +685,14 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         className="relative bg-gray-800 border-b border-l border-gray-700 cursor-pointer select-none"
                         style={{ width: 36, minWidth: 36 }}
                         onClick={() => toggleCol(proc.id)}
-                        title={`Expand ${proc.name || `Process ${idx + 1}`}`}>
+                        title={`Expand ${displayProcessName(proc, `Process ${idx + 1}`)}`}>
                         <div className="flex items-center justify-center h-full py-2">
                           <ChevronRight size={12} className="text-zinc-600" />
                         </div>
                         <span
                           className="absolute text-[0.5rem] font-bold text-zinc-600 uppercase tracking-widest whitespace-nowrap"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", bottom: 8, left: "50%", translate: "-50% 0" }}>
-                          {proc.name || `P${idx + 1}`}
+                          {displayProcessName(proc, `P${idx + 1}`)}
                         </span>
                       </th>
                     );
@@ -551,9 +703,9 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                       style={{ width: 168, minWidth: 168 }}>
                       <div className="flex items-center justify-between gap-1">
                         <div className="min-w-0">
-                          <span className="truncate block">{proc.name || `Process ${idx + 1}`}</span>
+                          <span className="truncate block">{displayProcessName(proc, `Process ${idx + 1}`)}</span>
                           {proc.processSpeedValue > 0 && (() => {
-                            const isFilling = proc.name.toLowerCase().includes("filling");
+                            const isFilling = isFillingProcess(proc);
                             const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
                             const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
                             const upm = proc.processSpeedUnit === "units / min" ? proc.processSpeedValue
@@ -565,7 +717,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           })()}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          {proc.name.toLowerCase().includes("blending") && (
+                          {isBlendingProcess(proc) && (
                             <button type="button"
                               ref={el => { getRecipeBtnRef(proc.id).current = el; }}
                               onClick={() => setRecipeOpen(o => ({ ...o, [proc.id]: !o[proc.id] }))}
@@ -601,24 +753,56 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                 <td className={labelCell}>Name</td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
-                    <input type="text" value={proc.name}
-                      onChange={e => handleNameChange(proc.id, e.target.value)}
-                      placeholder="e.g. Blending, Filling, Sealing"
-                      className={cellInp} />
+                    <div className="space-y-1">
+                      <select value={getProcessType(proc)}
+                        onChange={e => handleProcessTypeChange(proc.id, e.target.value as ProcessNameOption)}
+                        className={cellInp}>
+                        <option value="" disabled>Select process</option>
+                        {PROCESS_NAME_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                      {getProcessType(proc) === "Custom" && (
+                        <input type="text" value={isProcessNameOption(proc.name) ? "" : proc.name}
+                          onChange={e => handleCustomNameChange(proc.id, e.target.value)}
+                          placeholder="Enter process name"
+                          className={cellInp} />
+                      )}
+                    </div>
                   </Col>
                 ))}
               </tr>
 
               {/* ── Units ── */}
               <tr className="border-b border-amber-200/70">
-                <td className={labelCell}>Units</td>
+                <td className={labelCell}>
+                  <div className="flex items-center gap-1.5">
+                    <span>{quantityRowLabel}</span>
+                  </div>
+                </td>
                 {processes.map((proc) => (
                   <Col key={proc.id} proc={proc}>
-                    <CurrencyInput type="integer"
-                      value={proc.units}
-                      onChange={v => update(proc.id, { units: v })}
-                      placeholder="0"
-                      className={cellInp} />
+                    <div className="space-y-1">
+                      {visibleHasBlending && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="block text-[0.52rem] font-semibold uppercase tracking-wider text-amber-700">
+                            {isBlendingProcess(proc) ? "# of Grams" : "# of Units"}
+                          </span>
+                          {isBlendingProcess(proc) && (
+                            <button type="button"
+                              ref={el => { getGramsInfoBtnRef(proc.id).current = el; }}
+                              onClick={() => setGramsInfoProcId(openId => openId === proc.id ? null : proc.id)}
+                              title="Show grams to units conversion"
+                              className="h-4 w-4 inline-flex items-center justify-center rounded-full border border-amber-400 text-amber-700 hover:bg-amber-100 transition-colors">
+                              <Info size={10} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <CurrencyInput type={isBlendingProcess(proc) ? "rate" : "integer"}
+                        value={proc.units}
+                        onChange={v => update(proc.id, { units: v })}
+                        placeholder="0"
+                        className={cellInp} />
+                    </div>
                   </Col>
                 ))}
               </tr>
@@ -642,17 +826,21 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
               <tr className="border-b border-amber-200/70">
                 <td className={labelCell}>Batch Size</td>
                 {processes.map((proc) => {
-                  const computed = proc.units > 0 ? Math.ceil(proc.units * (1 + proc.overageRate / 100)) : 0;
+                  const computed = formatBatchSize(proc, unitWeightG);
                   return (
                     <Col key={proc.id} proc={proc}>
                       <div className="flex items-center gap-1">
-                        <div className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-zinc-800 bg-amber-50/60 flex items-center tabular-nums rounded-l select-none">
-                          {computed > 0 ? computed.toLocaleString("en-US") : <span className="text-zinc-500">auto</span>}
+                        <div className="h-7 flex-1 min-w-0 px-2 border border-orange-300 text-[0.7rem] font-semibold text-zinc-800 bg-orange-100/90 flex items-center tabular-nums rounded-l select-none">
+                          {computed || <span className="text-zinc-500">auto</span>}
                         </div>
                         <select value={proc.batchSizeUnit}
                           onChange={e => update(proc.id, { batchSizeUnit: e.target.value })}
-                          className="h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-zinc-800 bg-amber-100/60 focus:outline-none rounded-r shrink-0 w-14">
-                          {BATCH_SIZE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          className={`h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-zinc-800 bg-amber-100/60 focus:outline-none rounded-r shrink-0 ${isBlendingProcess(proc) ? "w-20" : "w-14"}`}>
+                          {BATCH_SIZE_UNITS.map(u => (
+                            <option key={u} value={u}>
+                              {isBlendingProcess(proc) && u === "units" ? "eq units" : u}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </Col>
@@ -867,8 +1055,8 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
 
                 // Compute per-process outputs
                 const procOutputs = processes.map(proc => {
-                  const isBlending = proc.name.toLowerCase().includes("blending");
-                  const isFilling  = proc.name.toLowerCase().includes("filling");
+                  const isBlending = isBlendingProcess(proc);
+                  const isFilling  = isFillingProcess(proc);
                   const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
                   const speed      = proc.processSpeedValue;
                   const speedUnit  = proc.processSpeedUnit;
@@ -913,8 +1101,8 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
 
                 // Pick row set based on first open process type
                 const firstOpen = processes.find(p => outputsOpen[p.id]);
-                const outRows: OutRow[] = firstOpen?.name.toLowerCase().includes("blending") ? blendingRows
-                  : firstOpen?.name.toLowerCase().includes("filling") ? fillingRows
+                const outRows: OutRow[] = firstOpen && isBlendingProcess(firstOpen) ? blendingRows
+                  : firstOpen && isFillingProcess(firstOpen) ? fillingRows
                   : generalRows;
 
                 const subHeader = (
@@ -928,7 +1116,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                             {outputsOpen[proc.id] && (
                               <div className="flex justify-between">
                                 <span className="text-[0.52rem] font-bold text-zinc-600 uppercase tracking-wider">Our Cost</span>
-                                <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Customer</span>
+                                <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Selling Price</span>
                               </div>
                             )}
                           </td>
@@ -997,7 +1185,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         <span className="text-[0.6rem] text-amber-600 font-semibold">Composition</span>
                       </td>
                       {processes.map((proc, idx) => {
-                        const isBlending = proc.name.toLowerCase().includes("blending") && recipeOpen[proc.id];
+                        const isBlending = isBlendingProcess(proc) && recipeOpen[proc.id];
                         const { totalQty } = deriveStats(proc, idx);
                         const sum = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
                         const isOk   = Math.abs(sum - 100) < 0.01;
@@ -1064,7 +1252,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           </div>
                         </td>
                         {processes.map((proc) => {
-                          const isBlending = proc.name.toLowerCase().includes("blending") && recipeOpen[proc.id];
+                          const isBlending = isBlendingProcess(proc) && recipeOpen[proc.id];
                           if (!isBlending) return (
                             <Col key={proc.id} proc={proc}>
                               <span className="text-[0.6rem] text-zinc-500 italic">—</span>
@@ -1076,8 +1264,9 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                               <span className="text-[0.6rem] text-zinc-500 italic">—</span>
                             </Col>
                           );
-                          // Use batch size (total material with overage) as total grams
-                          const batchGrams = Math.ceil(proc.units * (1 + proc.overageRate / 100)) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
+                          const batchGrams = isBlendingProcess(proc)
+                            ? proc.units
+                            : Math.ceil(proc.units * (1 + proc.overageRate / 100)) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
                           const ingGrams   = (ing.percentage / 100) * batchGrams;
                           const ingKg      = ingGrams / 1000;
                           const ingLbs     = ingGrams / 453.592;
@@ -1122,7 +1311,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         <span className="text-[0.6rem] font-bold text-amber-700 uppercase tracking-wider">Total %</span>
                       </td>
                       {processes.map((proc) => {
-                        const isBlending = proc.name.toLowerCase().includes("blending") && recipeOpen[proc.id];
+                        const isBlending = isBlendingProcess(proc) && recipeOpen[proc.id];
                         if (!isBlending) return (
                           <Col key={proc.id} proc={proc}>
                             <span className="text-[0.6rem] text-zinc-500 italic">—</span>
@@ -1160,7 +1349,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
       )}
 
       {/* ── Recipe popovers — one per blending process ── */}
-      {processes.filter(p => p.name.toLowerCase().includes("blending") && recipeOpen[p.id]).map(proc => (
+      {processes.filter(p => isBlendingProcess(p) && recipeOpen[p.id]).map(proc => (
         <RecipePopover key={proc.id} proc={proc}
           anchorRef={getRecipeBtnRef(proc.id)}
           onClose={() => setRecipeOpen(o => ({ ...o, [proc.id]: false }))}
@@ -1169,6 +1358,15 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
           updateIngredient={updateIngredient}
         />
       ))}
+      {gramsInfoProcId && (
+        <GramsInfoPopover
+          processes={processes.filter(p => p.id === gramsInfoProcId)}
+          unitWeightG={unitWeightG}
+          unitWeightLabel={unitWeightLabel}
+          anchorRef={getGramsInfoBtnRef(gramsInfoProcId)}
+          onClose={() => setGramsInfoProcId(null)}
+        />
+      )}
     </div>
   );
 }

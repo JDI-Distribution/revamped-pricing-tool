@@ -443,13 +443,13 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
       fillColor: [255,255,255],
       minCellHeight: 7,
     },
-    headStyles: { fontStyle: "bold", fillColor: [255,255,255], textColor: gray },
+    headStyles: { fontStyle: "bold", fillColor: [255,255,255], textColor: gray, halign: "left" },
     alternateRowStyles: { fillColor: rowGray },
     columnStyles: {
       0: { halign: "left",  cellWidth: "auto" },
-      1: { halign: "right", cellWidth: 28 },
-      2: { halign: "right", cellWidth: 28 },
-      3: { halign: "right", cellWidth: 28 },
+      1: { halign: "left", cellWidth: 28 },
+      2: { halign: "left", cellWidth: 28 },
+      3: { halign: "left", cellWidth: 28 },
     },
     tableLineColor: ltGray, tableLineWidth: 0.2,
     didParseCell: (data) => {

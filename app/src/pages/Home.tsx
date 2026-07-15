@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { Fragment, useState, useCallback, useEffect } from "react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { SectionRequiredProvider, RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
@@ -10,12 +10,61 @@ import CoPackingProcesses from "@/components/project/CoPackingProcesses";
 import SectionSidebar, { SidebarSection } from "@/components/SectionSidebar";
 import CrmStartModal, { CrmParams as CrmStartParams } from "@/components/CrmStartModal";
 import { useProject } from "@/lib/ProjectContext";
-import { MoqRow, ProjectFormData, AdditionalFeeRow, PackagingLevel, CoPackingProcess, Column, SummaryRow } from "@/lib/types";
+import { MoqRow, ProjectFormData, AdditionalFeeRow, PackagingLevel, CoPackingProcess, Column, SummaryRow, SummaryTableRow } from "@/lib/types";
 import { MoqPricingRow } from "@/lib/ProjectContext";
 import { uid } from "@/lib/uid";
 
 const fmt    = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
+
+type ProcessCostTotals = { our: number; selling: number };
+
+function calculateProcessHours(proc: CoPackingProcess, totalQty: number): number {
+  const { processSpeedValue: speed, processSpeedUnit: unit, batchSizeValue: batchSize, efficiencyBuffer } = proc;
+  if (speed === 0 || totalQty <= 0) return 0;
+  const buffer = 1 - efficiencyBuffer / 100;
+  if (buffer <= 0) return 0;
+  switch (unit) {
+    case "units / min": return (totalQty / (speed * buffer)) / 60;
+    case "units / hr": return totalQty / (speed * buffer);
+    case "kg / hr":
+    case "lbs / hr": return totalQty / (speed * buffer);
+    case "g / min": return (totalQty / (speed * buffer)) / 60;
+    case "batches / hr": {
+      const batches = batchSize > 0 ? Math.ceil(totalQty / batchSize) : 1;
+      return batches / (speed * buffer);
+    }
+    case "min / unit": return (totalQty * (speed / buffer)) / 60;
+    case "min / batch": {
+      const batches = batchSize > 0 ? Math.ceil(totalQty / batchSize) : 1;
+      return (batches * (speed / buffer)) / 60;
+    }
+    case "hrs / batch": {
+      const batches = batchSize > 0 ? Math.ceil(totalQty / batchSize) : 1;
+      return batches * (speed / buffer);
+    }
+    default: return 0;
+  }
+}
+
+function calculateProcessCosts(processes: CoPackingProcess[]) {
+  const rows = processes.map(proc => {
+    const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
+    const hrsRequired = calculateProcessHours(proc, totalUnits);
+    const operators = proc.numStaff > 0 ? proc.numStaff : 1;
+    const laborOur = hrsRequired * proc.laborRate * operators;
+    const laborCust = laborOur * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
+    const margin = laborCust > 0 ? ((laborCust - laborOur) / laborCust) * 100 : 0;
+    return { totalUnits, laborOur, laborCust, margin };
+  });
+
+  const totals: ProcessCostTotals = rows.reduce(
+    (sum, row) => ({ our: sum.our + row.laborOur, selling: sum.selling + row.laborCust }),
+    { our: 0, selling: 0 },
+  );
+
+  return { rows, totals };
+}
 
 /** Plain text input that holds local string state while typing; commits parsed float on blur. */
 function NumInput({ value, onChange, className, placeholder }: {
@@ -86,6 +135,15 @@ function PalletizationSection({
 
   const buffer     = n(formData.palletBuffer);
   const autoPallets = totalWeightLbs > 0 ? Math.ceil(totalWeightLbs / maxWtLbs) + buffer : null;
+  const calculatedPallets = totalWeightLbs > 0 && maxWtLbs > 0 ? Math.ceil(totalWeightLbs / maxWtLbs) : 0;
+  const outboundFee = n(formData.outboundFee);
+  const outboundMarkup = n(formData.outboundFeeMarkup);
+  const palletOur = outboundFee * (autoPallets ?? 0);
+  const palletSelling = outboundFee * (1 + outboundMarkup / 100) * (autoPallets ?? 0);
+  const palletMargin = palletSelling > 0 ? ((palletSelling - palletOur) / palletSelling) * 100 : 0;
+  const fmtN = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const fmtN2 = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtD = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 
   const otherFields: { label: string; field: keyof ProjectFormData; sym: string }[] = [
@@ -99,7 +157,8 @@ function PalletizationSection({
   const [weightOpen, setWeightOpen] = useState(true);
 
   return (
-    <div id="section-palletization" className="bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl"><div className="px-5 pt-4 pb-5">
+    <div className="flex gap-5 items-start px-4 md:px-6 mb-4">
+    <div id="section-palletization" className="bg-white border border-gray-200 rounded-xl overflow-hidden max-w-4xl flex-1 min-w-0"><div className="px-5 pt-4 pb-5">
       {/* Header — matches SectionHeader pattern */}
       <div className="flex items-center gap-3 mb-4">
         <button type="button" onClick={() => setPalletOpen(o => !o)} className="flex items-center gap-1.5 group min-w-0">
@@ -183,7 +242,7 @@ function PalletizationSection({
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Weight Component</th>
-                <th className="px-3 py-1.5 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">{maxWtUom}</th>
+                <th className="px-3 py-1.5 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">lbs</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -247,6 +306,57 @@ function PalletizationSection({
         </div>
       )}
     </div></div>
+    {palletOpen && !palletNR && (
+      <div className="w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100">
+        <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60">
+          Palletization Outputs
+        </div>
+        <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100">
+          <span className="text-[0.68rem] text-zinc-600 leading-tight">Raw Material Weight</span>
+          <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right">{rawWeightLbs > 0 ? `${fmtN2(rawWeightLbs)} lbs` : "—"}</span>
+        </div>
+        <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100">
+          <span className="text-[0.68rem] text-zinc-600 leading-tight">Packaging Weight</span>
+          <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right">{totalPkgWeightLbs > 0 ? `${fmtN2(totalPkgWeightLbs)} lbs` : "—"}</span>
+        </div>
+        <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100">
+          <span className="text-[0.68rem] text-zinc-600 leading-tight">Total Weight</span>
+          <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right">{totalWeightLbs > 0 ? `${fmtN2(totalWeightLbs)} lbs` : "—"}</span>
+        </div>
+        <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100">
+          <span className="text-[0.68rem] text-zinc-600 leading-tight">Calculated Pallets</span>
+          <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right">{calculatedPallets > 0 ? fmtN(calculatedPallets) : "—"}</span>
+        </div>
+        <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100">
+          <span className="text-[0.68rem] text-zinc-600 leading-tight">Buffer Pallets</span>
+          <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums text-right">{buffer > 0 ? `+${fmtN(buffer)}` : "0"}</span>
+        </div>
+        <div className="flex items-start justify-between gap-3 px-3 py-2.5 border-b border-blue-100">
+          <span className="text-[0.68rem] text-zinc-600 leading-tight">Total Pallets</span>
+          <span className="text-[0.72rem] font-bold text-zinc-900 tabular-nums text-right">{autoPallets != null ? fmtN(autoPallets) : "—"}</span>
+        </div>
+        <div className="px-3 py-1.5 text-[0.52rem] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 border-b border-blue-200">Outbound Costs</div>
+        <div className="grid grid-cols-2 gap-3 px-3 py-2.5 border-b border-blue-100">
+          <div>
+            <p className="text-[0.68rem] text-zinc-600 leading-tight mb-1">Our Cost</p>
+            <p className="text-[0.72rem] font-semibold text-zinc-800 tabular-nums">{palletOur > 0 ? fmtD(palletOur) : "—"}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[0.68rem] text-zinc-600 leading-tight mb-1">Selling Price</p>
+            <p className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">{palletSelling > 0 ? fmtD(palletSelling) : "—"}</p>
+          </div>
+        </div>
+        {palletSelling > 0 && (
+          <div className="px-3 py-2.5">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[0.65rem] font-bold tabular-nums ${palletMargin >= 50 ? "bg-green-50 border-green-200 text-green-700" : palletMargin >= 30 ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-red-50 border-red-200 text-red-600"}`}>
+              <span className="text-[0.5rem] font-semibold opacity-70">MARGIN</span>
+              {palletMargin.toFixed(1)}%
+            </span>
+          </div>
+        )}
+      </div>
+    )}
+    </div>
   );
 }
 
@@ -266,6 +376,7 @@ interface LeftContentProps {
   coPackingProcesses: CoPackingProcess[];
   setCoPackingProcesses: React.Dispatch<React.SetStateAction<CoPackingProcess[]>>;
   summaryRows:      SummaryRow[];
+  summaryTableRows: SummaryTableRow[];
   ppuUnits:         number;
   allMoqResults:    MoqPricingRow[];
   whatIfPpus:       Record<number, string>;
@@ -277,9 +388,12 @@ interface LeftContentProps {
   setProcessLevels:  React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
 }
 
-function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, setProjectType: _setProjectType, coPackingProcesses: _coPackingProcesses, setCoPackingProcesses: _setCoPackingProcesses, summaryRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees, processLevels: _processLevels, setProcessLevels: _setProcessLevels }: LeftContentProps) {
+function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setMoqRows, formData, setFormField, packagingLevels, setPackagingLevels, scaledColumns, moqQty, projectType: _projectType, setProjectType: _setProjectType, coPackingProcesses: _coPackingProcesses, setCoPackingProcesses: _setCoPackingProcesses, summaryRows, summaryTableRows, ppuUnits, allMoqResults, whatIfPpus, setWhatIfPpus, costPpuOverrides, additionalFees, setAdditionalFees, processLevels: _processLevels, setProcessLevels: _setProcessLevels }: LeftContentProps) {
   const { notRequired } = useSectionRequired();
   const [pkgLineOpen, setPkgLineOpen] = useState(true);
+  const processCostSummary = notRequired["section-processes"]
+    ? { rows: [], totals: { our: 0, selling: 0 } }
+    : calculateProcessCosts(_coPackingProcesses);
   return (
     <>
       <ProjectInfoSection />
@@ -293,26 +407,9 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
         const fmtPct = (v: number) => `${v.toFixed(1)}%`;
         const marginBg = (pct: number) => pct >= 50 ? "bg-green-50 border-green-200 text-green-700" : pct >= 30 ? "bg-amber-50 border-amber-300 text-amber-700" : "bg-red-50 border-red-200 text-red-600";
 
-        // Compute per-process labor outputs
-        const procOutputs = _coPackingProcesses.map(proc => {
-          const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
-          const speed = proc.processSpeedValue;
-          const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
-          let unitsPerHr = 0;
-          if (speed > 0) {
-            if (proc.processSpeedUnit === "units / min") unitsPerHr = speed * 60;
-            else if (proc.processSpeedUnit === "units / hr") unitsPerHr = speed;
-          }
-          const effectiveUph = unitsPerHr * buffer;
-          const hrsRequired = effectiveUph > 0 ? totalUnits / effectiveUph : 0;
-          const operators = proc.numStaff > 0 ? proc.numStaff : 1;
-          const laborOur = hrsRequired * proc.laborRate * operators;
-          const laborCust = laborOur * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
-          const margin = laborCust > 0 ? ((laborCust - laborOur) / laborCust) * 100 : 0;
-          return { laborOur, laborCust, margin };
-        });
-        const totalProcOur  = procOutputs.reduce((s, p) => s + p.laborOur, 0);
-        const totalProcCust = procOutputs.reduce((s, p) => s + p.laborCust, 0);
+        const procOutputs = processCostSummary.rows;
+        const totalProcOur  = processCostSummary.totals.our;
+        const totalProcCust = processCostSummary.totals.selling;
         const totalProcMargin = totalProcCust > 0 ? ((totalProcCust - totalProcOur) / totalProcCust) * 100 : 0;
         const hasAnyProc = procOutputs.some(p => p.laborCust > 0);
 
@@ -336,7 +433,7 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                           <div className="text-[0.72rem] font-semibold text-zinc-800 tabular-nums">{fmtD(laborOur)}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[0.52rem] text-zinc-600 mb-0.5">Customer</div>
+                          <div className="text-[0.52rem] text-zinc-600 mb-0.5">Selling Price</div>
                           <div className="text-[0.72rem] font-bold text-[#e8473f] tabular-nums">{fmtD(laborCust)}</div>
                         </div>
                       </div>
@@ -356,7 +453,7 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                         <div className="text-[0.75rem] font-bold text-zinc-900 tabular-nums">{fmtD(totalProcOur)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[0.52rem] text-zinc-600 mb-0.5">Customer</div>
+                        <div className="text-[0.52rem] text-zinc-600 mb-0.5">Selling Price</div>
                         <div className="text-[0.75rem] font-bold text-[#e8473f] tabular-nums">{fmtD(totalProcCust)}</div>
                       </div>
                     </div>
@@ -525,14 +622,25 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
           )}
         </div>
       </div>
-      <PriceAdjustmentSection
-        summaryRows={summaryRows}
-        ppuUnits={ppuUnits}
-        allMoqResults={allMoqResults}
-        whatIfPpus={whatIfPpus}
-        setWhatIfPpus={setWhatIfPpus}
-        costPpuOverrides={costPpuOverrides}
-      />
+      <div id="section-price-adjustment" className="mx-4 md:mx-6 mb-4 flex flex-col xl:flex-row gap-5 items-start scroll-mt-20">
+        <PriceAdjustmentSection
+          summaryRows={summaryRows}
+          ppuUnits={ppuUnits}
+          allMoqResults={allMoqResults}
+          whatIfPpus={whatIfPpus}
+          setWhatIfPpus={setWhatIfPpus}
+          costPpuOverrides={costPpuOverrides}
+          processCostTotals={processCostSummary.totals}
+        />
+        <PriceAdjustmentOutputPanel
+          summaryRows={summaryRows}
+          summaryTableRows={summaryTableRows}
+          packagingLevels={packagingLevels}
+          processes={_coPackingProcesses}
+          processRows={processCostSummary.rows}
+          processCostTotals={processCostSummary.totals}
+        />
+      </div>
     </>
   );
 }
@@ -545,24 +653,28 @@ interface PriceAdjustmentSectionProps {
   whatIfPpus:    Record<number, string>;
   setWhatIfPpus: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   costPpuOverrides: Record<number, string>;
+  processCostTotals: ProcessCostTotals;
 }
 
 function PriceAdjustmentSection({
   summaryRows, ppuUnits, allMoqResults,
-  whatIfPpus, setWhatIfPpus, costPpuOverrides,
+  whatIfPpus, setWhatIfPpus, costPpuOverrides, processCostTotals,
 }: PriceAdjustmentSectionProps) {
   const marginColor = (pct: number) =>
     pct >= 65 ? "text-green-700" : pct >= 50 ? "text-amber-600" : "text-red-600";
 
   const whatIfRows = allMoqResults.map((r) => {
+    const processCostPPU = r.ppuDenominator > 0 ? processCostTotals.our / r.ppuDenominator : 0;
+    const processSellingPPU = r.ppuDenominator > 0 ? processCostTotals.selling / r.ppuDenominator : 0;
+    const basePPU = r.ppu + processSellingPPU;
     const inputStr = whatIfPpus[r.moqRow.id];
-    const adjPPU   = inputStr !== undefined && inputStr !== "" ? parseFloat(inputStr) : r.ppu;
-    const isCustom = inputStr !== undefined && inputStr !== "" && !isNaN(adjPPU) && adjPPU !== r.ppu;
+    const adjPPU   = inputStr !== undefined && inputStr !== "" ? parseFloat(inputStr) : basePPU;
+    const isCustom = inputStr !== undefined && inputStr !== "" && !isNaN(adjPPU) && adjPPU !== basePPU;
     const costStr  = costPpuOverrides[r.moqRow.id];
-    const costPPU  = costStr !== undefined && costStr !== "" ? parseFloat(costStr) : r.ppuCost;
-    const marginPct = adjPPU > 0 && costPPU > 0 ? ((adjPPU - costPPU) / adjPPU) * 100 : r.marginPct;
+    const costPPU  = costStr !== undefined && costStr !== "" ? parseFloat(costStr) : r.ppuCost + processCostPPU;
+    const marginPct = adjPPU > 0 && costPPU > 0 ? ((adjPPU - costPPU) / adjPPU) * 100 : 0;
     const revenue   = adjPPU * r.ppuDenominator;
-    const ourTotal  = r.totalOurCost;
+    const ourTotal  = r.totalOurCost + processCostTotals.our;
     return { r, adjPPU, costPPU, marginPct, revenue, ourTotal, isCustom };
   });
 
@@ -571,8 +683,8 @@ function PriceAdjustmentSection({
   const wiAvgMargin    = wiTotalRevenue > 0 ? ((wiTotalRevenue - wiTotalOur) / wiTotalRevenue) * 100 : 0;
   const hasAdj         = Object.keys(whatIfPpus).length > 0;
 
-  const baseCustomer = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
-  const baseOur      = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
+  const baseCustomer = summaryRows.reduce((s, r) => s + r.customerPrice, 0) + processCostTotals.selling;
+  const baseOur      = summaryRows.reduce((s, r) => s + r.ourCosts, 0) + processCostTotals.our;
   const computedCost = ppuUnits > 0 && baseOur > 0 ? baseOur / ppuUnits : 0;
   const adjPpuStr0   = whatIfPpus[0];
   const baselinePPU  = ppuUnits > 0 && baseCustomer > 0 ? baseCustomer / ppuUnits : 0;
@@ -583,7 +695,7 @@ function PriceAdjustmentSection({
   const isCustom0    = adjPpuStr0 !== undefined && adjPpuStr0 !== "";
 
   return (
-    <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
+    <div className="w-full max-w-4xl">
       <div className="rounded-xl border-2 border-amber-400 shadow-lg shadow-amber-100 overflow-hidden">
         {/* Header */}
         <div className="bg-amber-400 px-4 py-2.5 flex items-center gap-3">
@@ -652,11 +764,11 @@ function PriceAdjustmentSection({
                   </td>
                 </tr>
               ) : (
-                whatIfRows.map(({ r, costPPU, marginPct, revenue, isCustom }) => {
+                whatIfRows.map(({ r, adjPPU, costPPU, marginPct, revenue, isCustom }) => {
                   const onAdjPpuChange = (v: number) => setWhatIfPpus(prev => ({ ...prev, [r.moqRow.id]: String(v) }));
                   const onMarginChange = (m: number) => {
                     const clampedM = Math.min(m / 100, 0.9999);
-                    const newAdj = clampedM < 1 && costPPU > 0 ? costPPU / (1 - clampedM) : r.ppu;
+                    const newAdj = clampedM < 1 && costPPU > 0 ? costPPU / (1 - clampedM) : adjPPU;
                     setWhatIfPpus(prev => ({ ...prev, [r.moqRow.id]: String(newAdj) }));
                   };
                   return (
@@ -668,7 +780,7 @@ function PriceAdjustmentSection({
                         <div className="flex items-center justify-center gap-1">
                           <span className="text-xs text-zinc-600">$</span>
                           <NumInput
-                            value={whatIfPpus[r.moqRow.id] !== undefined ? parseFloat(whatIfPpus[r.moqRow.id]) : r.ppu}
+                            value={whatIfPpus[r.moqRow.id] !== undefined ? parseFloat(whatIfPpus[r.moqRow.id]) : adjPPU}
                             onChange={onAdjPpuChange}
                             className="w-24 h-6 px-2 text-xs text-right border border-amber-300 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium"
                           />
@@ -717,6 +829,180 @@ function PriceAdjustmentSection({
 }
 
 // ── Home ─────────────────────────────────────────────────────────────────────
+type PriceOutputProcessRow = ReturnType<typeof calculateProcessCosts>["rows"][number];
+
+interface PriceAdjustmentOutputPanelProps {
+  summaryRows: SummaryRow[];
+  summaryTableRows: SummaryTableRow[];
+  packagingLevels: PackagingLevel[];
+  processes: CoPackingProcess[];
+  processRows: PriceOutputProcessRow[];
+  processCostTotals: ProcessCostTotals;
+}
+
+function PriceAdjustmentOutputPanel({
+  summaryRows,
+  summaryTableRows,
+  packagingLevels,
+  processes,
+  processRows,
+  processCostTotals,
+}: PriceAdjustmentOutputPanelProps) {
+  const [processesOpen, setProcessesOpen] = useState(false);
+  const fmtMoney = (v: number) => v > 0 ? fmt(v) : "$0.00";
+  const fmtQty = (v: number | null) => v == null || !isFinite(v)
+    ? "-"
+    : v.toLocaleString("en-US", { maximumFractionDigits: v >= 100 ? 0 : 2 });
+  const fmtPpu = (v: number) => v > 0 ? fmt(v) : "$0.00";
+  const summaryTableFor = (label: string) =>
+    summaryTableRows.find(row => row.label === label && !row.isLeadTimeSummary);
+  const packagingLabels = summaryTableRows
+    .filter(row =>
+      !row.isLeadTimeSummary &&
+      !["Setup / QA Fee", "Materials", "Pallets & Fees"].includes(row.label) &&
+      !row.label.startsWith("Testing"),
+    )
+    .map(row => row.label);
+  const firstPackagingLabel = packagingLabels[0] ?? "";
+  const getPackagingLevel = (label: string) => {
+    const index = packagingLabels.indexOf(label);
+    return index >= 0 ? packagingLevels[index] : undefined;
+  };
+
+  const rows = summaryRows.map(row => {
+    const tableRow = summaryTableFor(row.label);
+    const level = getPackagingLevel(row.label);
+    const isSetup = row.label === "Setup / QA Fee";
+    const isMaterial = row.label === "Materials";
+    const isFirstPackaging = row.label === firstPackagingLabel;
+    const deliverableQty = level
+      ? (level.cpoRequiredQty ?? level.units ?? tableRow?.totalUnits ?? null)
+      : tableRow?.totalUnits ?? (isSetup ? 1 : null);
+    const intakeQty = level && deliverableQty != null
+      ? Math.ceil(deliverableQty * (1 + level.overageRate / 100))
+      : isMaterial
+        ? tableRow?.totalWeight ?? tableRow?.totalUnits ?? null
+        : isSetup
+          ? 1
+          : tableRow?.totalUnits ?? null;
+    const sellingPrice = row.customerPrice + (isFirstPackaging ? processCostTotals.selling : 0);
+    const ourCost = row.ourCosts + (isFirstPackaging ? processCostTotals.our : 0);
+    const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
+    const sellingPpu = ppuDenom ? sellingPrice / ppuDenom : (tableRow?.costPerUnit ?? sellingPrice);
+    const ourPpu = ppuDenom ? ourCost / ppuDenom : ourCost;
+    const marginDollars = sellingPrice - ourCost;
+    const marginPct = sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0;
+
+    return { label: row.label, intakeQty, deliverableQty, sellingPrice, sellingPpu, ourCost, ourPpu, marginPct, marginDollars, isFirstPackaging };
+  });
+
+  const processDetailRows = processes.map((proc, index) => {
+    const detail = processRows[index];
+    const deliverableQty = proc.units || null;
+    const intakeQty = detail?.totalUnits ?? (proc.units ? Math.ceil(proc.units * (1 + proc.overageRate / 100)) : null);
+    const sellingPrice = detail?.laborCust ?? 0;
+    const ourCost = detail?.laborOur ?? 0;
+    const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
+    const marginDollars = sellingPrice - ourCost;
+    return {
+      id: proc.id,
+      label: proc.name || `Process ${index + 1}`,
+      intakeQty,
+      deliverableQty,
+      sellingPrice,
+      sellingPpu: ppuDenom ? sellingPrice / ppuDenom : 0,
+      ourCost,
+      ourPpu: ppuDenom ? ourCost / ppuDenom : 0,
+      marginPct: sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0,
+      marginDollars,
+    };
+  }).filter(row => row.sellingPrice > 0 || row.ourCost > 0);
+
+  const totals = rows.reduce(
+    (sum, row) => ({ sellingPrice: sum.sellingPrice + row.sellingPrice, ourCost: sum.ourCost + row.ourCost }),
+    { sellingPrice: 0, ourCost: 0 },
+  );
+  const totalMarginDollars = totals.sellingPrice - totals.ourCost;
+  const totalMarginPct = totals.sellingPrice > 0 ? (totalMarginDollars / totals.sellingPrice) * 100 : 0;
+  const totalPpuDenom = rows.find(row => row.deliverableQty && row.deliverableQty > 1)?.deliverableQty ?? 1;
+
+  return (
+    <div className="w-full xl:w-[720px] shrink-0 rounded-xl border border-blue-200 bg-[#EFF6FF] shadow-sm shadow-blue-100 overflow-hidden">
+      <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60">
+        Total Project Costs
+      </div>
+      <div className="overflow-x-auto bg-white">
+        <table className="w-full min-w-[700px] border-collapse text-[0.64rem]">
+          <thead>
+            <tr className="bg-blue-50 text-blue-800 uppercase tracking-wider">
+              {["Line Item", "Intake Qty", "Deliverable Qty", "Selling Price", "Selling PPU", "Our Cost", "Our PPU", "Margin %", "Margin $$"].map((label, index) => (
+                <th key={label} className={`px-2 py-2 border-b border-blue-200 font-bold ${index === 0 ? "text-left" : "text-right"}`}>
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => (
+              <Fragment key={row.label}>
+                <tr className="border-b border-blue-100 hover:bg-blue-50/40">
+                  <td className="px-2 py-1.5 text-zinc-800 font-semibold">
+                    <div className="flex items-center gap-1">
+                      {row.isFirstPackaging && processDetailRows.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setProcessesOpen(open => !open)}
+                          className="h-5 w-5 inline-flex items-center justify-center rounded border border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                          title={processesOpen ? "Hide process details" : "Show process details"}
+                        >
+                          {processesOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      )}
+                      <span>{row.label}</span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-700">{fmtQty(row.intakeQty)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-700">{fmtQty(row.deliverableQty)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-[#e8473f]">{fmtMoney(row.sellingPrice)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-800">{fmtPpu(row.sellingPpu)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-zinc-900">{fmtMoney(row.ourCost)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-zinc-800">{fmtPpu(row.ourPpu)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums bg-green-50 text-green-700 font-semibold">{fmtPct(row.marginPct)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums bg-green-50 text-green-800 font-semibold">{fmtMoney(row.marginDollars)}</td>
+                </tr>
+                {row.isFirstPackaging && processesOpen && processDetailRows.map(detail => (
+                  <tr key={detail.id} className="border-b border-blue-50 bg-blue-50/35">
+                    <td className="px-2 py-1.5 pl-8 text-zinc-600 font-medium">{detail.label}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600">{fmtQty(detail.intakeQty)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600">{fmtQty(detail.deliverableQty)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-[#e8473f]">{fmtMoney(detail.sellingPrice)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-700">{fmtPpu(detail.sellingPpu)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-800">{fmtMoney(detail.ourCost)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-zinc-700">{fmtPpu(detail.ourPpu)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums bg-green-50 text-green-700">{fmtPct(detail.marginPct)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums bg-green-50 text-green-800">{fmtMoney(detail.marginDollars)}</td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+            <tr className="border-t-2 border-blue-300 bg-blue-100/70 font-bold">
+              <td className="px-2 py-2 text-blue-900 uppercase">Totals</td>
+              <td className="px-2 py-2 text-right text-blue-900">-</td>
+              <td className="px-2 py-2 text-right text-blue-900">-</td>
+              <td className="px-2 py-2 text-right tabular-nums text-[#e8473f]">{fmtMoney(totals.sellingPrice)}</td>
+              <td className="px-2 py-2 text-right tabular-nums text-blue-900">{fmtPpu(totals.sellingPrice / totalPpuDenom)}</td>
+              <td className="px-2 py-2 text-right tabular-nums text-zinc-950">{fmtMoney(totals.ourCost)}</td>
+              <td className="px-2 py-2 text-right tabular-nums text-blue-900">{fmtPpu(totals.ourCost / totalPpuDenom)}</td>
+              <td className="px-2 py-2 text-right tabular-nums bg-green-100 text-green-800">{fmtPct(totalMarginPct)}</td>
+              <td className="px-2 py-2 text-right tabular-nums bg-green-100 text-green-900">{fmtMoney(totalMarginDollars)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const {
     projectType, setProjectType,
@@ -725,7 +1011,7 @@ export default function Home() {
     processLevels, setProcessLevels,
     scaledColumns,
     formData, setFormField,
-    summaryRows, ppuUnits,
+    summaryRows, summaryTableRows, ppuUnits,
     allMoqResults,
     whatIfPpus, setWhatIfPpus,
     costPpuOverrides,
@@ -784,12 +1070,14 @@ export default function Home() {
 
   const sections: SidebarSection[] = [
     { id: "section-project-info",       label: "Project Info",       visible: true },
+    { id: "section-manufacturing-moq",  label: "Mfg MOQ",            visible: true },
     { id: "section-raw-materials",      label: "Raw Materials",      visible: true },
     { id: "section-inventory-handling", label: "Inventory Handling", visible: true },
     { id: "section-testing",            label: "Testing",            visible: true },
     { id: "section-processes",          label: "Processes",          visible: true },
     { id: "section-packaging-summary",  label: "Pkg Configuration",  visible: true },
     { id: "section-palletization",      label: "Palletization",      visible: true },
+    { id: "section-price-adjustment",   label: "Price Adjustment",   visible: true },
   ];
 
   return (
@@ -819,6 +1107,7 @@ export default function Home() {
             coPackingProcesses={coPackingProcesses}
             setCoPackingProcesses={setCoPackingProcesses}
             summaryRows={summaryRows}
+            summaryTableRows={summaryTableRows}
             ppuUnits={ppuUnits}
             allMoqResults={allMoqResults}
             whatIfPpus={whatIfPpus}
