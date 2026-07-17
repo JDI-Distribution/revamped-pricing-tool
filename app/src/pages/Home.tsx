@@ -497,7 +497,7 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
           return (
             <div className="w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100">
               <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60">
-                Packaging Line Costs
+                Packout Costs
               </div>
               {pkgRows.map((r, i) => {
                 const lvl = packagingLevels[i];
@@ -1075,7 +1075,7 @@ export default function Home() {
     { id: "section-inventory-handling", label: "Inventory Handling", visible: true },
     { id: "section-testing",            label: "Testing",            visible: true },
     { id: "section-processes",          label: "Processes",          visible: true },
-    { id: "section-packaging-summary",  label: "Pkg Configuration",  visible: true },
+    { id: "section-packaging-summary",  label: "Packout Config",     visible: true },
     { id: "section-palletization",      label: "Palletization",      visible: true },
     { id: "section-price-adjustment",   label: "Price Adjustment",   visible: true },
   ];

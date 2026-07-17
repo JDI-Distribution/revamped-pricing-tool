@@ -120,9 +120,10 @@ interface Props {
   onOpenChange?: (open: boolean) => void;
 }
 
-export default function PackagingLevels({ packagingLevels, setPackagingLevels, className, sectionTitle = "Packaging Line Setup", sectionId = "section-packaging-summary", onOpenChange }: Props) {
+export default function PackagingLevels({ packagingLevels, setPackagingLevels, className, sectionTitle = "Packout Configuration", sectionId = "section-packaging-summary", onOpenChange }: Props) {
   const [sectionOpen, setSectionOpen]     = useState(true);
   const handleToggle = (open: boolean) => { setSectionOpen(open); onOpenChange?.(open); };
+  const [laborOpen, setLaborOpen] = useState(false);
   const [manualChargeOpen, setManualChargeOpen] = useState(false);
   const [outputsOpen, setOutputsOpen]     = useState<Record<string, boolean>>({});
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
@@ -330,6 +331,19 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
               {/* ── Wage Rate ── */}
               <tr className="border-b border-amber-200/70">
+                <td colSpan={packagingLevels.length + 1} className="px-3 py-1.5 bg-amber-50/50 sticky left-0 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setLaborOpen(o => !o)}
+                    className="flex items-center gap-1.5 text-[0.6rem] font-bold text-amber-700 hover:text-amber-900 uppercase tracking-widest transition-colors">
+                    {laborOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                    Labor Details
+                  </button>
+                </td>
+              </tr>
+
+              {laborOpen && (<>
+              <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Wage Rate</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
@@ -356,6 +370,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Label Print Cost / Unit ── */}
+              </>)}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Print Cost / Unit</td>
                 {packagingLevels.map(lvl => (
@@ -371,6 +386,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Label Apply Rate / Min ── */}
+              {laborOpen && (<>
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Apply Rate / Min</td>
                 {packagingLevels.map(lvl => (
@@ -383,6 +399,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Packaging Weight ── */}
+              </>)}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Packaging Weight</td>
                 {packagingLevels.map(lvl => (
@@ -398,6 +415,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── No. of Staff / Stations ── */}
+              {laborOpen && (<>
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">No. of Staff / Stations</td>
                 {packagingLevels.map(lvl => (
@@ -434,6 +452,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Tab Cost / Unit ── */}
+              </>)}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Tab Cost / Unit</td>
                 {packagingLevels.map(lvl => (
@@ -453,6 +472,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Eff. Buffer % ── */}
+              {laborOpen && (<>
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Eff. Buffer %</td>
                 {packagingLevels.map(lvl => (
@@ -483,6 +503,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
               {/* ── Unit Mkp % ── */}
+              </>)}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Unit Mkp %</td>
                 {packagingLevels.map(lvl => (

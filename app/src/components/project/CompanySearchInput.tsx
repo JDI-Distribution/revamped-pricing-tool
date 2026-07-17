@@ -116,6 +116,24 @@ export default function CompanySearchInput() {
     }
   };
 
+  const renderHighlighted = (value: string) => {
+    const term = customer.customer.trim();
+    if (!term) return value;
+
+    const lowerValue = value.toLowerCase();
+    const lowerTerm = term.toLowerCase();
+    const index = lowerValue.indexOf(lowerTerm);
+    if (index === -1) return value;
+
+    return (
+      <>
+        {value.slice(0, index)}
+        <mark className="bg-amber-200/80 text-zinc-950 px-0.5 rounded-sm">{value.slice(index, index + term.length)}</mark>
+        {value.slice(index + term.length)}
+      </>
+    );
+  };
+
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
@@ -136,25 +154,30 @@ export default function CompanySearchInput() {
       </div>
       {open && results.length > 0 && dropdownRect && createPortal(
         <div
-          className="fixed z-9999 bg-white border border-gray-200 rounded shadow-lg max-h-56 overflow-auto"
-          style={{ top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width }}
+          className="fixed z-9999 bg-white border border-gray-200 rounded shadow-lg max-h-72 overflow-auto"
+          style={{ top: dropdownRect.top, left: dropdownRect.left, width: Math.max(dropdownRect.width, 340) }}
         >
           {results.map((r, i) => (
             <button
               type="button"
-              key={r.accountId || i}
+              key={`${r.accountId || "account"}-${r.contactId || `no-contact-${i}`}`}
               onMouseDown={(e) => { e.preventDefault(); selectResult(r); }}
               onMouseEnter={() => setHighlighted(i)}
               className={`w-full text-left px-2 py-1.5 transition-colors ${
                 i === highlighted ? "bg-amber-50" : "hover:bg-gray-50"
               }`}
             >
-              <p className="text-xs font-semibold text-zinc-950 truncate">{r.accountName}</p>
-              {(r.contactName || r.email) && (
-                <p className="text-[0.6rem] text-zinc-600 truncate">
-                  {[r.contactName, r.email].filter(Boolean).join(" · ")}
-                </p>
-              )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-zinc-950 truncate">{renderHighlighted(r.accountName)}</p>
+                  <p className="text-[0.68rem] text-zinc-700 truncate">{renderHighlighted(r.contactName || "No contact on file")}</p>
+                  <p className="text-[0.62rem] text-zinc-500 truncate">{renderHighlighted(r.email || "No email on file")}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  {r.customerId && <p className="text-[0.58rem] font-semibold text-zinc-500">{renderHighlighted(r.customerId)}</p>}
+                  {r.phone && <p className="text-[0.6rem] text-zinc-500">{renderHighlighted(r.phone)}</p>}
+                </div>
+              </div>
             </button>
           ))}
         </div>,

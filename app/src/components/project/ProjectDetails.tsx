@@ -339,13 +339,33 @@ export default function ProjectDetails({
     return qtys;
   })();
 
-  // Auto-seed ppuDenominator from first packaging level's required qty when field is empty
+  // Keep the PPU denominator synced while it is still using the auto-filled value.
   const firstLvlQtyForSeed = packagingRequiredQtys[0] ?? 0;
+  const autoPpuDenominatorRef = useRef<string | null>(null);
   useEffect(() => {
-    if (firstLvlQtyForSeed > 0 && (!formData.ppuDenominator || formData.ppuDenominator === "0")) {
-      setFormField("ppuDenominator", String(firstLvlQtyForSeed));
+    if (firstLvlQtyForSeed <= 0) return;
+
+    const next = String(firstLvlQtyForSeed);
+    const current = formData.ppuDenominator ?? "";
+    const currentNum = parseFloat(current);
+    const previousAuto = autoPpuDenominatorRef.current;
+    const previousAutoNum = previousAuto == null ? NaN : parseFloat(previousAuto);
+
+    if (previousAuto == null && currentNum === firstLvlQtyForSeed) {
+      autoPpuDenominatorRef.current = next;
+      return;
     }
-  }, [firstLvlQtyForSeed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const shouldSync =
+      !current ||
+      current === "0" ||
+      (previousAuto != null && currentNum === previousAutoNum);
+
+    if (shouldSync) {
+      autoPpuDenominatorRef.current = next;
+      if (current !== next) setFormField("ppuDenominator", next);
+    }
+  }, [firstLvlQtyForSeed, formData.ppuDenominator, setFormField]);
 
   // Stable dep key: serialised CPO-relevant fields — triggers sync only when CPO data actually changes.
   const _cpoSyncKey = packagingLevels

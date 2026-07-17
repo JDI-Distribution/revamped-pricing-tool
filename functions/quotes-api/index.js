@@ -146,33 +146,99 @@ app.get("/crm/search-accounts", async (req, res) => {
     const headers = { ...credentials.headers };
     const base = "https://www.zohoapis.com/crm/v2";
 
+    const accountFields = "Account_Name,Auto_Account_Record,Phone,id";
     const accountCriteria = encodeURIComponent(`(Account_Name:contains:${query})`);
     const accountRes = await fetch(
-      `${base}/Accounts/search?criteria=${accountCriteria}&fields=Account_Name,Auto_Account_Record,Phone,id`,
+      `${base}/Accounts/search?criteria=${accountCriteria}&fields=${accountFields}`,
       { headers }
     );
     const accountData = await accountRes.json();
-    console.log("Account search response:", JSON.stringify(accountData).slice(0, 500));
-    const accounts = accountData?.data ?? [];
+    console.log("Account criteria search response:", JSON.stringify(accountData).slice(0, 500));
 
-    const results = await Promise.all(accounts.slice(0, 6).map(async (account) => {
-      const contactCriteria = encodeURIComponent(`(Account_Name:equals:${account.Account_Name})`);
+    let accounts = accountData?.data ?? [];
+    if (accounts.length === 0) {
+      const wordRes = await fetch(
+        `${base}/Accounts/search?word=${encodeURIComponent(query)}&fields=${accountFields}`,
+        { headers }
+      );
+      const wordData = await wordRes.json();
+      console.log("Account word search response:", JSON.stringify(wordData).slice(0, 500));
+      accounts = wordData?.data ?? [];
+    }
+
+    if (accounts.length === 0) {
       const contactRes = await fetch(
-        `${base}/Contacts/search?criteria=${contactCriteria}&fields=Full_Name,Email,Phone,id&per_page=1`,
+        `${base}/Contacts/search?word=${encodeURIComponent(query)}&fields=Full_Name,Email,Phone,Mobile,id,Account_Name&per_page=20`,
         { headers }
       );
       const contactData = await contactRes.json();
-      const contact = contactData?.data?.[0] ?? null;
-      return {
+      console.log("Contact word search response:", JSON.stringify(contactData).slice(0, 500));
+      const contacts = contactData?.data ?? [];
+      const accountMap = new Map();
+      contacts.forEach((contact) => {
+        const accountRef = contact?.Account_Name;
+        if (!accountRef?.id || accountMap.has(accountRef.id)) return;
+        accountMap.set(accountRef.id, {
+          id: accountRef.id,
+          Account_Name: accountRef.name,
+          Auto_Account_Record: "",
+          Phone: "",
+        });
+      });
+      accounts = Array.from(accountMap.values());
+    }
+
+    const normalizedQuery = String(query).trim().toLowerCase();
+    const seenAccountIds = new Set();
+    accounts = accounts.filter((account) => {
+      const accountName = String(account?.Account_Name ?? "").toLowerCase();
+      const accountId = account?.id;
+      if (!accountId || seenAccountIds.has(accountId)) return false;
+      if (!accountName.includes(normalizedQuery)) return false;
+      seenAccountIds.add(accountId);
+      return true;
+    });
+
+    const accountResults = await Promise.all(accounts.slice(0, 6).map(async (account) => {
+      let contacts = [];
+      const relatedContactRes = await fetch(
+        `${base}/Accounts/${account.id}/Contacts?fields=Full_Name,Email,Phone,Mobile,id&per_page=20`,
+        { headers }
+      );
+      const relatedContactData = await relatedContactRes.json();
+      contacts = relatedContactData?.data ?? [];
+
+      if (contacts.length === 0) {
+        const contactCriteria = encodeURIComponent(`(Account_Name:equals:${account.Account_Name})`);
+        const contactRes = await fetch(
+          `${base}/Contacts/search?criteria=${contactCriteria}&fields=Full_Name,Email,Phone,Mobile,id&per_page=20`,
+          { headers }
+        );
+        const contactData = await contactRes.json();
+        contacts = contactData?.data ?? [];
+      }
+
+      if (contacts.length === 0) return [{
+        accountId: account.id,
+        accountName: account.Account_Name,
+        customerId: account.Auto_Account_Record ?? "",
+        contactName: "",
+        phone: account.Phone ?? "",
+        email: "",
+        contactId: null,
+      }];
+
+      return contacts.map((contact) => ({
         accountId: account.id,
         accountName: account.Account_Name,
         customerId: account.Auto_Account_Record ?? "",
         contactName: contact?.Full_Name ?? "",
-        phone: contact?.Phone ?? account.Phone ?? "",
+        phone: contact?.Phone ?? contact?.Mobile ?? account.Phone ?? "",
         email: contact?.Email ?? "",
         contactId: contact?.id ?? null,
-      };
+      }));
     }));
+    const results = accountResults.flat();
 
     res.json({ data: results });
   } catch (err) {

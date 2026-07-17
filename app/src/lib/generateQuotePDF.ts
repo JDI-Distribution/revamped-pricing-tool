@@ -273,10 +273,13 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       ["PHONE",        customer.phone      || "—"],
       ["EMAIL",        customer.email      || "—"],
     ];
+    const validThrough = new Date(today);
+    validThrough.setDate(validThrough.getDate() + 14);
+
     // Right column: quote meta
     const rightFields: [string, string][] = [
       ["DATE ISSUED",  fmtDate(today)],
-      ["VALID FOR",    "14 Days"],
+      ["VALID FOR",    `14 Days (${fmtDate(validThrough)})`],
       ["SALES REP",    customer.salesRep || "—"],
       ["PHONE",        brand.phone],
       ["EMAIL",        brand.email],
@@ -299,9 +302,8 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       }));
       const boxH = prepared.reduce((sum, item) => sum + 4.2 + item.lines.length * 3.8 + 2, 4);
       if (boxed) {
-        doc.setFillColor(248, 248, 248);
-        doc.setDrawColor(...ltGray);
-        doc.roundedRect(x - 2.5, startY - 4, width + 5, boxH, 1.2, 1.2, "FD");
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(x - 2.5, startY - 4, width + 5, boxH, 1.2, 1.2, "F");
       }
 
       let cy = startY;
@@ -317,9 +319,6 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     const leftBottom  = drawInfoColumn(leftFields, L, y, colW);
     const rightBottom = drawInfoColumn(rightFields, colMid, y, colW, true);
-    doc.setDrawColor(...ltGray);
-    doc.setLineWidth(0.2);
-    doc.line(colMid - 4, y - 4, colMid - 4, Math.max(leftBottom, rightBottom) - 2);
 
     y = Math.max(leftBottom, rightBottom) + 2;
     rule(y);
@@ -348,25 +347,16 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const packRows = summaryTableRows.filter(str => !str.isLeadTimeSummary && (str.totalUnits ?? 0) > 0);
     const overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined = undefined;
     const maxPackagingLineW = W / 2 - 2;
-    const packagingDisplayLines = packRows.flatMap(row => {
+    const packagingDisplayLines = packRows.flatMap((row, index) => {
       const lbl = row.label.replace(/ & Fees$/i, "");
       const qty = Math.round(row.totalUnits ?? 0).toLocaleString();
-      return doc.splitTextToSize(`${lbl}: ${qty}`, maxPackagingLineW) as string[];
+      const prefix = index === 0 ? "" : "-> ";
+      return doc.splitTextToSize(`${prefix}${lbl}: ${qty}`, maxPackagingLineW) as string[];
     });
     if (packRows.length > 0) {
-      // Build "Label (qty) → Label (qty) → …" single line
-      const arrow = "  →  ";
-      const parts = packRows.map(row => {
-        const lbl = row.label.replace(/ & Fees$/i, "");
-        const qty = Math.round(row.totalUnits ?? 0).toLocaleString();
-        return `${lbl} (${qty})`;
-      });
-      const fullLine = parts.join(arrow);
-
       sf("bold", 7); doc.setTextColor(...midGray);
       doc.text("PACKAGING STRUCTURE", colMid, y);
 
-      void fullLine;
       const wrapped = packagingDisplayLines;
       sf("normal", 8); doc.setTextColor(...gray);
       wrapped.forEach((line: string, li: number) => {
@@ -387,14 +377,6 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     rule(y);
 
     // ── Page-break helper ─────────────────────────────────────────────────────
-    const MARGIN_BOTTOM = 20;
-    const checkPageBreak = (neededMm: number) => {
-      if (y + neededMm > pageH - MARGIN_BOTTOM) {
-        doc.addPage();
-        y = 14;
-      }
-    };
-
     // ── PRICING BREAKDOWN ─────────────────────────────────────────────────────
     y += 7;
 
@@ -474,28 +456,25 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     // Estimate full table height: header (8mm) + each row (~8mm each, some wrap to 2 lines)
     // + section label (10mm) — force new page if it won't all fit
-    const estimatedTableH = 10 + 8 + body.length * 8;
-    if (y + estimatedTableH > pageH - MARGIN_BOTTOM) {
-      doc.addPage();
-      y = 14;
-    }
-
     sectionLabel("Pricing Breakdown", L, y);
     y += 5;
 
+    const compactPricing = body.length > 7;
     autoTable(doc, {
       startY: y, margin: { left: L, right: L },
       head: [["Description", "Quantity", "Unit Price", "Total"]],
       body,
       styles: {
-        font: "helvetica", fontSize: 8.5,
-        cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
+        font: "helvetica", fontSize: compactPricing ? 7.4 : 8,
+        cellPadding: compactPricing
+          ? { top: 1.4, bottom: 1.4, left: 2.5, right: 2.5 }
+          : { top: 1.8, bottom: 1.8, left: 3, right: 3 },
         textColor: gray, lineColor: ltGray, lineWidth: 0.2,
         fillColor: [255, 255, 255],
-        minCellHeight: 6,
+        minCellHeight: compactPricing ? 4.8 : 5.4,
       },
       headStyles: {
-        fontStyle: "bold", fontSize: 8,
+        fontStyle: "bold", fontSize: compactPricing ? 7.2 : 7.6,
         fillColor: [240, 240, 240],
         textColor: midGray,
         halign: "left",
@@ -514,6 +493,8 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
           doc.setTextColor(...gray);
         }
       },
+      pageBreak: "auto",
+      rowPageBreak: "avoid",
       tableLineColor: ltGray, tableLineWidth: 0.2,
     });
     const pricingSnapshot: AutoTableSnapshot = {
@@ -524,8 +505,10 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     };
 
     // ── TIMELINE & DELIVERY ───────────────────────────────────────────────────
-    y = (doc as any).lastAutoTable.finalY + 7;
-    checkPageBreak(40);
+    y = (doc as any).lastAutoTable.finalY + 5;
+    if (y + 32 > pageH - 14) {
+      y = pageH - 46;
+    }
     rule(y, ltGray, 0.2);
     y += 5;
     sectionLabel("Timeline & Delivery", L, y);
@@ -541,17 +524,18 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         ["Estimated Ship Date (Week Of)",    ltOv[2] ?? fmtDate(shipDate)],
       ],
       styles: {
-        font: "helvetica", fontSize: 8.5,
-        cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
+        font: "helvetica", fontSize: 8,
+        cellPadding: { top: 1.6, bottom: 1.6, left: 3, right: 3 },
         textColor: gray, lineColor: ltGray, lineWidth: 0.2,
         fillColor: [255, 255, 255],
       },
-      headStyles: { fontStyle: "bold", fontSize: 8, fillColor: [240, 240, 240], textColor: midGray },
+      headStyles: { fontStyle: "bold", fontSize: 7.6, fillColor: [240, 240, 240], textColor: midGray },
       alternateRowStyles: { fillColor: rowEven },
       columnStyles: {
         0: { halign: "left",  cellWidth: "auto", fontStyle: "bold" },
         1: { halign: "right", cellWidth: 52 },
       },
+      pageBreak: "avoid",
       tableLineColor: ltGray, tableLineWidth: 0.2,
     });
     const leadTimeSnapshot: AutoTableSnapshot = {
@@ -562,7 +546,14 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     };
 
     // ── TERMS & CONDITIONS ────────────────────────────────────────────────────
-    y = (doc as any).lastAutoTable.finalY + 7;
+    const firstPageFooterY = pageH - 10;
+    rule(firstPageFooterY, ltGray, 0.2);
+    sf("normal", 7); doc.setTextColor(...midGray);
+    doc.text(`${brand.address1}, ${brand.address2}  â€¢  ${brand.email}  â€¢  ${brand.phone}`, pageW / 2, firstPageFooterY + 4, { align: "center" });
+    doc.text("Page 1 of 2", R, firstPageFooterY + 4, { align: "right" });
+
+    doc.addPage();
+    y = 14;
 
     const disclaimer = "This document is a quotation only and does not constitute a formal offer, contract, or order. Prices and terms are subject to change without notice and are valid only for the period specified (14 days from the date hereof). All quotes are subject to product availability, credit approval, and our standard Terms and Conditions, available upon request or at our website. Acceptance of this quote requires written confirmation and may be subject to final review.";
     const cancelPolicy = "All wholesale and bulk orders are final and non-cancellable upon approval. No refunds, returns, cancellations, or modifications will be accepted thereafter.";
@@ -571,7 +562,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const disclaimerLines = doc.splitTextToSize(disclaimer, W);
     const cancelLines     = doc.splitTextToSize(cancelPolicy, W);
     const footerH = 18 + cancelLines.length * 3.8 + 7 + disclaimerLines.length * 3.5 + 12;
-    checkPageBreak(footerH);
+    void footerH;
 
     rule(y, ltGray, 0.2);
     y += 4;
@@ -594,10 +585,11 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
 
     // ── Footer bar ────────────────────────────────────────────────────────────
     const footerY = pageH - 10;
+    const totalPages = doc.getNumberOfPages();
     rule(footerY, ltGray, 0.2);
     sf("normal", 7); doc.setTextColor(...midGray);
     doc.text(`${brand.address1}, ${brand.address2}  •  ${brand.email}  •  ${brand.phone}`, pageW / 2, footerY + 4, { align: "center" });
-    doc.text("Page 1 of 1", R, footerY + 4, { align: "right" });
+    doc.text(`Page ${doc.getCurrentPageInfo().pageNumber} of ${totalPages}`, R, footerY + 4, { align: "right" });
 
     // ── Filename ──────────────────────────────────────────────────────────────
     const clean = (s: string) => (s || "Unknown").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_\-]/g, "");
