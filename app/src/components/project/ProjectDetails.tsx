@@ -191,6 +191,7 @@ export default function ProjectDetails({
   const [palletCalcOpen,  setPalletCalcOpen]  = useState(false);
   const [setupMarginOpen, setSetupMarginOpen] = useState(false);
   const [setupMarginPct,  setSetupMarginPct]  = useState(60);
+  const [manualPpuDenominator, setManualPpuDenominator] = useState(false);
   const setupMarginBtnRef = useRef<HTMLButtonElement | null>(null);
   const lastAutoIntakePallets = useRef<string | null>(null);
   const lastAutoMfgNetFillG = useRef<string | null>(null);
@@ -252,16 +253,17 @@ export default function ProjectDetails({
   const fmtDec = (n: number) => n > 0 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—";
   const applyManufacturingMoq = () => {
     if (recommendedCustomerMoq > 0) {
+      setManualPpuDenominator(true);
       setFormField("ppuDenominator", String(Math.round(recommendedCustomerMoq)));
     }
   };
 
   useEffect(() => {
-    if (applyMfgMoqToPpu && recommendedCustomerMoq > 0) {
+    if (manualPpuDenominator && applyMfgMoqToPpu && recommendedCustomerMoq > 0) {
       const next = String(Math.round(recommendedCustomerMoq));
       if (formData.ppuDenominator !== next) setFormField("ppuDenominator", next);
     }
-  }, [applyMfgMoqToPpu, recommendedCustomerMoq, formData.ppuDenominator, setFormField]);
+  }, [manualPpuDenominator, applyMfgMoqToPpu, recommendedCustomerMoq, formData.ppuDenominator, setFormField]);
 
   useEffect(() => {
     const current = formData.manufacturingMoqNetFillG ?? "";
@@ -319,6 +321,9 @@ export default function ProjectDetails({
   };
   const updatePackagingLevel = (id: string, patch: { units?: number; costPerUnit?: number; customLevelName?: string; unitsRefId?: string | undefined }) => {
     setPackagingLevels(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
+    if (!manualPpuDenominator && id === packagingLevels[0]?.id && patch.units !== undefined && patch.units > 0) {
+      setFormField("ppuDenominator", String(patch.units));
+    }
   };
 
   // Compute required qty for each level in order.
@@ -341,31 +346,11 @@ export default function ProjectDetails({
 
   // Keep the PPU denominator synced while it is still using the auto-filled value.
   const firstLvlQtyForSeed = packagingRequiredQtys[0] ?? 0;
-  const autoPpuDenominatorRef = useRef<string | null>(null);
   useEffect(() => {
-    if (firstLvlQtyForSeed <= 0) return;
-
+    if (manualPpuDenominator || firstLvlQtyForSeed <= 0) return;
     const next = String(firstLvlQtyForSeed);
-    const current = formData.ppuDenominator ?? "";
-    const currentNum = parseFloat(current);
-    const previousAuto = autoPpuDenominatorRef.current;
-    const previousAutoNum = previousAuto == null ? NaN : parseFloat(previousAuto);
-
-    if (previousAuto == null && currentNum === firstLvlQtyForSeed) {
-      autoPpuDenominatorRef.current = next;
-      return;
-    }
-
-    const shouldSync =
-      !current ||
-      current === "0" ||
-      (previousAuto != null && currentNum === previousAutoNum);
-
-    if (shouldSync) {
-      autoPpuDenominatorRef.current = next;
-      if (current !== next) setFormField("ppuDenominator", next);
-    }
-  }, [firstLvlQtyForSeed, formData.ppuDenominator, setFormField]);
+    if (formData.ppuDenominator !== next) setFormField("ppuDenominator", next);
+  }, [manualPpuDenominator, firstLvlQtyForSeed, formData.ppuDenominator, setFormField]);
 
   // Stable dep key: serialised CPO-relevant fields — triggers sync only when CPO data actually changes.
   const _cpoSyncKey = packagingLevels
@@ -625,10 +610,39 @@ export default function ProjectDetails({
             {/* PPU Denominator */}
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-zinc-700">PPU Denominator</span>
-              <div className="w-40">
-                <CurrencyInput type="integer" value={parseFloat(formData.ppuDenominator) || 0}
-                  onChange={v => setFormField("ppuDenominator", String(v))}
-                  className={inputKey} />
+              <div className="flex items-center gap-2">
+                <div className="w-40">
+                  {manualPpuDenominator ? (
+                    <CurrencyInput
+                      type="integer"
+                      value={parseFloat(formData.ppuDenominator) || 0}
+                      onChange={v => setFormField("ppuDenominator", String(v))}
+                      className={inputKey}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      readOnly
+                      value={firstLvlQtyForSeed > 0 ? Math.round(firstLvlQtyForSeed).toLocaleString("en-US") : ""}
+                      className={`${inputKey} bg-zinc-100 text-zinc-700 border-zinc-200 cursor-default`}
+                    />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextManual = !manualPpuDenominator;
+                    setManualPpuDenominator(nextManual);
+                    if (!nextManual) setFormField("manufacturingMoqApplyToPpu" as keyof ProjectFormData, "false");
+                  }}
+                  className={`h-8 px-2.5 rounded-md border text-[0.65rem] font-semibold transition-colors ${
+                    manualPpuDenominator
+                      ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {manualPpuDenominator ? "Use Auto" : "Use Manual"}
+                </button>
               </div>
             </div>
 
@@ -803,7 +817,11 @@ export default function ProjectDetails({
                   <input
                     type="checkbox"
                     checked={applyMfgMoqToPpu}
-                    onChange={e => setFormField("manufacturingMoqApplyToPpu" as keyof ProjectFormData, e.target.checked ? "true" : "false")}
+                    onChange={e => {
+                      const checked = e.target.checked;
+                      setFormField("manufacturingMoqApplyToPpu" as keyof ProjectFormData, checked ? "true" : "false");
+                      if (checked) setManualPpuDenominator(true);
+                    }}
                     className="accent-[#e8473f] w-3.5 h-3.5"
                   />
                   <span className="text-xs text-zinc-800">Use for PPU Denominator</span>

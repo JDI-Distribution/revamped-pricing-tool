@@ -6,6 +6,6 @@
   },
   "client": {
     "targets": ["jdi-pricing-tool"],
-    "source": "client"
+    "source": "client/jdi-pricing-tool"
   }
 }

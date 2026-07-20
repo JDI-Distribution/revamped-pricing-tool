@@ -633,6 +633,7 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
           processCostTotals={processCostSummary.totals}
         />
         <PriceAdjustmentOutputPanel
+          formData={formData}
           summaryRows={summaryRows}
           summaryTableRows={summaryTableRows}
           packagingLevels={packagingLevels}
@@ -832,6 +833,7 @@ function PriceAdjustmentSection({
 type PriceOutputProcessRow = ReturnType<typeof calculateProcessCosts>["rows"][number];
 
 interface PriceAdjustmentOutputPanelProps {
+  formData: ProjectFormData;
   summaryRows: SummaryRow[];
   summaryTableRows: SummaryTableRow[];
   packagingLevels: PackagingLevel[];
@@ -841,6 +843,7 @@ interface PriceAdjustmentOutputPanelProps {
 }
 
 function PriceAdjustmentOutputPanel({
+  formData,
   summaryRows,
   summaryTableRows,
   packagingLevels,
@@ -854,8 +857,33 @@ function PriceAdjustmentOutputPanel({
     ? "-"
     : v.toLocaleString("en-US", { maximumFractionDigits: v >= 100 ? 0 : 2 });
   const fmtPpu = (v: number) => v > 0 ? fmt(v) : "$0.00";
+  const n = (value: unknown) => {
+    const parsed = parseFloat(String(value ?? ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
   const summaryTableFor = (label: string) =>
     summaryTableRows.find(row => row.label === label && !row.isLeadTimeSummary);
+  const materialTableRow = summaryTableFor("Materials");
+  const materialBaseUnits = materialTableRow?.totalUnits ?? 0;
+  const materialOverage = n(formData.materialOverage);
+  const materialIntakeUnits = materialBaseUnits > 0 ? Math.ceil(materialBaseUnits * (1 + materialOverage / 100)) : null;
+  const materialReqGrams = materialTableRow?.totalWeight ?? 0;
+  const customerProvidesRawMaterial = (formData.rawMaterialProvider || "customer") === "customer";
+  const costPerGram = customerProvidesRawMaterial ? 0 : n(formData.costPerGram);
+  const rawMaterialMarkup = n(formData.rawMaterialMarkup);
+  const leftoverInventoryCost = customerProvidesRawMaterial ? 0 : n(formData.leftOverInventoryCost);
+  const leftoverInventoryAbsorb = n(formData.leftOverInventoryAbsorb);
+  const unabsorbedLeftoverPerGram = materialReqGrams > 0
+    ? (1 - leftoverInventoryAbsorb / 100) * leftoverInventoryCost / materialReqGrams
+    : 0;
+  const rawMaterialOur = materialReqGrams * costPerGram;
+  const rawMaterialSelling = materialReqGrams * (costPerGram + unabsorbedLeftoverPerGram) * (1 + rawMaterialMarkup / 100);
+  const intakePallets = n((formData as ProjectFormData).numIntakePallets ?? formData.numPallets);
+  const intakeFee = n(formData.intakeFee);
+  const intakeMarkup = n(formData.intakeFeeMarkup);
+  const inventoryHandlingOur = intakeFee * intakePallets;
+  const inventoryHandlingSelling = inventoryHandlingOur * (1 + intakeMarkup / 100);
+  const projectMgmtFee = n((formData as ProjectFormData).projectManagementFee);
   const packagingLabels = summaryTableRows
     .filter(row =>
       !row.isLeadTimeSummary &&
@@ -869,12 +897,48 @@ function PriceAdjustmentOutputPanel({
     return index >= 0 ? packagingLevels[index] : undefined;
   };
 
-  const rows = summaryRows.map(row => {
+  const makeOutputRow = (
+    label: string,
+    intakeQty: number | null,
+    deliverableQty: number | null,
+    sellingPrice: number,
+    ourCost: number,
+    isFirstPackaging = false,
+  ) => {
+    const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
+    const sellingPpu = ppuDenom ? sellingPrice / ppuDenom : sellingPrice;
+    const ourPpu = ppuDenom ? ourCost / ppuDenom : ourCost;
+    const marginDollars = sellingPrice - ourCost;
+    const marginPct = sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0;
+    return { label, intakeQty, deliverableQty, sellingPrice, sellingPpu, ourCost, ourPpu, marginPct, marginDollars, isFirstPackaging };
+  };
+
+  const rows = summaryRows.flatMap(row => {
     const tableRow = summaryTableFor(row.label);
     const level = getPackagingLevel(row.label);
     const isSetup = row.label === "Setup / QA Fee";
     const isMaterial = row.label === "Materials";
     const isFirstPackaging = row.label === firstPackagingLabel;
+
+    if (isSetup) {
+      const setupRows = [makeOutputRow(row.label, 1, 1, row.customerPrice, row.ourCosts)];
+      if (projectMgmtFee > 0) {
+        setupRows.push(makeOutputRow("Project Mgmt Fee", 1, 1, projectMgmtFee, 0));
+      }
+      return setupRows;
+    }
+
+    if (isMaterial) {
+      const materialRows = [];
+      if (rawMaterialSelling > 0 || rawMaterialOur > 0) {
+        materialRows.push(makeOutputRow("Material - Total", materialIntakeUnits, materialBaseUnits || null, rawMaterialSelling, rawMaterialOur));
+      }
+      if (inventoryHandlingSelling > 0 || inventoryHandlingOur > 0) {
+        materialRows.push(makeOutputRow("Inventory Handling", intakePallets || null, intakePallets || null, inventoryHandlingSelling, inventoryHandlingOur));
+      }
+      return materialRows;
+    }
+
     const deliverableQty = level
       ? (level.cpoRequiredQty ?? level.units ?? tableRow?.totalUnits ?? null)
       : tableRow?.totalUnits ?? (isSetup ? 1 : null);
@@ -893,7 +957,7 @@ function PriceAdjustmentOutputPanel({
     const marginDollars = sellingPrice - ourCost;
     const marginPct = sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0;
 
-    return { label: row.label, intakeQty, deliverableQty, sellingPrice, sellingPpu, ourCost, ourPpu, marginPct, marginDollars, isFirstPackaging };
+    return [{ label: row.label, intakeQty, deliverableQty, sellingPrice, sellingPpu, ourCost, ourPpu, marginPct, marginDollars, isFirstPackaging }];
   });
 
   const processDetailRows = processes.map((proc, index) => {
