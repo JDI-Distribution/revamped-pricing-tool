@@ -7,6 +7,7 @@ import { CoPackingProcess, RecipeIngredient } from "@/lib/types";
 import { uid as _uid } from "@/lib/uid";
 import { RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
 import { useProject } from "@/lib/ProjectContext";
+import { qtyWithOverage } from "@/lib/quantityMath";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 const uid = () => String(_uid());
@@ -23,15 +24,19 @@ function Col({ proc, children }: { proc: CoPackingProcess; children: React.React
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const cellInp =
-  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+  "h-7 w-full px-2 border border-amber-200 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const cellInpSuffix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-200 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const cellInpPrefix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-r";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-200 border-l-0 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-r";
+const manualCellInp =
+  "h-7 w-full px-2 border border-orange-300 text-[0.7rem] text-zinc-950 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+const manualCellInpSuffix =
+  "h-7 flex-1 min-w-0 px-2 border border-orange-300 border-r-0 text-[0.7rem] text-zinc-950 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const suffixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-r select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-200 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-50/60 rounded-r select-none shrink-0";
 const prefixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-300 border-r-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-l select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-200 border-r-0 text-[0.58rem] text-zinc-600 bg-amber-50/60 rounded-l select-none shrink-0";
 const labelCell =
   "px-3 py-1 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10";
 
@@ -59,19 +64,19 @@ const isBlendingProcess = (proc: CoPackingProcess) => getProcessType(proc) === "
 const isFillingProcess  = (proc: CoPackingProcess) => getProcessType(proc) === "Filling";
 
 function formatBatchSize(proc: CoPackingProcess, unitWeightG: number): string {
-  const qtyWithOverage = proc.units > 0 ? Math.ceil(proc.units * (1 + proc.overageRate / 100)) : 0;
-  if (qtyWithOverage <= 0) return "";
+  const overageQty = qtyWithOverage(proc.units, proc.overageRate);
+  if (overageQty <= 0) return "";
 
   if (proc.batchSizeUnit === "units") {
-    const units = isBlendingProcess(proc) && unitWeightG > 0 ? qtyWithOverage / unitWeightG : qtyWithOverage;
+    const units = isBlendingProcess(proc) && unitWeightG > 0 ? overageQty / unitWeightG : overageQty;
     return units.toLocaleString("en-US", { maximumFractionDigits: 0 });
   }
 
   if (proc.batchSizeUnit === "batches") {
-    return qtyWithOverage.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    return overageQty.toLocaleString("en-US", { maximumFractionDigits: 0 });
   }
 
-  const grams = isBlendingProcess(proc) ? qtyWithOverage : qtyWithOverage * unitWeightG;
+  const grams = isBlendingProcess(proc) ? overageQty : overageQty * unitWeightG;
   const factor = TO_GRAMS[proc.batchSizeUnit] ?? 1;
   const converted = factor > 0 ? grams / factor : grams;
   return converted.toLocaleString("en-US", { maximumFractionDigits: converted >= 100 ? 0 : 3 });
@@ -287,7 +292,7 @@ function RecipePopover({ proc, onClose, anchorRef, addIngredient, removeIngredie
 
   const batchGrams = isBlendingProcess(proc)
     ? proc.units
-    : Math.ceil(proc.units * (1 + proc.overageRate / 100)) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
+    : qtyWithOverage(proc.units, proc.overageRate) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
   const sum = proc.recipeIngredients.reduce((a, i) => a + (i.percentage || 0), 0);
   const isOk   = Math.abs(sum - 100) < 0.01;
   const isOver = sum > 100.01;
@@ -567,7 +572,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
 
   const deriveStats = (proc: CoPackingProcess, _index: number) => {
     const deliveredUnits = getEffectiveUnits(_index);
-    const totalQty = deliveredUnits * (1 + proc.overageRate / 100);
+    const totalQty = qtyWithOverage(deliveredUnits, proc.overageRate);
     let calcHrs = calculateProcessHours(proc, totalQty);
     const minApplied = proc.minLaborHrs > 0 && calcHrs < proc.minLaborHrs;
     if (minApplied) calcHrs = proc.minLaborHrs;
@@ -706,7 +711,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           <span className="truncate block">{displayProcessName(proc, `Process ${idx + 1}`)}</span>
                           {proc.processSpeedValue > 0 && (() => {
                             const isFilling = isFillingProcess(proc);
-                            const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
+                            const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
                             const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
                             const upm = proc.processSpeedUnit === "units / min" ? proc.processSpeedValue
                                       : proc.processSpeedUnit === "units / hr"  ? proc.processSpeedValue / 60 : 0;
@@ -756,7 +761,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                     <div className="space-y-1">
                       <select value={getProcessType(proc)}
                         onChange={e => handleProcessTypeChange(proc.id, e.target.value as ProcessNameOption)}
-                        className={cellInp}>
+                        className={manualCellInp}>
                         <option value="" disabled>Select process</option>
                         {PROCESS_NAME_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
                       </select>
@@ -764,7 +769,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         <input type="text" value={isProcessNameOption(proc.name) ? "" : proc.name}
                           onChange={e => handleCustomNameChange(proc.id, e.target.value)}
                           placeholder="Enter process name"
-                          className={cellInp} />
+                          className={manualCellInp} />
                       )}
                     </div>
                   </Col>
@@ -830,12 +835,12 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                   return (
                     <Col key={proc.id} proc={proc}>
                       <div className="flex items-center gap-1">
-                        <div className="h-7 flex-1 min-w-0 px-2 border border-orange-300 text-[0.7rem] font-semibold text-zinc-800 bg-orange-100/90 flex items-center tabular-nums rounded-l select-none">
+                        <div className="h-7 flex-1 min-w-0 px-2 border border-amber-200 text-[0.7rem] font-semibold text-zinc-800 bg-amber-50/70 flex items-center tabular-nums rounded-l select-none">
                           {computed || <span className="text-zinc-500">auto</span>}
                         </div>
                         <select value={proc.batchSizeUnit}
                           onChange={e => update(proc.id, { batchSizeUnit: e.target.value })}
-                          className={`h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-zinc-800 bg-amber-100/60 focus:outline-none rounded-r shrink-0 ${isBlendingProcess(proc) ? "w-20" : "w-14"}`}>
+                          className={`h-7 px-1 border border-l-0 border-amber-200 text-[0.6rem] text-zinc-800 bg-amber-50/60 focus:outline-none rounded-r shrink-0 ${isBlendingProcess(proc) ? "w-20" : "w-14"}`}>
                           {BATCH_SIZE_UNITS.map(u => (
                             <option key={u} value={u}>
                               {isBlendingProcess(proc) && u === "units" ? "eq units" : u}
@@ -858,10 +863,10 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                         value={proc.processSpeedValue || ""}
                         onChange={e => update(proc.id, { processSpeedValue: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
-                        className="h-7 flex-1 min-w-0 px-2 border border-amber-300 text-[0.7rem] text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l" />
+                        className={manualCellInpSuffix} />
                       <select value={proc.processSpeedUnit}
                         onChange={e => update(proc.id, { processSpeedUnit: e.target.value })}
-                        className="h-7 px-1 border border-l-0 border-amber-300 text-[0.6rem] text-zinc-800 bg-amber-100/60 focus:outline-none rounded-r shrink-0 w-24">
+                        className="h-7 px-1 border border-l-0 border-orange-300 text-[0.6rem] text-zinc-800 bg-orange-100/70 focus:outline-none rounded-r shrink-0 w-24">
                         <optgroup label="Throughput">
                           {SPEED_UNITS_THROUGHPUT.map(u => <option key={u} value={u}>{u}</option>)}
                         </optgroup>
@@ -1057,7 +1062,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                 const procOutputs = processes.map(proc => {
                   const isBlending = isBlendingProcess(proc);
                   const isFilling  = isFillingProcess(proc);
-                  const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
+                  const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
                   const speed      = proc.processSpeedValue;
                   const speedUnit  = proc.processSpeedUnit;
                   const buffer     = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
@@ -1266,7 +1271,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                           );
                           const batchGrams = isBlendingProcess(proc)
                             ? proc.units
-                            : Math.ceil(proc.units * (1 + proc.overageRate / 100)) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
+                            : qtyWithOverage(proc.units, proc.overageRate) * (TO_GRAMS[proc.batchSizeUnit] ?? 1);
                           const ingGrams   = (ing.percentage / 100) * batchGrams;
                           const ingKg      = ingGrams / 1000;
                           const ingLbs     = ingGrams / 453.592;
@@ -1278,7 +1283,7 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                   <input type="text" value={ing.name}
                                     onChange={e => updateIngredient(proc.id, ing.id, { name: e.target.value })}
                                     placeholder="Ingredient name…"
-                                    className="h-6 flex-1 min-w-0 px-2 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 rounded transition placeholder:text-zinc-500" />
+                                    className="h-6 flex-1 min-w-0 px-2 text-[0.7rem] border border-orange-300 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 rounded transition placeholder:text-zinc-500" />
                                   <button type="button" onClick={() => removeIngredient(proc.id, ing.id)}
                                     className="text-zinc-500 hover:text-red-400 transition-colors text-sm leading-none shrink-0" title="Remove">×</button>
                                 </div>
@@ -1287,8 +1292,8 @@ export default function CoPackingProcesses({ processes, setProcesses }: Props) {
                                     value={ing.percentage || ""}
                                     onChange={e => updateIngredient(proc.id, ing.id, { percentage: parseFloat(e.target.value) || 0 })}
                                     placeholder="%"
-                                    className="h-6 w-12 px-1.5 text-[0.7rem] border border-amber-300 bg-amber-100/70 focus:outline-none rounded-l text-right tabular-nums" />
-                                  <span className="h-6 px-1 text-[0.55rem] text-zinc-600 border border-l-0 border-amber-300 bg-amber-100/60 flex items-center rounded-r select-none">%</span>
+                                    className="h-6 w-12 px-1.5 text-[0.7rem] border border-orange-300 bg-orange-100/80 focus:outline-none rounded-l text-right tabular-nums" />
+                                  <span className="h-6 px-1 text-[0.55rem] text-zinc-600 border border-l-0 border-orange-300 bg-orange-100/70 flex items-center rounded-r select-none">%</span>
                                 </div>
                                 {ing.percentage > 0 && batchGrams > 0 && (
                                   <div className="text-[0.55rem] text-amber-700 tabular-nums space-y-0.5">

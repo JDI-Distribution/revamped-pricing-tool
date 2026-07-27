@@ -13,11 +13,38 @@ import { useProject } from "@/lib/ProjectContext";
 import { MoqRow, ProjectFormData, AdditionalFeeRow, PackagingLevel, CoPackingProcess, Column, SummaryRow, SummaryTableRow } from "@/lib/types";
 import { MoqPricingRow } from "@/lib/ProjectContext";
 import { uid } from "@/lib/uid";
+import { qtyWithOverage } from "@/lib/quantityMath";
 
 const fmt    = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
 type ProcessCostTotals = { our: number; selling: number };
+type ProjectCostBreakdownRow = {
+  id: string;
+  label: string;
+  intakeQty: number | null;
+  deliverableQty: number | null;
+  sellingPrice: number;
+  sellingPpu: number;
+  ourCost: number;
+  ourPpu: number;
+  marginPct: number;
+  marginDollars: number;
+};
+type ProjectCostRow = ProjectCostBreakdownRow & {
+  isFirstPackaging?: boolean;
+  breakdownRows?: ProjectCostBreakdownRow[];
+};
+type ProjectCostBuildArgs = {
+  formData: ProjectFormData;
+  summaryRows: SummaryRow[];
+  summaryTableRows: SummaryTableRow[];
+  packagingLevels: PackagingLevel[];
+  processes: CoPackingProcess[];
+  processRows: ReturnType<typeof calculateProcessCosts>["rows"];
+  processCostTotals: ProcessCostTotals;
+  additionalFees: AdditionalFeeRow[];
+};
 
 function calculateProcessHours(proc: CoPackingProcess, totalQty: number): number {
   const { processSpeedValue: speed, processSpeedUnit: unit, batchSizeValue: batchSize, efficiencyBuffer } = proc;
@@ -49,7 +76,7 @@ function calculateProcessHours(proc: CoPackingProcess, totalQty: number): number
 
 function calculateProcessCosts(processes: CoPackingProcess[]) {
   const rows = processes.map(proc => {
-    const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
+    const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
     const hrsRequired = calculateProcessHours(proc, totalUnits);
     const operators = proc.numStaff > 0 ? proc.numStaff : 1;
     const laborOur = hrsRequired * proc.laborRate * operators;
@@ -64,6 +91,225 @@ function calculateProcessCosts(processes: CoPackingProcess[]) {
   );
 
   return { rows, totals };
+}
+
+function makeProjectCostRow(
+  label: string,
+  intakeQty: number | null,
+  deliverableQty: number | null,
+  sellingPrice: number,
+  ourCost: number,
+  extra: Partial<ProjectCostRow> = {},
+): ProjectCostRow {
+  const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
+  const sellingPpu = ppuDenom ? sellingPrice / ppuDenom : sellingPrice;
+  const ourPpu = ppuDenom ? ourCost / ppuDenom : ourCost;
+  const marginDollars = sellingPrice - ourCost;
+  const marginPct = sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0;
+  return {
+    id: extra.id ?? label,
+    label,
+    intakeQty,
+    deliverableQty,
+    sellingPrice,
+    sellingPpu,
+    ourCost,
+    ourPpu,
+    marginPct,
+    marginDollars,
+    ...extra,
+  };
+}
+
+function buildProjectCostRows({
+  formData,
+  summaryRows,
+  summaryTableRows,
+  packagingLevels,
+  processes,
+  processRows,
+  processCostTotals,
+  additionalFees,
+}: ProjectCostBuildArgs) {
+  const n = (value: unknown) => {
+    const parsed = parseFloat(String(value ?? ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const summaryTableFor = (label: string) =>
+    summaryTableRows.find(row => row.label === label && !row.isLeadTimeSummary);
+
+  const materialTableRow = summaryTableFor("Materials");
+  const materialBaseUnits = materialTableRow?.totalUnits ?? 0;
+  const materialOverage = n(formData.materialOverage);
+  const materialIntakeUnits = materialBaseUnits > 0 ? Math.ceil(materialBaseUnits * (1 + materialOverage / 100)) : null;
+  const materialReqGrams = materialTableRow?.totalWeight ?? 0;
+  const customerProvidesRawMaterial = (formData.rawMaterialProvider || "customer") === "customer";
+  const costPerGram = customerProvidesRawMaterial ? 0 : n(formData.costPerGram);
+  const rawMaterialMarkup = n(formData.rawMaterialMarkup);
+  const leftoverInventoryCost = customerProvidesRawMaterial ? 0 : n(formData.leftOverInventoryCost);
+  const leftoverInventoryAbsorb = n(formData.leftOverInventoryAbsorb);
+  const unabsorbedLeftoverPerGram = materialReqGrams > 0
+    ? (1 - leftoverInventoryAbsorb / 100) * leftoverInventoryCost / materialReqGrams
+    : 0;
+  const rawMaterialOur = materialReqGrams * costPerGram;
+  const rawMaterialSelling = materialReqGrams * (costPerGram + unabsorbedLeftoverPerGram) * (1 + rawMaterialMarkup / 100);
+  const intakePallets = n((formData as ProjectFormData).numIntakePallets ?? formData.numPallets);
+  const intakeFee = n((formData as ProjectFormData).inventoryHandlingFee);
+  const intakeMarkup = n(formData.intakeFeeMarkup);
+  const inventoryHandlingOur = intakeFee * intakePallets;
+  const inventoryHandlingSelling = inventoryHandlingOur * (1 + intakeMarkup / 100);
+  const projectMgmtFee = n((formData as ProjectFormData).projectManagementFee);
+  const testingEnabled = formData.testingEnabled !== "false";
+  const testingMarkup = n(formData.testingMarkup);
+  const testingRows = testingEnabled
+    ? (formData.testingRows ?? []).filter(row => (row.cost ?? 0) > 0)
+    : [];
+  const testingDetailRows = testingRows.map((row, index) => {
+    const testName = row.testType === "Custom" ? (row.customTestName || "Custom") : row.testType;
+    const skus = (row.numSkus ?? n(formData.numSkus)) || 1;
+    const our = (row.cost ?? 0) * skus;
+    const selling = our * (1 + testingMarkup / 100);
+    return makeProjectCostRow(
+      `Testing - ${testName || `Test ${index + 1}`}`,
+      skus,
+      skus,
+      selling,
+      our,
+      { id: `testing-${row.id ?? index}` },
+    );
+  }).filter(row => row.sellingPrice > 0 || row.ourCost > 0);
+  const testingSelling = testingDetailRows.reduce((sum, row) => sum + row.sellingPrice, 0);
+  const testingOur = testingDetailRows.reduce((sum, row) => sum + row.ourCost, 0);
+
+  const packagingLabels = summaryTableRows
+    .filter(row =>
+      !row.isLeadTimeSummary &&
+      !["Setup / QA Fee", "Materials", "Pallets & Fees"].includes(row.label) &&
+      !row.label.startsWith("Testing"),
+    )
+    .map(row => row.label);
+  const firstPackagingLabel = packagingLabels[0] ?? "";
+  const getPackagingLevel = (label: string) => {
+    const index = packagingLabels.indexOf(label);
+    return index >= 0 ? packagingLevels[index] : undefined;
+  };
+  const allCharges = packagingLevels[0]?.manualCharges ?? [];
+  const manualChargeRowsForLevel = (level: PackagingLevel | undefined): ProjectCostBreakdownRow[] => {
+    if (!level) return [];
+    const baseUnits = level.cpoRequiredQty != null && level.cpoRequiredQty > 0 ? level.cpoRequiredQty : (level.units > 0 ? level.units : 0);
+    const unitsWithOverage = Math.ceil(baseUnits * (1 + level.overageRate / 100));
+    return allCharges
+      .filter(charge => !charge.levelId || charge.levelId === level.id)
+      .map(charge => {
+        const total = charge.basis === "per_unit" ? charge.amount * unitsWithOverage : charge.amount;
+        return makeProjectCostRow(
+          `Manual Charge - ${charge.name}`,
+          charge.basis === "per_unit" ? unitsWithOverage : 1,
+          charge.basis === "per_unit" ? baseUnits : 1,
+          total,
+          total,
+          { id: `manual-${level.id}-${charge.id}` },
+        );
+      })
+      .filter(row => row.sellingPrice > 0 || row.ourCost > 0);
+  };
+
+  const processDetailRows = processes.map((proc, index) => {
+    const detail = processRows[index];
+    const deliverableQty = proc.units || null;
+    const intakeQty = detail?.totalUnits ?? (proc.units ? qtyWithOverage(proc.units, proc.overageRate) : null);
+    return makeProjectCostRow(
+      proc.name || `Process ${index + 1}`,
+      intakeQty,
+      deliverableQty,
+      detail?.laborCust ?? 0,
+      detail?.laborOur ?? 0,
+      { id: proc.id },
+    );
+  }).filter(row => row.sellingPrice > 0 || row.ourCost > 0);
+
+  const makeMaterialTotalRow = () => {
+    const breakdownRows = [
+      makeProjectCostRow("Raw Material", materialIntakeUnits, materialBaseUnits || null, rawMaterialSelling, rawMaterialOur, { id: "raw-material" }),
+      makeProjectCostRow("Inventory Handling", intakePallets || null, intakePallets || null, inventoryHandlingSelling, inventoryHandlingOur, { id: "inventory-handling" }),
+    ].filter(detail => detail.sellingPrice > 0 || detail.ourCost > 0);
+    const combinedSelling = breakdownRows.reduce((sum, detail) => sum + detail.sellingPrice, 0);
+    const combinedOur = breakdownRows.reduce((sum, detail) => sum + detail.ourCost, 0);
+    return combinedSelling > 0 || combinedOur > 0
+      ? makeProjectCostRow("Material - Total", materialIntakeUnits, materialBaseUnits || null, combinedSelling, combinedOur, { id: "material-total", breakdownRows })
+      : null;
+  };
+  const materialTotalRow = makeMaterialTotalRow();
+  const baseRows = [
+    ...(!summaryRows.some(row => row.label === "Materials") && materialTotalRow ? [materialTotalRow] : []),
+    ...summaryRows.flatMap(row => {
+    const tableRow = summaryTableFor(row.label);
+    const level = getPackagingLevel(row.label);
+    const isSetup = row.label === "Setup / QA Fee";
+    const isMaterial = row.label === "Materials";
+    const isFirstPackaging = row.label === firstPackagingLabel;
+
+    if (isSetup) {
+      const setupRows = [makeProjectCostRow(row.label, 1, 1, row.customerPrice, row.ourCosts)];
+      if (projectMgmtFee > 0) setupRows.push(makeProjectCostRow("Project Mgmt Fee", 1, 1, projectMgmtFee, 0));
+      return setupRows;
+    }
+
+    if (isMaterial) {
+      return materialTotalRow ? [materialTotalRow] : [];
+    }
+    if (row.label.startsWith("Testing")) return [];
+
+    const deliverableQty = level
+      ? (level.cpoRequiredQty ?? level.units ?? tableRow?.totalUnits ?? null)
+      : tableRow?.totalUnits ?? (isSetup ? 1 : null);
+    const intakeQty = level && deliverableQty != null
+      ? Math.ceil(deliverableQty * (1 + level.overageRate / 100))
+      : tableRow?.totalUnits ?? null;
+    const manualChargeRows = manualChargeRowsForLevel(level);
+    const manualSelling = manualChargeRows.reduce((sum, detail) => sum + detail.sellingPrice, 0);
+    const manualOur = manualChargeRows.reduce((sum, detail) => sum + detail.ourCost, 0);
+    const baseSelling = row.customerPrice;
+    const baseOur = row.ourCosts;
+    const sellingPrice = baseSelling + manualSelling + (isFirstPackaging ? processCostTotals.selling + testingSelling : 0);
+    const ourCost = baseOur + manualOur + (isFirstPackaging ? processCostTotals.our + testingOur : 0);
+    const breakdownRows = [
+      makeProjectCostRow(`${row.label} Packaging Cost`, intakeQty, deliverableQty, baseSelling, baseOur, { id: `${row.label}-packaging` }),
+      ...manualChargeRows,
+      ...(isFirstPackaging ? testingDetailRows : []),
+      ...(isFirstPackaging ? processDetailRows : []),
+    ].filter(detail => detail.sellingPrice > 0 || detail.ourCost > 0);
+
+    return [makeProjectCostRow(row.label, intakeQty, deliverableQty, sellingPrice, ourCost, {
+      id: row.label,
+      isFirstPackaging,
+      breakdownRows,
+    })];
+    })];
+  const internalSellingBase = baseRows.reduce((sum, row) => sum + row.sellingPrice, 0);
+  const feeDenom = ppuUnitsFromRows(baseRows);
+  const additionalFeeRows = (additionalFees ?? [])
+    .filter(fee => fee.amount > 0)
+    .map(fee => {
+      const label = fee.type?.trim() || "Additional Cost / Fee";
+      const our = fee.mode === "%"
+        ? internalSellingBase * fee.amount
+        : fee.amount * feeDenom;
+      return makeProjectCostRow(label, feeDenom || null, feeDenom || null, 0, our, { id: `additional-fee-${fee.id}` });
+    })
+    .filter(row => row.ourCost > 0);
+  const rows = [...baseRows, ...additionalFeeRows];
+
+  const totals = rows.reduce(
+    (sum, row) => ({ sellingPrice: sum.sellingPrice + row.sellingPrice, ourCost: sum.ourCost + row.ourCost }),
+    { sellingPrice: 0, ourCost: 0 },
+  );
+  const totalPpuDenom = rows.find(row => row.deliverableQty && row.deliverableQty > 1)?.deliverableQty ?? 1;
+  return { rows, totals, totalPpuDenom };
+}
+
+function ppuUnitsFromRows(rows: ProjectCostRow[]) {
+  return rows.find(row => row.deliverableQty && row.deliverableQty > 1)?.deliverableQty ?? 1;
 }
 
 /** Plain text input that holds local string state while typing; commits parsed float on blur. */
@@ -394,6 +640,16 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
   const processCostSummary = notRequired["section-processes"]
     ? { rows: [], totals: { our: 0, selling: 0 } }
     : calculateProcessCosts(_coPackingProcesses);
+  const projectCostSummary = buildProjectCostRows({
+    formData,
+    summaryRows,
+    summaryTableRows,
+    packagingLevels,
+    processes: _coPackingProcesses,
+    processRows: processCostSummary.rows,
+    processCostTotals: processCostSummary.totals,
+    additionalFees: notRequired["section-additional-costs"] ? [] : additionalFees,
+  });
   return (
     <>
       <ProjectInfoSection />
@@ -560,22 +816,27 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
         moqQty={moqQty}
       />
       {/* ── Additional Costs & Fees ── */}
-      <div className="mx-4 md:mx-6 mb-4 max-w-4xl">
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div id="section-additional-costs" className="mx-4 md:mx-6 mb-4 flex flex-col xl:flex-row gap-5 items-start scroll-mt-20">
+        <div className="border border-gray-200 rounded-xl overflow-hidden max-w-4xl flex-1 min-w-0">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-zinc-950 uppercase tracking-wide">Additional Costs & Fees</span>
               <span className="text-[0.55rem] font-semibold text-zinc-600 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase tracking-wider">Internal Only</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setAdditionalFees(prev => [...prev, { id: String(uid()), type: "", amount: 0, mode: "$" }])}
-              className="text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors"
-            >
-              + Add Row
-            </button>
+            <div className="ml-auto flex items-center gap-3">
+              {!notRequired["section-additional-costs"] && (
+                <button
+                  type="button"
+                  onClick={() => setAdditionalFees(prev => [...prev, { id: String(uid()), type: "", amount: 0, mode: "$" }])}
+                  className="text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors"
+                >
+                  + Add Row
+                </button>
+              )}
+              <RequiredToggle sectionId="section-additional-costs" />
+            </div>
           </div>
-          {additionalFees.length === 0 ? (
+          {!notRequired["section-additional-costs"] && (additionalFees.length === 0 ? (
             <p className="py-3 text-center text-[0.65rem] text-zinc-600 italic">No additional fees — click Add Row</p>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -619,8 +880,39 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
                 </div>
               ))}
             </div>
-          )}
+          ))}
         </div>
+        {!notRequired["section-additional-costs"] && (() => {
+            const feeRows = projectCostSummary.rows.filter(row => row.id.startsWith("additional-fee-"));
+            const feeOur = feeRows.reduce((sum, row) => sum + row.ourCost, 0);
+            const feeDenom = projectCostSummary.totalPpuDenom > 0 ? projectCostSummary.totalPpuDenom : 1;
+            const feePpu = feeOur / feeDenom;
+            return (
+              <div className="w-56 shrink-0 sticky top-14 bg-[#EFF6FF] border border-blue-200 rounded-xl overflow-hidden shadow-sm shadow-blue-100">
+                <div className="px-3 py-2.5 text-[0.55rem] font-semibold text-blue-700 uppercase tracking-widest border-b border-blue-200 bg-blue-100/60">Additional Costs Outputs</div>
+                {feeRows.length === 0 ? (
+                  <div className="px-3 py-4 text-[0.65rem] text-zinc-500 italic">No internal fees entered.</div>
+                ) : (
+                  <>
+                    {feeRows.map(row => (
+                      <div key={row.id} className="px-3 py-2 border-b border-blue-100 flex items-center justify-between gap-2">
+                        <span className="text-[0.65rem] text-zinc-600 truncate">{row.label}</span>
+                        <span className="text-[0.7rem] font-bold text-zinc-900 tabular-nums">{fmt(row.ourCost)}</span>
+                      </div>
+                    ))}
+                    <div className="px-3 py-2 border-b border-blue-100 flex items-center justify-between gap-2">
+                      <span className="text-[0.65rem] text-zinc-600">Cost PPU Impact</span>
+                      <span className="text-[0.7rem] font-bold text-zinc-900 tabular-nums">{fmt(feePpu)}</span>
+                    </div>
+                    <div className="px-3 py-2 bg-blue-100/50 flex items-center justify-between gap-2">
+                      <span className="text-[0.58rem] font-bold text-blue-700 uppercase tracking-wider">Total Internal Fees</span>
+                      <span className="text-[0.75rem] font-bold text-zinc-950 tabular-nums">{fmt(feeOur)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+        })()}
       </div>
       <div id="section-price-adjustment" className="mx-4 md:mx-6 mb-4 flex flex-col xl:flex-row gap-5 items-start scroll-mt-20">
         <PriceAdjustmentSection
@@ -631,15 +923,11 @@ function LeftContent({ expanded: _expanded, moqRows: _moqRows, setMoqRows: _setM
           setWhatIfPpus={setWhatIfPpus}
           costPpuOverrides={costPpuOverrides}
           processCostTotals={processCostSummary.totals}
+          projectCostTotals={projectCostSummary.totals}
+          projectCostPpuDenom={projectCostSummary.totalPpuDenom}
         />
         <PriceAdjustmentOutputPanel
-          formData={formData}
-          summaryRows={summaryRows}
-          summaryTableRows={summaryTableRows}
-          packagingLevels={packagingLevels}
-          processes={_coPackingProcesses}
-          processRows={processCostSummary.rows}
-          processCostTotals={processCostSummary.totals}
+          projectCostSummary={projectCostSummary}
         />
       </div>
     </>
@@ -655,11 +943,13 @@ interface PriceAdjustmentSectionProps {
   setWhatIfPpus: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   costPpuOverrides: Record<number, string>;
   processCostTotals: ProcessCostTotals;
+  projectCostTotals: { sellingPrice: number; ourCost: number };
+  projectCostPpuDenom: number;
 }
 
 function PriceAdjustmentSection({
   summaryRows, ppuUnits, allMoqResults,
-  whatIfPpus, setWhatIfPpus, costPpuOverrides, processCostTotals,
+  whatIfPpus, setWhatIfPpus, costPpuOverrides, processCostTotals, projectCostTotals, projectCostPpuDenom,
 }: PriceAdjustmentSectionProps) {
   const marginColor = (pct: number) =>
     pct >= 65 ? "text-green-700" : pct >= 50 ? "text-amber-600" : "text-red-600";
@@ -684,14 +974,15 @@ function PriceAdjustmentSection({
   const wiAvgMargin    = wiTotalRevenue > 0 ? ((wiTotalRevenue - wiTotalOur) / wiTotalRevenue) * 100 : 0;
   const hasAdj         = Object.keys(whatIfPpus).length > 0;
 
-  const baseCustomer = summaryRows.reduce((s, r) => s + r.customerPrice, 0) + processCostTotals.selling;
-  const baseOur      = summaryRows.reduce((s, r) => s + r.ourCosts, 0) + processCostTotals.our;
-  const computedCost = ppuUnits > 0 && baseOur > 0 ? baseOur / ppuUnits : 0;
+  const baseCustomer = projectCostTotals.sellingPrice || (summaryRows.reduce((s, r) => s + r.customerPrice, 0) + processCostTotals.selling);
+  const baseOur      = projectCostTotals.ourCost || (summaryRows.reduce((s, r) => s + r.ourCosts, 0) + processCostTotals.our);
+  const effectivePpuUnits = projectCostPpuDenom > 0 ? projectCostPpuDenom : ppuUnits;
+  const computedCost = effectivePpuUnits > 0 && baseOur > 0 ? baseOur / effectivePpuUnits : 0;
   const adjPpuStr0   = whatIfPpus[0];
-  const baselinePPU  = ppuUnits > 0 && baseCustomer > 0 ? baseCustomer / ppuUnits : 0;
+  const baselinePPU  = effectivePpuUnits > 0 && baseCustomer > 0 ? baseCustomer / effectivePpuUnits : 0;
   const adjPpuVal0   = adjPpuStr0 !== undefined && adjPpuStr0 !== "" ? parseFloat(adjPpuStr0) : baselinePPU;
-  const adjRevenue0  = ppuUnits > 0 ? adjPpuVal0 * ppuUnits : baseCustomer;
-  const effectiveCostTotal0 = computedCost > 0 && ppuUnits > 0 ? computedCost * ppuUnits : baseOur;
+  const adjRevenue0  = effectivePpuUnits > 0 ? adjPpuVal0 * effectivePpuUnits : baseCustomer;
+  const effectiveCostTotal0 = computedCost > 0 && effectivePpuUnits > 0 ? computedCost * effectivePpuUnits : baseOur;
   const marginPct0   = adjRevenue0 > 0 ? ((adjRevenue0 - effectiveCostTotal0) / adjRevenue0) * 100 : 0;
   const isCustom0    = adjPpuStr0 !== undefined && adjPpuStr0 !== "";
 
@@ -829,166 +1120,22 @@ function PriceAdjustmentSection({
   );
 }
 
-// ── Home ─────────────────────────────────────────────────────────────────────
-type PriceOutputProcessRow = ReturnType<typeof calculateProcessCosts>["rows"][number];
-
 interface PriceAdjustmentOutputPanelProps {
-  formData: ProjectFormData;
-  summaryRows: SummaryRow[];
-  summaryTableRows: SummaryTableRow[];
-  packagingLevels: PackagingLevel[];
-  processes: CoPackingProcess[];
-  processRows: PriceOutputProcessRow[];
-  processCostTotals: ProcessCostTotals;
+  projectCostSummary: ReturnType<typeof buildProjectCostRows>;
 }
 
-function PriceAdjustmentOutputPanel({
-  formData,
-  summaryRows,
-  summaryTableRows,
-  packagingLevels,
-  processes,
-  processRows,
-  processCostTotals,
-}: PriceAdjustmentOutputPanelProps) {
-  const [processesOpen, setProcessesOpen] = useState(false);
+function PriceAdjustmentOutputPanel({ projectCostSummary }: PriceAdjustmentOutputPanelProps) {
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const fmtMoney = (v: number) => v > 0 ? fmt(v) : "$0.00";
   const fmtQty = (v: number | null) => v == null || !isFinite(v)
     ? "-"
     : v.toLocaleString("en-US", { maximumFractionDigits: v >= 100 ? 0 : 2 });
   const fmtPpu = (v: number) => v > 0 ? fmt(v) : "$0.00";
-  const n = (value: unknown) => {
-    const parsed = parseFloat(String(value ?? ""));
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-  const summaryTableFor = (label: string) =>
-    summaryTableRows.find(row => row.label === label && !row.isLeadTimeSummary);
-  const materialTableRow = summaryTableFor("Materials");
-  const materialBaseUnits = materialTableRow?.totalUnits ?? 0;
-  const materialOverage = n(formData.materialOverage);
-  const materialIntakeUnits = materialBaseUnits > 0 ? Math.ceil(materialBaseUnits * (1 + materialOverage / 100)) : null;
-  const materialReqGrams = materialTableRow?.totalWeight ?? 0;
-  const customerProvidesRawMaterial = (formData.rawMaterialProvider || "customer") === "customer";
-  const costPerGram = customerProvidesRawMaterial ? 0 : n(formData.costPerGram);
-  const rawMaterialMarkup = n(formData.rawMaterialMarkup);
-  const leftoverInventoryCost = customerProvidesRawMaterial ? 0 : n(formData.leftOverInventoryCost);
-  const leftoverInventoryAbsorb = n(formData.leftOverInventoryAbsorb);
-  const unabsorbedLeftoverPerGram = materialReqGrams > 0
-    ? (1 - leftoverInventoryAbsorb / 100) * leftoverInventoryCost / materialReqGrams
-    : 0;
-  const rawMaterialOur = materialReqGrams * costPerGram;
-  const rawMaterialSelling = materialReqGrams * (costPerGram + unabsorbedLeftoverPerGram) * (1 + rawMaterialMarkup / 100);
-  const intakePallets = n((formData as ProjectFormData).numIntakePallets ?? formData.numPallets);
-  const intakeFee = n(formData.intakeFee);
-  const intakeMarkup = n(formData.intakeFeeMarkup);
-  const inventoryHandlingOur = intakeFee * intakePallets;
-  const inventoryHandlingSelling = inventoryHandlingOur * (1 + intakeMarkup / 100);
-  const projectMgmtFee = n((formData as ProjectFormData).projectManagementFee);
-  const packagingLabels = summaryTableRows
-    .filter(row =>
-      !row.isLeadTimeSummary &&
-      !["Setup / QA Fee", "Materials", "Pallets & Fees"].includes(row.label) &&
-      !row.label.startsWith("Testing"),
-    )
-    .map(row => row.label);
-  const firstPackagingLabel = packagingLabels[0] ?? "";
-  const getPackagingLevel = (label: string) => {
-    const index = packagingLabels.indexOf(label);
-    return index >= 0 ? packagingLevels[index] : undefined;
-  };
-
-  const makeOutputRow = (
-    label: string,
-    intakeQty: number | null,
-    deliverableQty: number | null,
-    sellingPrice: number,
-    ourCost: number,
-    isFirstPackaging = false,
-  ) => {
-    const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
-    const sellingPpu = ppuDenom ? sellingPrice / ppuDenom : sellingPrice;
-    const ourPpu = ppuDenom ? ourCost / ppuDenom : ourCost;
-    const marginDollars = sellingPrice - ourCost;
-    const marginPct = sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0;
-    return { label, intakeQty, deliverableQty, sellingPrice, sellingPpu, ourCost, ourPpu, marginPct, marginDollars, isFirstPackaging };
-  };
-
-  const rows = summaryRows.flatMap(row => {
-    const tableRow = summaryTableFor(row.label);
-    const level = getPackagingLevel(row.label);
-    const isSetup = row.label === "Setup / QA Fee";
-    const isMaterial = row.label === "Materials";
-    const isFirstPackaging = row.label === firstPackagingLabel;
-
-    if (isSetup) {
-      const setupRows = [makeOutputRow(row.label, 1, 1, row.customerPrice, row.ourCosts)];
-      if (projectMgmtFee > 0) {
-        setupRows.push(makeOutputRow("Project Mgmt Fee", 1, 1, projectMgmtFee, 0));
-      }
-      return setupRows;
-    }
-
-    if (isMaterial) {
-      const materialRows = [];
-      if (rawMaterialSelling > 0 || rawMaterialOur > 0) {
-        materialRows.push(makeOutputRow("Material - Total", materialIntakeUnits, materialBaseUnits || null, rawMaterialSelling, rawMaterialOur));
-      }
-      if (inventoryHandlingSelling > 0 || inventoryHandlingOur > 0) {
-        materialRows.push(makeOutputRow("Inventory Handling", intakePallets || null, intakePallets || null, inventoryHandlingSelling, inventoryHandlingOur));
-      }
-      return materialRows;
-    }
-
-    const deliverableQty = level
-      ? (level.cpoRequiredQty ?? level.units ?? tableRow?.totalUnits ?? null)
-      : tableRow?.totalUnits ?? (isSetup ? 1 : null);
-    const intakeQty = level && deliverableQty != null
-      ? Math.ceil(deliverableQty * (1 + level.overageRate / 100))
-      : isMaterial
-        ? tableRow?.totalWeight ?? tableRow?.totalUnits ?? null
-        : isSetup
-          ? 1
-          : tableRow?.totalUnits ?? null;
-    const sellingPrice = row.customerPrice + (isFirstPackaging ? processCostTotals.selling : 0);
-    const ourCost = row.ourCosts + (isFirstPackaging ? processCostTotals.our : 0);
-    const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
-    const sellingPpu = ppuDenom ? sellingPrice / ppuDenom : (tableRow?.costPerUnit ?? sellingPrice);
-    const ourPpu = ppuDenom ? ourCost / ppuDenom : ourCost;
-    const marginDollars = sellingPrice - ourCost;
-    const marginPct = sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0;
-
-    return [{ label: row.label, intakeQty, deliverableQty, sellingPrice, sellingPpu, ourCost, ourPpu, marginPct, marginDollars, isFirstPackaging }];
-  });
-
-  const processDetailRows = processes.map((proc, index) => {
-    const detail = processRows[index];
-    const deliverableQty = proc.units || null;
-    const intakeQty = detail?.totalUnits ?? (proc.units ? Math.ceil(proc.units * (1 + proc.overageRate / 100)) : null);
-    const sellingPrice = detail?.laborCust ?? 0;
-    const ourCost = detail?.laborOur ?? 0;
-    const ppuDenom = deliverableQty && deliverableQty > 0 ? deliverableQty : null;
-    const marginDollars = sellingPrice - ourCost;
-    return {
-      id: proc.id,
-      label: proc.name || `Process ${index + 1}`,
-      intakeQty,
-      deliverableQty,
-      sellingPrice,
-      sellingPpu: ppuDenom ? sellingPrice / ppuDenom : 0,
-      ourCost,
-      ourPpu: ppuDenom ? ourCost / ppuDenom : 0,
-      marginPct: sellingPrice > 0 ? (marginDollars / sellingPrice) * 100 : 0,
-      marginDollars,
-    };
-  }).filter(row => row.sellingPrice > 0 || row.ourCost > 0);
-
-  const totals = rows.reduce(
-    (sum, row) => ({ sellingPrice: sum.sellingPrice + row.sellingPrice, ourCost: sum.ourCost + row.ourCost }),
-    { sellingPrice: 0, ourCost: 0 },
-  );
+  const rows = projectCostSummary.rows;
+  const totals = projectCostSummary.totals;
   const totalMarginDollars = totals.sellingPrice - totals.ourCost;
   const totalMarginPct = totals.sellingPrice > 0 ? (totalMarginDollars / totals.sellingPrice) * 100 : 0;
-  const totalPpuDenom = rows.find(row => row.deliverableQty && row.deliverableQty > 1)?.deliverableQty ?? 1;
+  const totalPpuDenom = projectCostSummary.totalPpuDenom;
 
   return (
     <div className="w-full xl:w-[720px] shrink-0 rounded-xl border border-blue-200 bg-[#EFF6FF] shadow-sm shadow-blue-100 overflow-hidden">
@@ -1008,18 +1155,18 @@ function PriceAdjustmentOutputPanel({
           </thead>
           <tbody>
             {rows.map(row => (
-              <Fragment key={row.label}>
+              <Fragment key={row.id}>
                 <tr className="border-b border-blue-100 hover:bg-blue-50/40">
                   <td className="px-2 py-1.5 text-zinc-800 font-semibold">
                     <div className="flex items-center gap-1">
-                      {row.isFirstPackaging && processDetailRows.length > 0 && (
+                      {row.breakdownRows && row.breakdownRows.length > 0 && (
                         <button
                           type="button"
-                          onClick={() => setProcessesOpen(open => !open)}
+                          onClick={() => setOpenRows(open => ({ ...open, [row.id]: !open[row.id] }))}
                           className="h-5 w-5 inline-flex items-center justify-center rounded border border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
-                          title={processesOpen ? "Hide process details" : "Show process details"}
+                          title={openRows[row.id] ? "Hide cost breakdown" : "Show cost breakdown"}
                         >
-                          {processesOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          {openRows[row.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </button>
                       )}
                       <span>{row.label}</span>
@@ -1034,7 +1181,7 @@ function PriceAdjustmentOutputPanel({
                   <td className="px-2 py-1.5 text-right tabular-nums bg-green-50 text-green-700 font-semibold">{fmtPct(row.marginPct)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums bg-green-50 text-green-800 font-semibold">{fmtMoney(row.marginDollars)}</td>
                 </tr>
-                {row.isFirstPackaging && processesOpen && processDetailRows.map(detail => (
+                {row.breakdownRows && openRows[row.id] && row.breakdownRows.map(detail => (
                   <tr key={detail.id} className="border-b border-blue-50 bg-blue-50/35">
                     <td className="px-2 py-1.5 pl-8 text-zinc-600 font-medium">{detail.label}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-zinc-600">{fmtQty(detail.intakeQty)}</td>
@@ -1141,6 +1288,7 @@ export default function Home() {
     { id: "section-processes",          label: "Processes",          visible: true },
     { id: "section-packaging-summary",  label: "Packout Config",     visible: true },
     { id: "section-palletization",      label: "Palletization",      visible: true },
+    { id: "section-additional-costs",   label: "Additional Fees",    visible: true },
     { id: "section-price-adjustment",   label: "Price Adjustment",   visible: true },
   ];
 

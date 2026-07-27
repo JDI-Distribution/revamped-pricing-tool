@@ -53,6 +53,7 @@ export interface PackagingLevel {
   id:               string;
   packagingLevel:   string;
   customLevelName:  string;
+  packagingCostItemId?: string;
   unitsRefId?:      string;  // id of a prior PackagingLevel whose units this inherits
   // Set by CPO sync — the Required Qty computed from the CPO cascade. When present,
   // PackagingLevels.tsx uses this as the "Units" value instead of the MOQ-derived auto units.

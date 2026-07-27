@@ -1,7 +1,8 @@
 import { CoPackingState, CoPackingResult, CoPackingProcess, PricingTier } from "./types";
+import { qtyWithOverage } from "./quantityMath";
 
 // ── Process speed → labor hours ───────────────────────────────────────────────
-function calculateProcessHours(
+export function calculateProcessHours(
   proc: CoPackingProcess,
   totalQtyWithOverage: number,
 ): number {
@@ -117,7 +118,7 @@ export function computeCoPackingResults(
   for (let i = 0; i < coPackingProcesses.length; i++) {
     const proc = coPackingProcesses[i];
     const deliveredQty = proc.units;
-    const totalQtyWithOverage = deliveredQty * (1 + proc.overageRate / 100);
+    const totalQtyWithOverage = qtyWithOverage(deliveredQty, proc.overageRate);
 
     let calcHrs = calculateProcessHours(proc, totalQtyWithOverage);
 

@@ -240,8 +240,8 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
       {topBar}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ── Left: edit panel (50%) ── */}
-        {editOpen && <div className="flex-1 bg-white border-r border-gray-100 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+        {/* ── Left: edit panel ── */}
+        {editOpen && <div className="w-[380px] max-w-[42vw] bg-white border-r border-gray-100 flex flex-col overflow-hidden shrink-0" style={{ minWidth: 320 }}>
 
           <div className="px-4 py-3 border-b border-gray-100 bg-teal-600 shrink-0">
             <p className="text-xs font-bold text-white">Quote Details</p>
@@ -359,8 +359,8 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
 
         {/* ── Right: scrollable PDF + clickable zone overlay ── */}
         <div className="flex-1 bg-gray-200 overflow-auto">
-          <div className="flex justify-center p-6 min-h-full">
-            <div className="relative bg-white shadow-2xl" style={{ width: "min(660px,100%)", aspectRatio: "1/1.414", flexShrink: 0 }}>
+          <div className="flex justify-center p-4 min-h-full">
+            <div className="relative bg-white shadow-2xl" style={{ width: "min(960px,100%)", aspectRatio: "1/1.414", flexShrink: 0 }}>
 
               {/* PDF — fully interactive (scrollable) */}
               <iframe key={current.blobUrl} src={current.blobUrl}

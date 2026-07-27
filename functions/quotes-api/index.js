@@ -5,6 +5,9 @@ const catalyst = require("zcatalyst-sdk-node");
 const app = express();
 app.use(express.json());
 
+const PACKAGING_COST_TABLE = "Packaging_Cost_Database";
+const PACKAGING_AUDIT_TABLE = "Packaging_Cost_Audit";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -132,6 +135,178 @@ app.delete("/quotes/:id", async (req, res) => {
     return res.status(200).json({ deleted: id });
   } catch (err) {
     console.error("DELETE /quotes/:id error:", err.message, JSON.stringify(err, null, 2));
+    return res.status(500).json({ error: err.message, details: err });
+  }
+});
+
+const packagingCostSeedItems = [
+  { category: "Packaging", itemName: "4g/5g Jars", description: "", moq: "1639", landedCostEa: 0.13, intakePackoutConfig: "1639/box" },
+  { category: "Packaging", itemName: "4g Powder Pump", description: "", moq: "50", landedCostEa: 0.55, intakePackoutConfig: "1080/box" },
+  { category: "Packaging", itemName: "4g Powder Spray Bottle", description: "", moq: "50", landedCostEa: 0.55, intakePackoutConfig: "100/box" },
+  { category: "Packaging", itemName: "10g Powder Pump", description: "", moq: "100", landedCostEa: 0.68, intakePackoutConfig: "480" },
+  { category: "Packaging", itemName: "10g Powder Spray Bottle", description: "", moq: "100", landedCostEa: 0.68, intakePackoutConfig: "600" },
+  { category: "Packaging", itemName: "25g Powder Pump", description: "", moq: "10000", landedCostEa: 0.85, intakePackoutConfig: "500" },
+  { category: "Packaging", itemName: "25g Powder Spray Bottle", description: "", moq: "10000", landedCostEa: 0.85, intakePackoutConfig: "500" },
+  { category: "Packaging", itemName: "White Flip Caps", description: "", moq: "146000", landedCostEa: 0.046, intakePackoutConfig: "2000" },
+  { category: "Packaging", itemName: "Black Flip Caps", description: "", moq: "146000", landedCostEa: 0.046, intakePackoutConfig: "2000" },
+  { category: "Packaging", itemName: "50g Jars", description: "", moq: "10000", landedCostEa: 0.41, intakePackoutConfig: "480" },
+  { category: "Packaging", itemName: "50g Caps", description: "", moq: "10000", landedCostEa: 0.41, intakePackoutConfig: "1216" },
+  { category: "Packaging", itemName: "Kilogram Jugs", description: "", moq: "1", landedCostEa: 4.59, intakePackoutConfig: "12/box" },
+  { category: "Packaging", itemName: "1lb Jugs", description: "", moq: "1", landedCostEa: 2.9, intakePackoutConfig: "24/box" },
+  { category: "Packaging", itemName: "25g Jars", description: "", moq: "480", landedCostEa: 0.6, intakePackoutConfig: "480/box" },
+  { category: "Packaging", itemName: "25g Caps", description: "", moq: "2400", landedCostEa: 0.6, intakePackoutConfig: "2400/box" },
+  { category: "Packaging", itemName: "4oz Tins", description: "", moq: "5000", landedCostEa: 0.55, intakePackoutConfig: "240//box" },
+  { category: "Packaging", itemName: "45g Shakers Bottle", description: "", moq: "500", landedCostEa: 0.43, intakePackoutConfig: "500" },
+  { category: "Packaging", itemName: "45g Shaker Caps", description: "", moq: "1400", landedCostEa: 0.43, intakePackoutConfig: "1400" },
+  { category: "Packaging", itemName: "White FLAT Caps", description: "", moq: "4000", landedCostEa: 0.43, intakePackoutConfig: "4000" },
+  { category: "Packaging", itemName: "Black FLAT Caps", description: "", moq: "4000", landedCostEa: 0.43, intakePackoutConfig: "4000" },
+  { category: "Packaging", itemName: "25g pump shrink bands", description: "", moq: "100", landedCostEa: 0.04, intakePackoutConfig: "100" },
+  { category: "Labels", itemName: "4x6 (shipping labels)", description: "", moq: "1 roll", landedCostEa: 0.0132, intakePackoutConfig: "250/roll" },
+  { category: "Labels", itemName: "3x3 (case pack labels)", description: "", moq: "1 roll", landedCostEa: 0.81, intakePackoutConfig: "500/roll" },
+  { category: "Labels", itemName: "Private Label 4g Jar Label", description: "", moq: "3 rolls", landedCostEa: 0.0188691729323308, intakePackoutConfig: "6650/rol" },
+  { category: "Labels", itemName: "4g Jar Label", description: "", moq: "3 rolls", landedCostEa: 0.0237613636363636, intakePackoutConfig: "5280/roll" },
+  { category: "Labels", itemName: "25G jar, 25G PUMP, 45G", description: "", moq: "3 rolls", landedCostEa: 0.0535140186915888, intakePackoutConfig: "3210/roll" },
+  { category: "Labels", itemName: "Pound Bags", description: "", moq: "3 rolls", landedCostEa: 0.0972071428571429, intakePackoutConfig: "1400/roll" },
+  { category: "Labels", itemName: "10 g Pump", description: "", moq: "3 rolls", landedCostEa: 0.0305793226381461, intakePackoutConfig: "5610/roll" },
+  { category: "Labels", itemName: "4g Pump", description: "", moq: "3 rolls", landedCostEa: 0.02796138996139, intakePackoutConfig: "5180/roll" },
+  { category: "Labels", itemName: "Warren Printed Wing tin Labels", description: "", moq: "5 rolls", landedCostEa: 0.10552, intakePackoutConfig: "2000/roll" },
+  { category: "Labels", itemName: "Warren Printed Back tin Label", description: "", moq: "5 rolls", landedCostEa: 0.07776, intakePackoutConfig: "1000/roll" },
+  { category: "Packaging", itemName: "Hang Tabs", description: "", moq: "29 rolls", landedCostEa: 0.0109, intakePackoutConfig: "3500/roll" },
+  { category: "Packaging", itemName: "Production Sugar Sachet Film", description: "", moq: "No Minimum", landedCostEa: 0.0058, intakePackoutConfig: "8,800/roll" },
+  { category: "Packaging", itemName: "Center Fold Pillow Pack Film", description: "Used for Michaels tins", moq: "20 rolls", landedCostEa: 124.16, intakePackoutConfig: "Roll" },
+  { category: "Packaging", itemName: "13\" Pillow Pack Film", description: "Used for FBA, Walmart, and Michaels blistered units", moq: "96", landedCostEa: 49.13, intakePackoutConfig: "roll" },
+];
+
+function toPackagingRow(item) {
+  return {
+    Category: item.category || "",
+    Item_Name: item.itemName || "",
+    Description: item.description || "",
+    MOQ: item.moq || "",
+    Landed_Cost_Ea: Number(item.landedCostEa) || 0,
+    Intake_Packout_Config: item.intakePackoutConfig || "",
+  };
+}
+
+function fromPackagingRow(row) {
+  return {
+    id: String(row.ROWID),
+    category: row.Category || "",
+    itemName: row.Item_Name || "",
+    description: row.Description || "",
+    moq: row.MOQ || "",
+    landedCostEa: Number(row.Landed_Cost_Ea) || 0,
+    intakePackoutConfig: row.Intake_Packout_Config || "",
+  };
+}
+
+function fromAuditRow(row) {
+  return {
+    id: String(row.ROWID),
+    action: row.Action || "",
+    itemName: row.Item_Name || "",
+    at: row.Event_Time || row.CREATEDTIME || new Date().toISOString(),
+    user: row.User_Name || "Current user",
+    details: row.Details || row.Item_Name || "",
+  };
+}
+
+async function insertPackagingAudit(catalystApp, action, itemName, details) {
+  try {
+    await catalystApp.datastore().table(PACKAGING_AUDIT_TABLE).insertRow({
+      Event_Time: new Date().toISOString(),
+      User_Name: "Current user",
+      Action: action,
+      Item_Name: itemName || "",
+      Details: details || itemName || "",
+    });
+  } catch (err) {
+    console.error("Packaging audit insert error:", err.message);
+  }
+}
+
+async function getPackagingItems(catalystApp) {
+  const rows = await catalystApp.zcql().executeZCQLQuery(
+    `SELECT ROWID, Category, Item_Name, Description, MOQ, Landed_Cost_Ea, Intake_Packout_Config FROM ${PACKAGING_COST_TABLE}`
+  );
+  return (rows || []).map((result) => fromPackagingRow(result[PACKAGING_COST_TABLE]));
+}
+
+app.get("/packaging-costs", async (req, res) => {
+  try {
+    const catalystApp = catalyst.initialize(req);
+    let items = await getPackagingItems(catalystApp);
+    if (items.length === 0) {
+      const table = catalystApp.datastore().table(PACKAGING_COST_TABLE);
+      const inserted = [];
+      for (const item of packagingCostSeedItems) {
+        inserted.push(await table.insertRow(toPackagingRow(item)));
+      }
+      items = inserted.map(fromPackagingRow);
+      await insertPackagingAudit(catalystApp, "Seeded database", "Packaging cost database", `${items.length} rows`);
+    }
+    items.sort((a, b) => a.itemName.localeCompare(b.itemName));
+    return res.status(200).json({ data: items });
+  } catch (err) {
+    console.error("GET /packaging-costs error:", err.message, JSON.stringify(err, null, 2));
+    return res.status(500).json({ error: err.message, details: err });
+  }
+});
+
+app.post("/packaging-costs", async (req, res) => {
+  try {
+    const catalystApp = catalyst.initialize(req);
+    const inserted = await catalystApp.datastore().table(PACKAGING_COST_TABLE).insertRow(toPackagingRow(req.body || {}));
+    const item = fromPackagingRow(inserted);
+    await insertPackagingAudit(catalystApp, "Added row", item.itemName, item.itemName);
+    return res.status(201).json({ data: item });
+  } catch (err) {
+    console.error("POST /packaging-costs error:", err.message, JSON.stringify(err, null, 2));
+    return res.status(500).json({ error: err.message, details: err });
+  }
+});
+
+app.put("/packaging-costs/:id", async (req, res) => {
+  try {
+    const catalystApp = catalyst.initialize(req);
+    const updated = await catalystApp.datastore().table(PACKAGING_COST_TABLE).updateRow({
+      ROWID: req.params.id,
+      ...toPackagingRow(req.body || {}),
+    });
+    const item = fromPackagingRow(updated);
+    await insertPackagingAudit(catalystApp, "Updated row", item.itemName, item.itemName);
+    return res.status(200).json({ data: item });
+  } catch (err) {
+    console.error("PUT /packaging-costs/:id error:", err.message, JSON.stringify(err, null, 2));
+    return res.status(500).json({ error: err.message, details: err });
+  }
+});
+
+app.delete("/packaging-costs/:id", async (req, res) => {
+  try {
+    const catalystApp = catalyst.initialize(req);
+    await catalystApp.zcql().executeZCQLQuery(
+      `DELETE FROM ${PACKAGING_COST_TABLE} WHERE ROWID = ${req.params.id}`
+    );
+    await insertPackagingAudit(catalystApp, "Deleted row", req.query.name || "Packaging item", req.query.name || req.params.id);
+    return res.status(200).json({ deleted: req.params.id });
+  } catch (err) {
+    console.error("DELETE /packaging-costs/:id error:", err.message, JSON.stringify(err, null, 2));
+    return res.status(500).json({ error: err.message, details: err });
+  }
+});
+
+app.get("/packaging-costs/audit", async (req, res) => {
+  try {
+    const catalystApp = catalyst.initialize(req);
+    const rows = await catalystApp.zcql().executeZCQLQuery(
+      `SELECT ROWID, Event_Time, User_Name, Action, Item_Name, Details, CREATEDTIME FROM ${PACKAGING_AUDIT_TABLE}`
+    );
+    const audit = (rows || []).map((result) => fromAuditRow(result[PACKAGING_AUDIT_TABLE]));
+    audit.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    return res.status(200).json({ data: audit.slice(0, 100) });
+  } catch (err) {
+    console.error("GET /packaging-costs/audit error:", err.message, JSON.stringify(err, null, 2));
     return res.status(500).json({ error: err.message, details: err });
   }
 });

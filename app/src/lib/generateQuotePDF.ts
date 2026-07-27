@@ -14,11 +14,17 @@ const LOGO_SRCS: Record<string, string> = {
 
 // ── Brand definitions ─────────────────────────────────────────────────────────
 export const BRANDS = [
-  { id: "jdi",         label: "JDI Distribution", accent: "#e8473f", phone: "1-800-000-0000", email: "sales@jdidistribution.com", address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "jdi",         label: "JDI Distribution", accent: "#e8473f", phone: "1-800-292-2137", email: "sales@jdidistribution.com", address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
   { id: "brewglitter", label: "Brew Glitter",      accent: "#c0932b", phone: "1-800-292-2137", email: "sales@brewglitter.com",    address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "bakell",      label: "Bakell",            accent: "#d45f8a", phone: "1-800-000-0000", email: "sales@bakell.com",         address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "pfg",         label: "Pro Foods Group",   accent: "#2e6faf", phone: "1-800-000-0000", email: "sales@profoods.com",       address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "bakell",      label: "Bakell",            accent: "#d45f8a", phone: "1-800-292-2137", email: "sales@bakell.com",         address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "pfg",         label: "Pro Foods Group",   accent: "#2e6faf", phone: "1-800-292-2137", email: "sales@profoods.com",       address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
 ] as const;
+
+const cleanPhone = (value: string | undefined, fallback = "-") => {
+  const phone = String(value ?? "").trim();
+  if (!phone) return fallback;
+  return phone.replace(/\D/g, "").replace(/^1/, "").replace(/0/g, "") === "" ? fallback : phone;
+};
 
 export type BrandId = typeof BRANDS[number]["id"];
 
@@ -285,25 +291,35 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       ["EMAIL",        brand.email],
     ];
 
-    const fieldLineH = 10.5;   // allows wrapped values without clipping
+    leftFields[3][1] = cleanPhone(customer.phone);
+    rightFields[3][1] = cleanPhone(brand.phone);
+    [...leftFields, ...rightFields].forEach(field => {
+      if (field[1].includes("\u00e2")) field[1] = "-";
+    });
+
+    const fieldLineH = 6.2;   // compact single-line label/value rows
     const drawField = (label: string, val: string, x: number, fy: number, maxW: number) => {
+      const labelW = 38;
       sf("bold", 7); doc.setTextColor(...midGray);
       doc.text(label, x, fy);
       sf("normal", 9); doc.setTextColor(...gray);
-      const wrapped = doc.splitTextToSize(val, maxW).slice(0, 2);
-      doc.text(wrapped, x, fy + 3.5);
+      const wrapped = doc.splitTextToSize(val, Math.max(24, maxW - labelW)).slice(0, 2);
+      doc.text(wrapped, x + labelW, fy);
     };
 
     const colW = W / 2 - 4;
     const drawInfoColumn = (fields: [string, string][], x: number, startY: number, width: number, boxed = false) => {
+      const labelW = 24;
       const prepared = fields.map(([label, val]) => ({
         label,
-        lines: doc.splitTextToSize(val, boxed ? width - 5 : width).slice(0, 3) as string[],
+        lines: doc.splitTextToSize(val, Math.max(24, (boxed ? width - 5 : width) - labelW)).slice(0, 2) as string[],
       }));
-      const boxH = prepared.reduce((sum, item) => sum + 4.2 + item.lines.length * 3.8 + 2, 4);
+      const boxH = prepared.reduce((sum, item) => sum + Math.max(5.2, item.lines.length * 3.8 + 1.2), 4);
       if (boxed) {
-        doc.setFillColor(249, 250, 251);
-        doc.roundedRect(x - 2.5, startY - 4, width + 5, boxH, 1.2, 1.2, "F");
+        doc.setFillColor(245, 247, 250);
+        doc.setDrawColor(190, 198, 210);
+        doc.setLineWidth(0.35);
+        doc.roundedRect(x - 2.5, startY - 4, width + 5, boxH, 1.2, 1.2, "FD");
       }
 
       let cy = startY;
@@ -311,8 +327,8 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         sf("bold", 6.8); doc.setTextColor(...midGray);
         doc.text(label, x, cy);
         sf("normal", 8.7); doc.setTextColor(...gray);
-        doc.text(lines, x, cy + 3.4);
-        cy += 4.2 + lines.length * 3.8 + 2;
+        doc.text(lines, x + labelW, cy);
+        cy += Math.max(5.2, lines.length * 3.8 + 1.2);
       });
       return cy;
     };
@@ -549,7 +565,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const firstPageFooterY = pageH - 10;
     rule(firstPageFooterY, ltGray, 0.2);
     sf("normal", 7); doc.setTextColor(...midGray);
-    doc.text(`${brand.address1}, ${brand.address2}  â€¢  ${brand.email}  â€¢  ${brand.phone}`, pageW / 2, firstPageFooterY + 4, { align: "center" });
+    doc.text(`${brand.address1}, ${brand.address2} | ${brand.email} | ${cleanPhone(brand.phone)}`, pageW / 2, firstPageFooterY + 4, { align: "center" });
     doc.text("Page 1 of 2", R, firstPageFooterY + 4, { align: "right" });
 
     doc.addPage();
@@ -588,7 +604,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const totalPages = doc.getNumberOfPages();
     rule(footerY, ltGray, 0.2);
     sf("normal", 7); doc.setTextColor(...midGray);
-    doc.text(`${brand.address1}, ${brand.address2}  •  ${brand.email}  •  ${brand.phone}`, pageW / 2, footerY + 4, { align: "center" });
+    doc.text(`${brand.address1}, ${brand.address2} | ${brand.email} | ${cleanPhone(brand.phone)}`, pageW / 2, footerY + 4, { align: "center" });
     doc.text(`Page ${doc.getCurrentPageInfo().pageNumber} of ${totalPages}`, R, footerY + 4, { align: "right" });
 
     // ── Filename ──────────────────────────────────────────────────────────────

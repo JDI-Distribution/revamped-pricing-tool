@@ -1259,7 +1259,7 @@ export default function CoPackingDetails() {
         <p className="text-xs font-semibold text-zinc-950 mb-4">Packout 3 — Palletization & Outbound</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-4 items-start">
           <Field label="# of Outbound Pallets" field="outboundPallets"      value={s.outboundPallets}      onChange={set} placeholder="4" />
-          <Field label="Outbound Fee / Pallet" field="outboundFeePerPallet" value={s.outboundFeePerPallet} onChange={set} prefix="$" placeholder="195" />
+          <Field label="Outbound Fee / Pallet" field="outboundFeePerPallet" value={s.outboundFeePerPallet} onChange={set} prefix="$" placeholder="595" />
           <Field label="Outbound Fee Markup"   field="outboundMarkup"       value={s.outboundMarkup}       onChange={set} suffix="%" isPct placeholder="30" />
         </div>
       </div>

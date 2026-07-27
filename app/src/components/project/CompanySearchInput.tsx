@@ -4,7 +4,7 @@ import { Loader2, Search } from "lucide-react";
 import { useProject } from "@/lib/ProjectContext";
 
 const inputCls =
-  "h-7 w-full pl-2 pr-6 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500";
+  "h-7 w-full pl-2 pr-6 text-xs text-zinc-950 border border-orange-300 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-600";
 
 const API_BASE = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api";
 

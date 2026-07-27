@@ -91,11 +91,13 @@ export function effectiveTypeName(lvl: PackagingLevel): string {
 // ── Shared cell styles ────────────────────────────────────────────────────────
 
 const cellInp =
-  "h-7 w-full px-2 border border-amber-300 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
+  "h-7 w-full px-2 border border-amber-200 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const cellInpSuffix =
-  "h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
+  "h-7 flex-1 min-w-0 px-2 border border-amber-200 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l";
 const suffixUnit =
-  "h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-r select-none shrink-0";
+  "h-7 flex items-center px-1.5 border border-amber-200 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-50/60 rounded-r select-none shrink-0";
+const manualCellInp =
+  "h-7 w-full px-2 border border-orange-300 text-[0.7rem] text-zinc-950 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const naCell = "text-[0.65rem] text-zinc-500 italic";
 
 // ── Stable Col helper (defined outside component to avoid remount on every render) ──
@@ -291,7 +293,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                         <input type="text" value={lvl.customTypeName}
                           onChange={e => update(lvl.id, { customTypeName: e.target.value })}
                           placeholder="Type name…"
-                          className={`${cellInp} flex-1 min-w-0`} autoFocus />
+                          className={`${manualCellInp} flex-1 min-w-0`} autoFocus />
                         <button type="button"
                           onClick={() => update(lvl.id, { packagingType: "", customTypeName: "" })}
                           className="shrink-0 text-zinc-600 hover:text-[#e8473f] text-sm">×</button>
@@ -304,7 +306,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           else if (e.target.value) applyPreset(lvl.id, e.target.value);
                           else update(lvl.id, { packagingType: "" });
                         }}
-                        className={cellInp}>
+                        className={manualCellInp}>
                         <option value="">— select type —</option>
                         {PACKAGING_TYPE_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
                         <option value="custom_mode">Custom…</option>
@@ -730,7 +732,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                     onChange={e => setDraftCharge(d => ({ ...d, name: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && addCharge()}
                     placeholder="e.g. Tray Insert Cost"
-                    className="h-7 w-full px-2 text-xs text-zinc-800 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-zinc-600 transition"
+                    className="h-7 w-full px-2 text-xs text-zinc-800 border border-orange-300 bg-orange-100/80 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-zinc-600 transition"
                   />
                 </div>
                 <div>
@@ -756,7 +758,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                     onChange={e => setDraftCharge(d => ({ ...d, amount: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && addCharge()}
                     placeholder="0.00"
-                    className="h-7 w-20 px-2 text-xs text-zinc-800 border border-amber-300 bg-white rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-zinc-600 transition"
+                    className="h-7 w-20 px-2 text-xs text-zinc-800 border border-orange-300 bg-orange-100/80 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] placeholder:text-zinc-600 transition"
                   />
                 </div>
               </div>

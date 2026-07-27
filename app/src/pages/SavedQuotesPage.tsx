@@ -312,7 +312,7 @@ export default function SavedQuotesPage() {
             <div>
               <h1 className="text-sm font-semibold text-zinc-950 tracking-tight leading-none">Saved Quotes</h1>
               <p className="text-[0.65rem] text-zinc-600 mt-0.5">
-                {loading ? "Loadingâ€¦" : `${quotes.length} quote${quotes.length !== 1 ? "s" : ""} saved`}
+                {loading ? "Loading..." : `${quotes.length} quote${quotes.length !== 1 ? "s" : ""} saved`}
               </p>
             </div>
           </div>
@@ -327,27 +327,27 @@ export default function SavedQuotesPage() {
           </button>
         </div>
 
-        {/* Filter bar â€” stacks to 2-col grid on mobile */}
+        {/* Filter bar - stacks to 2-col grid on mobile */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2 flex-wrap mb-4 p-3 bg-gray-50 border border-gray-100 rounded-sm">
           <div className="flex items-center gap-1.5">
             <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Quote Name</span>
             <input
               type="text" value={fName} onChange={(e) => setFName(e.target.value)}
-              placeholder="Searchâ€¦" className={`${inputCls} flex-1`}
+              placeholder="Search..." className={`${inputCls} flex-1`}
             />
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Customer</span>
             <input
               type="text" value={fCustomer} onChange={(e) => setFCustomer(e.target.value)}
-              placeholder="Searchâ€¦" className={`${inputCls} flex-1`}
+              placeholder="Search..." className={`${inputCls} flex-1`}
             />
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap w-20 shrink-0">Company</span>
             <input
               type="text" value={fCompany} onChange={(e) => setFCompany(e.target.value)}
-              placeholder="Searchâ€¦" className={`${inputCls} flex-1`}
+              placeholder="Search..." className={`${inputCls} flex-1`}
             />
           </div>
           <div className="flex items-center gap-1.5">
@@ -356,7 +356,7 @@ export default function SavedQuotesPage() {
               type="number" value={fMinRev} onChange={(e) => setFMinRev(e.target.value)}
               placeholder="Min $" className={`${inputCls} flex-1`}
             />
-            <span className="text-[0.6rem] text-zinc-500">â€“</span>
+            <span className="text-[0.6rem] text-zinc-500">-</span>
             <input
               type="number" value={fMaxRev} onChange={(e) => setFMaxRev(e.target.value)}
               placeholder="Max $" className={`${inputCls} flex-1`}
@@ -375,7 +375,7 @@ export default function SavedQuotesPage() {
 
         {/* Loading / empty states */}
         {loading ? (
-          <p className="py-16 text-center text-xs text-zinc-600">Loading quotesâ€¦</p>
+          <p className="py-16 text-center text-xs text-zinc-600">Loading quotes...</p>
         ) : filtered.length === 0 ? (
           <p className="py-16 text-center text-xs text-zinc-600 italic">
             {hasFilters ? "No quotes match your filters." : "No saved quotes yet."}
@@ -413,9 +413,9 @@ export default function SavedQuotesPage() {
                       ) : (
                         <span className="text-xs text-zinc-800 truncate">
                           <span className="font-bold text-zinc-950">{key}</span>
-                          <span className="text-zinc-500 mx-1.5">â€”</span>
+                          <span className="text-zinc-500 mx-1.5">-</span>
                           <span className="font-medium">{accountName}</span>
-                          <span className="text-zinc-500 mx-1.5">â€”</span>
+                          <span className="text-zinc-500 mx-1.5">-</span>
                           <span className="text-zinc-600">{fmtDate(new Date(earliestDate).toISOString())}</span>
                         </span>
                       )}
@@ -440,9 +440,9 @@ export default function SavedQuotesPage() {
                               </div>
                               {(contactName || company || product) && (
                                 <div className="space-y-0.5 mb-3">
-                                  {contactName && <p className="text-xs text-zinc-700">{isFetching ? "â€¦" : contactName}</p>}
-                                  {company    && <p className="text-xs text-zinc-600">{isFetching ? "â€¦" : company}</p>}
-                                  {product    && <p className="text-xs text-zinc-600 italic">{isFetching ? "â€¦" : product}</p>}
+                                  {contactName && <p className="text-xs text-zinc-700">{isFetching ? "..." : contactName}</p>}
+                                  {company    && <p className="text-xs text-zinc-600">{isFetching ? "..." : company}</p>}
+                                  {product    && <p className="text-xs text-zinc-600 italic">{isFetching ? "..." : product}</p>}
                                 </div>
                               )}
                               <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
@@ -452,7 +452,7 @@ export default function SavedQuotesPage() {
                                   disabled={loading1 === q.id}
                                   className="flex-1 min-h-11 text-xs font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-50 rounded-lg transition-colors"
                                 >
-                                  {loading1 === q.id ? "Loadingâ€¦" : "Load Quote"}
+                                  {loading1 === q.id ? "Loading..." : "Load Quote"}
                                 </button>
                                 <button
                                   type="button"
@@ -512,13 +512,13 @@ export default function SavedQuotesPage() {
                                     ) : q.quote_name}
                                   </td>
                                   <td className="py-3 px-4 text-xs text-zinc-700">
-                                    {isFetching ? <span className="text-zinc-500">â€¦</span> : (contactName || <span className="text-zinc-500">â€”</span>)}
+                                    {isFetching ? <span className="text-zinc-500">...</span> : (contactName || <span className="text-zinc-500">-</span>)}
                                   </td>
                                   <td className="py-3 px-4 text-xs text-zinc-700">
-                                    {isFetching ? <span className="text-zinc-500">â€¦</span> : (product || <span className="text-zinc-500">â€”</span>)}
+                                    {isFetching ? <span className="text-zinc-500">...</span> : (product || <span className="text-zinc-500">-</span>)}
                                   </td>
                                   <td className="py-3 px-4 text-xs text-right text-zinc-700">
-                                    {isFetching ? <span className="text-zinc-500">â€¦</span> : revenue !== null ? fmtCurrency(revenue) : <span className="text-zinc-500">â€”</span>}
+                                    {isFetching ? <span className="text-zinc-500">...</span> : revenue !== null ? fmtCurrency(revenue) : <span className="text-zinc-500">-</span>}
                                   </td>
                                   <td className="py-3 px-4 text-xs text-zinc-600">{fmtDate(q.created_at)}</td>
                                   <td className="py-3 px-4">
@@ -551,7 +551,7 @@ export default function SavedQuotesPage() {
                                             disabled={loading1 === q.id}
                                             className="h-7 px-3 text-[0.65rem] font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap"
                                           >
-                                            {loading1 === q.id ? "Loadingâ€¦" : "Load"}
+                                            {loading1 === q.id ? "Loading..." : "Load"}
                                           </button>
                                           <button
                                             type="button"

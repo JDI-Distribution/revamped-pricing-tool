@@ -20,12 +20,12 @@ const initialFormData: ProjectFormData = {
   intakeFee:               "195",
   numPallets:              "1",
   numIntakePallets:        "",
-  inventoryHandlingFee:    "350",
+  inventoryHandlingFee:    "595",
   numShipments:            "1",
   intakePalletWeightValue: "",
   intakePalletWeightUom:   "lbs",
-  outboundFee:             "350",
-  outboundFeeMarkup:       "40",
+  outboundFee:             "595",
+  outboundFeeMarkup:       "30",
   maxPalletWeightLbs:      "2000",
   maxPalletWeightUom:      "lbs",
   palletBuffer:            "0",
@@ -51,7 +51,7 @@ const initialFormData: ProjectFormData = {
   rawMaterialProvider:     "customer",
   materialOverage:         "25",
   rawMaterialMarkup:       "300",
-  intakeFeeMarkup:         "25",
+  intakeFeeMarkup:         "30",
   unitWeightUnit:          "g",
   // Co-packing extras (inactive in standard mode)
   rawMaterialSource:       "customer",
@@ -183,7 +183,7 @@ const initialCoPackingState: CoPackingState = {
   intakeFeePerPallet:    595,
   inboundPallets:        5,
   intakePalletWeightLbs: 1200,
-  intakeMarkup:      0.25,
+  intakeMarkup:      0.30,
   numSkus:           1,
   testingMarkup:     0.20,
   // Testing
@@ -197,7 +197,7 @@ const initialCoPackingState: CoPackingState = {
   coPackingColumns:              initialCoPackingColumns,
   // Pallets
   outboundPallets:      4,
-  outboundFeePerPallet: 195,
+  outboundFeePerPallet: 595,
   outboundMarkup:       0.30,
   // Minimum Job Charge
   minimumJobCharge: 0,
@@ -222,6 +222,51 @@ const initialCoPackingState: CoPackingState = {
   // Meta
   pricingAssumptions: "",
 };
+
+function withCurrentFormDefaults(draft?: Partial<ProjectFormData>): ProjectFormData {
+  const next = { ...initialFormData, ...(draft ?? {}) };
+  const isLegacy = (value: unknown, legacy: number) => {
+    if (value === undefined || value === null || value === "") return true;
+    const parsed = typeof value === "number" ? value : parseFloat(String(value).replace(/[$,%\s,]/g, ""));
+    return Number.isFinite(parsed) && Math.abs(parsed - legacy) < 0.0001;
+  };
+
+  if (!draft || isLegacy(draft.inventoryHandlingFee, 350)) {
+    next.inventoryHandlingFee = "595";
+  }
+  if (!draft || isLegacy(draft.intakeFeeMarkup, 25)) {
+    next.intakeFeeMarkup = "30";
+  }
+  if (!draft || isLegacy(draft.outboundFee, 350)) {
+    next.outboundFee = "595";
+  }
+  if (!draft || isLegacy(draft.outboundFeeMarkup, 40)) {
+    next.outboundFeeMarkup = "30";
+  }
+
+  return next;
+}
+
+function withCurrentCoPackingDefaults(draft?: Partial<CoPackingState>): CoPackingState {
+  const next = { ...initialCoPackingState, ...(draft ?? {}) };
+  const isLegacy = (value: unknown, legacy: number) => {
+    if (value === undefined || value === null) return true;
+    const parsed = typeof value === "number" ? value : parseFloat(String(value).replace(/[$,%\s,]/g, ""));
+    return Number.isFinite(parsed) && Math.abs(parsed - legacy) < 0.0001;
+  };
+
+  if (!draft || isLegacy(draft.intakeMarkup, 0.25)) {
+    next.intakeMarkup = 0.30;
+  }
+  if (!draft || isLegacy(draft.outboundFeePerPallet, 195)) {
+    next.outboundFeePerPallet = 595;
+  }
+  if (!draft || draft.outboundMarkup === undefined) {
+    next.outboundMarkup = 0.30;
+  }
+
+  return next;
+}
 
 const initialCustomer: CustomerInfo = {
   customer:         "Bartesian",
@@ -339,7 +384,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   })();
 
   const [projectType, setProjectType] = useState<ProjectType>(_draft.projectType ?? "standard");
-  const [coPackingState, setCoPackingStateRaw] = useState<CoPackingState>(_draft.coPackingState ?? initialCoPackingState);
+  const [coPackingState, setCoPackingStateRaw] = useState<CoPackingState>(withCurrentCoPackingDefaults(_draft.coPackingState));
   const [coPackingProcesses, setCoPackingProcesses] = useState<CoPackingProcess[]>(_draft.coPackingProcesses ?? []);
 
   const [moqRows,  setMoqRows]  = useState<MoqRow[]>(_draft.moqRows ?? initialMoqRows);
@@ -355,7 +400,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   );
   const [processCostMarkup, setProcessCostMarkup] = useState<number>((_draft as any).processCostMarkup ?? 0);
 
-  const [formData, setFormData] = useState<ProjectFormData>(_draft.formData ? { ...initialFormData, ..._draft.formData } : initialFormData);
+  const [formData, setFormData] = useState<ProjectFormData>(withCurrentFormDefaults(_draft.formData));
   const [activeMoqId, setActiveMoqId] = useState<number>(1);
   const [customer, setCustomer] = useState<CustomerInfo>(_draft.customer ?? initialCustomer);
   const [selectedBrand, setSelectedBrand] = useState<BrandId>(_draft.selectedBrand ?? initialBrand);
@@ -667,11 +712,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
       return initialPackagingLevels;
     })();
-    const resolvedFormData = { ...state.formData, numIntakePallets: state.formData.numIntakePallets ?? "" };
+    const resolvedFormData = withCurrentFormDefaults({
+      ...state.formData,
+      numIntakePallets: state.formData.numIntakePallets ?? "",
+    });
     const resolvedCustomer = state.customer ?? initialCustomer;
     const resolvedBrand = state.selectedBrand ?? initialBrand;
     const resolvedProjectType = state.projectType ?? "standard";
-    const resolvedCoPackingState = state.coPackingState ?? initialCoPackingState;
+    const resolvedCoPackingState = withCurrentCoPackingDefaults(state.coPackingState);
     const resolvedAdditionalFees = state.additionalFees ?? initialAdditionalFees;
     const resolvedProcesses = state.coPackingProcesses ?? [];
 

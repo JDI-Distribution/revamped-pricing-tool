@@ -1,4 +1,4 @@
-import { readdirSync, renameSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { existsSync, readdirSync, renameSync, readFileSync, writeFileSync, statSync } from 'fs';
 import { join, relative, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -76,8 +76,33 @@ if (refMap.size > 0) {
 }
 
 // Pass 4: write client-package.json for Catalyst Web Client Hosting
+const clientVersion = '0.0.14';
+const assetVersion = Date.now().toString(36);
+
+const versionedAssets = [
+  ['assets/index.js', `assets/index${assetVersion}.js`],
+  ['assets/index.css', `assets/index${assetVersion}.css`],
+];
+
+for (const [from, to] of versionedAssets) {
+  const fromPath = join(distDir, from);
+  const toPath = join(distDir, to);
+  if (existsSync(fromPath)) {
+    renameSync(fromPath, toPath);
+    console.log(`versioned: ${from} → ${to}`);
+  }
+}
+
+const indexHtml = join(distDir, 'index.html');
+let indexContent = readFileSync(indexHtml, 'utf8');
+for (const [from, to] of versionedAssets) {
+  indexContent = indexContent.replaceAll(from, to);
+  indexContent = indexContent.replaceAll(`/app/${from}`, `/app/${to}`);
+}
+writeFileSync(indexHtml, indexContent, 'utf8');
+
 const clientPkg = join(distDir, 'client-package.json');
-writeFileSync(clientPkg, JSON.stringify({ name: 'jdi-pricing-tool', version: '0.0.1', homepage: 'index.html' }, null, 4) + '\n', 'utf8');
+writeFileSync(clientPkg, JSON.stringify({ name: 'jdi-pricing-tool', version: clientVersion, homepage: 'index.html' }, null, 4) + '\n', 'utf8');
 console.log('wrote: client-package.json');
 
 console.log('Done.');

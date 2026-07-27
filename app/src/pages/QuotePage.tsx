@@ -13,7 +13,8 @@ import { generateQuoteXLSX } from "@/lib/generateQuoteXLSX";
 import XlsxMoqModal from "@/components/quote/XlsxMoqModal";
 import workdriveLogo from "@/assets/zoho-workdrive.png";
 import crmLogo       from "@/assets/zoho-crm.png";
-import { computePricingTiers } from "@/lib/coPackingCalculations";
+import { calculateProcessHours, computePricingTiers } from "@/lib/coPackingCalculations";
+import { qtyWithOverage } from "@/lib/quantityMath";
 
 const fmt        = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const fmtPct     = (v: number) => `${v.toFixed(1)}%`;
@@ -173,6 +174,26 @@ export default function QuotePage() {
   const primaryProductName = (primaryLevel
     ? (primaryLevel.packagingType === "custom_mode" ? primaryLevel.customTypeName : primaryLevel.packagingType)
     : "") || customer.productName || "";
+  const processCustomerCost = (proc: typeof coPackingProcesses[number]) => {
+    const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
+    let hrs = calculateProcessHours(proc, totalUnits);
+    if (proc.minLaborHrs > 0 && hrs < proc.minLaborHrs) hrs = proc.minLaborHrs;
+    const ops = proc.numStaff > 0 ? proc.numStaff : 1;
+    const our = hrs * proc.laborRate * ops;
+    return our * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
+  };
+  const testingSummaryTotal = (rows: typeof activeSummaryRows) =>
+    rows.reduce((sum, row) => row.label.startsWith("Testing") ? sum + row.customerPrice : sum, 0);
+  const directTestingTotal = (() => {
+    if (formData.testingEnabled === "false") return 0;
+    const markup = parseFloat(String(formData.testingMarkup ?? "0")) || 0;
+    const defaultSkus = parseFloat(String(formData.numSkus ?? "1")) || 1;
+    return (formData.testingRows ?? []).reduce((sum, row) => {
+      const cost = row.cost ?? 0;
+      const skus = row.numSkus ?? defaultSkus;
+      return sum + cost * skus * (1 + markup / 100);
+    }, 0);
+  })();
 
   // Build Overview line items for PDF (same logic as Overview table in render)
   const overviewLineItems = (() => {
@@ -180,23 +201,14 @@ export default function QuotePage() {
     const levelRows2 = activeSummaryRows.filter(r =>
       r.label !== "Setup / QA Fee" && r.label !== "Materials" && r.label !== "Pallets & Fees" && !r.label.startsWith("Testing")
     );
-    const procLineItemTotal2 = coPackingProcesses.reduce((s, proc) => {
-      if (processIncluded[proc.id] !== 'line' && processIncluded[proc.id] !== 'exclude') return s; // in total, not a line item
-      const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
-      const speed = proc.processSpeedValue; const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
-      let uph = 0; if (speed > 0) { if (proc.processSpeedUnit === "units / min") uph = speed * 60; else if (proc.processSpeedUnit === "units / hr") uph = speed; }
-      const hrs = uph * buffer > 0 ? totalUnits / (uph * buffer) : 0;
-      const ops = proc.numStaff > 0 ? proc.numStaff : 1;
-      const our = hrs * proc.laborRate * ops;
-      return s + our * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
-    }, 0);
-
-    // Level 1 plug: adjustedRevenue - setup - level2..N - pallets - line-item processes
-    const setup2   = activeSummaryRows.find(r => r.label === "Setup / QA Fee")?.customerPrice ?? 0;
-    const pallet2  = activeSummaryRows.find(r => r.label === "Pallets & Fees")?.customerPrice ?? 0;
-    const lv2plus2 = levelRows2.slice(1).reduce((s, r) => s + r.customerPrice, 0);
-    const level1Plug2 = adjustedRevenue - setup2 - lv2plus2 - pallet2 - procLineItemTotal2;
-
+    const summaryTesting = testingSummaryTotal(activeSummaryRows);
+    const hiddenLevel1Total = activeSummaryRows.reduce((sum, row) =>
+      row.label === "Materials" || row.label.startsWith("Testing") ? sum + row.customerPrice : sum, 0)
+      + (summaryTesting > 0 ? 0 : directTestingTotal);
+    const foldedProcessTotal = coPackingProcesses.reduce((sum, proc) =>
+      processIncluded[proc.id] === "line" || processIncluded[proc.id] === "exclude"
+        ? sum
+        : sum + processCustomerCost(proc), 0);
     const items: { desc: string; qty: number | null; total: number }[] = [];
     activeSummaryRows.forEach(sr => {
       const str = strByLabel(sr.label);
@@ -204,31 +216,24 @@ export default function QuotePage() {
       if (sr.label === "Setup / QA Fee") {
         items.push({ desc: "Project Setup, Line Dial-In & Quality Assurance", qty: 1, total: sr.customerPrice });
       } else if (sr.label === "Materials") {
-        // Raw materials merged into Level 1  -- not shown as separate line item
+        // Folded into Level 1 for the customer-facing overview.
       } else if (sr.label.startsWith("Testing")) {
-        // Testing fees merged into Level 1  -- not shown as separate line item
+        // Folded into Level 1 for the customer-facing overview.
       } else if (sr.label === "Pallets & Fees") {
         items.push({ desc: "Palletization & Outbound Staging", qty: strByLabel("Pallets & Fees")?.totalUnits ?? null, total: sr.customerPrice });
       } else {
         const lvlIdx = levelRows2.findIndex(lr => lr.label === sr.label);
         const isLvl1 = lvlIdx === 0;
-        const total = isLvl1 ? level1Plug2 : sr.customerPrice;
         const lvl = packagingLevels[lvlIdx];
         const name = lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || sr.label) : sr.label;
         const desc = isLvl1 ? `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${name}` : (lvlIdx === 1 ? `Secondary Packout  -- ${name}` : name);
-        items.push({ desc, qty, total });
+        items.push({ desc, qty, total: sr.customerPrice + (isLvl1 ? hiddenLevel1Total + foldedProcessTotal : 0) });
       }
     });
     // Add line-item processes after Level 1
     const lvl1Idx = items.findIndex(it => it.desc.startsWith("Product Filling"));
     coPackingProcesses.filter(p => processIncluded[p.id] === 'line').forEach((proc, _i) => {
-      const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
-      const speed = proc.processSpeedValue; const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
-      let uph = 0; if (speed > 0) { if (proc.processSpeedUnit === "units / min") uph = speed * 60; else if (proc.processSpeedUnit === "units / hr") uph = speed; }
-      const hrs = uph * buffer > 0 ? totalUnits / (uph * buffer) : 0;
-      const ops = proc.numStaff > 0 ? proc.numStaff : 1;
-      const our = hrs * proc.laborRate * ops;
-      const cust = our * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
+      const cust = processCustomerCost(proc);
       items.splice(lvl1Idx + 1 + coPackingProcesses.indexOf(proc), 0, { desc: proc.name || `Process ${coPackingProcesses.indexOf(proc) + 1}`, qty: proc.units > 0 ? proc.units : null, total: cust });
     });
     return items;
@@ -534,40 +539,22 @@ export default function QuotePage() {
 
           // Compute per-process labor costs
           const procCosts = coPackingProcesses.map(proc => {
-            const totalUnits = Math.ceil(proc.units * (1 + proc.overageRate / 100));
-            const speed = proc.processSpeedValue;
-            const buffer = proc.efficiencyBuffer > 0 ? 1 - proc.efficiencyBuffer / 100 : 1;
-            let unitsPerHr = 0;
-            if (speed > 0) {
-              if (proc.processSpeedUnit === "units / min") unitsPerHr = speed * 60;
-              else if (proc.processSpeedUnit === "units / hr") unitsPerHr = speed;
-            }
-            const effectiveUph = unitsPerHr * buffer;
-            const hrsRequired = effectiveUph > 0 ? totalUnits / effectiveUph : 0;
+            const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
+            let hrsRequired = calculateProcessHours(proc, totalUnits);
+            if (proc.minLaborHrs > 0 && hrsRequired < proc.minLaborHrs) hrsRequired = proc.minLaborHrs;
             const operators = proc.numStaff > 0 ? proc.numStaff : 1;
             const ourCost = hrsRequired * proc.laborRate * operators;
             const custCost = ourCost * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
             return { ourCost, custCost, hrsRequired };
           });
-
-          // Total process cost folded into Level 1 ("in total")
-          void coPackingProcesses.reduce((s, proc, i) =>
-            s + (processIncluded[proc.id] !== 'line' && processIncluded[proc.id] !== 'exclude' ? procCosts[i].custCost : 0), 0); // procFoldedTotal now absorbed into level1Plug
-
-          // Process costs NOT folded into Level 1 (line items shown separately OR excluded entirely)
-          // Both "line" and "exclude" are deducted from the Level 1 plug
-          const procLineItemTotal = coPackingProcesses.reduce((s, proc, i) =>
-            s + (processIncluded[proc.id] === 'line' || processIncluded[proc.id] === 'exclude' ? procCosts[i].custCost : 0), 0);
-
-          // Pre-compute Level 1 plug using adjusted revenue:
-          // Level1 = adjustedRevenue - setup - level2..N totals - pallets - (line + excluded) process costs
-          const setupTotal2   = activeSummaryRows.find(r => r.label === "Setup / QA Fee")?.customerPrice ?? 0;
-          const palletTotal2  = activeSummaryRows.find(r => r.label === "Pallets & Fees")?.customerPrice ?? 0;
-          const levelRows2Pre = activeSummaryRows.filter(r =>
-            r.label !== "Setup / QA Fee" && r.label !== "Materials" && r.label !== "Pallets & Fees" && !r.label.startsWith("Testing")
-          );
-          const level2PlusTotalPre = levelRows2Pre.slice(1).reduce((s, r) => s + r.customerPrice, 0);
-          const level1Plug = adjustedRevenue - setupTotal2 - level2PlusTotalPre - palletTotal2 - procLineItemTotal;
+          const summaryTesting = testingSummaryTotal(activeSummaryRows);
+          const hiddenLevel1Total = activeSummaryRows.reduce((sum, row) =>
+            row.label === "Materials" || row.label.startsWith("Testing") ? sum + row.customerPrice : sum, 0)
+            + (summaryTesting > 0 ? 0 : directTestingTotal);
+          const foldedProcessTotal = coPackingProcesses.reduce((sum, proc, i) =>
+            processIncluded[proc.id] === "line" || processIncluded[proc.id] === "exclude"
+              ? sum
+              : sum + procCosts[i].custCost, 0);
 
           // summaryTableRows lookup for qty/units
           const strByLabel = (label: string) => summaryTableRows.find(s => !s.isLeadTimeSummary && s.label === label);
@@ -605,10 +592,10 @@ export default function QuotePage() {
               rows.push({ rowIdx: rowIdx++, desc: "Project Setup, Line Dial-In & Quality Assurance", qty: 1, total: sr.customerPrice, summaryLabel: sr.label, levelIdx: null });
 
             } else if (sr.label === "Materials") {
-              // Raw materials merged into Level 1  -- not shown as separate line item
+              // Folded into Level 1 for the customer-facing overview.
 
             } else if (sr.label.startsWith("Testing")) {
-              // Testing fees merged into Level 1  -- not shown as separate line item
+              // Folded into Level 1 for the customer-facing overview.
 
             } else if (sr.label === "Pallets & Fees") {
               const palletStr = strByLabel("Pallets & Fees");
@@ -618,16 +605,21 @@ export default function QuotePage() {
             } else {
               // Packaging level
               const lvlIdx = levelRows.findIndex(lr => lr.label === sr.label);
-              // Level 1: use plug (adjusted revenue minus all other lines)
               const isLvl1 = lvlIdx === 0;
-              const total = isLvl1 ? level1Plug : sr.customerPrice;
               const prefix = lvlIdx === 1 ? "Secondary Packout  -- " : "";
               const lvl = packagingLevels[lvlIdx];
               const name = lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || sr.label) : sr.label;
               const desc = isLvl1
                 ? `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${name}`
                 : `${prefix}${name}`;
-              rows.push({ rowIdx: rowIdx++, desc, qty, total, summaryLabel: sr.label, levelIdx: lvlIdx });
+              rows.push({
+                rowIdx: rowIdx++,
+                desc,
+                qty,
+                total: sr.customerPrice + (isLvl1 ? hiddenLevel1Total + foldedProcessTotal : 0),
+                summaryLabel: sr.label,
+                levelIdx: lvlIdx,
+              });
             }
           });
 
@@ -1145,7 +1137,3 @@ export default function QuotePage() {
     </main>
   );
 }
-
-
-
-

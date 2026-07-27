@@ -7,6 +7,8 @@ import CompanySearchInput from "./CompanySearchInput";
 const labelCls = "text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1 block";
 const inputCls =
   "h-8 w-full px-2.5 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500";
+const manualInputCls =
+  "h-8 w-full px-2.5 text-xs text-zinc-950 border border-orange-300 bg-orange-100/80 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-600";
 
 function GroupDivider({ label }: { label: string }) {
   return (
@@ -77,14 +79,14 @@ export default function ProjectInfoSection() {
                 <label className={labelCls}>Product Name</label>
                 <input type="text" value={customer.productName}
                   onChange={e => setCustomerField("productName", e.target.value)}
-                  className={inputCls} />
+                  className={manualInputCls} />
               </div>
               <div className="col-span-2">
                 <label className={labelCls}>Product Category</label>
                 <input type="text" value={customer.productCategory}
                   onChange={e => setCustomerField("productCategory", e.target.value)}
                   placeholder="e.g. Beverage, Snack, Supplement"
-                  className={inputCls} />
+                  className={manualInputCls} />
               </div>
             </div>
 
@@ -115,7 +117,7 @@ export default function ProjectInfoSection() {
                 <label className={labelCls}>Sales Rep</label>
                 <input type="text" value={customer.salesRep}
                   onChange={e => setCustomerField("salesRep", e.target.value)}
-                  className={inputCls} />
+                  className={manualInputCls} />
               </div>
             </div>
 
@@ -126,7 +128,7 @@ export default function ProjectInfoSection() {
                 value={customer.projectOverview}
                 onChange={(e) => setCustomerField("projectOverview", e.target.value)}
                 rows={2}
-                className="w-full px-2.5 py-1.5 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500 resize-none"
+                className="w-full px-2.5 py-1.5 text-xs text-zinc-950 border border-orange-300 bg-orange-100/80 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-600 resize-none"
                 placeholder="Auto-generated from project data if left blank…"
               />
             </div>

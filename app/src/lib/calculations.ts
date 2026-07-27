@@ -240,9 +240,10 @@ export function computeDetailSections(
   ppuUnits: number;
 } {
   const unitWeight          = toGrams(n(formData.unitWeight), formData.unitWeightUnit ?? "g");
-  const costPerGramInput     = n(formData.costPerGram);
+  const customerProvidesRawMaterial = (formData.rawMaterialProvider || formData.rawMaterialSource || "customer") === "customer";
+  const costPerGramInput     = customerProvidesRawMaterial ? 0 : n(formData.costPerGram);
   const numSkus             = n(formData.numSkus) || 1;
-  const intakeFee           = n(formData.intakeFee);
+  const intakeFee           = n((formData as ProjectFormData).inventoryHandlingFee);
   const numIntakePallets    = n((formData as ProjectFormData).numIntakePallets ?? formData.numPallets);
   const numPallets          = n(formData.numPallets);
   const outboundFee         = n(formData.outboundFee);

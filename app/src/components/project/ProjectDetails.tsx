@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Info, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Info, Plus, Trash2, ChevronDown, ChevronUp, Database, Download, Search, X } from "lucide-react";
 import { MoqRow, ProjectFormData, TestingRow, PackagingLevel } from "@/lib/types";
 import { useProject } from "@/lib/ProjectContext";
 import CurrencyInput, { CurrencyInputType } from "@/components/ui/CurrencyInput";
@@ -12,6 +12,19 @@ import FillRateOverridePopover from "@/components/project/FillRateOverridePopove
 import ConversionCalculator, { ConversionPrefill } from "@/components/ConversionCalculator";
 import { defaultPackagingLevel } from "@/components/project/PackagingLevels";
 import { RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
+import {
+  createPackagingCostItem,
+  deletePackagingCostItem,
+  fetchPackagingCostAudit,
+  fetchPackagingCostItems,
+  loadPackagingCostAudit,
+  loadPackagingCostItems,
+  PackagingCostAuditEntry,
+  PackagingCostItem,
+  savePackagingCostAudit,
+  savePackagingCostItems,
+  updatePackagingCostItem,
+} from "@/lib/packagingCostDatabase";
 
 // Grams per display unit — for converting when the unit dropdown changes
 const GRAMS_PER: Record<string, number> = { g: 1, kg: 1000, oz: 28.3495, lbs: 453.592, "fl oz": 29.5735, mL: 1, L: 1000, lb: 453.592, mg: 0.001, "metric ton": 1000000 };
@@ -31,6 +44,20 @@ const inputBase =
 const inputKey        = `${inputBase} rounded-md`;
 const inputWithPrefix = `${inputBase} rounded-r-md flex-1`;
 const inputWithSuffix = `${inputBase} rounded-l-md flex-1`;
+const autoReadout =
+  "border-amber-200 bg-amber-50/70 text-zinc-800";
+const manualBase =
+  "border-orange-300 bg-orange-100/80 placeholder:text-zinc-600";
+const manualInputKey =
+  `h-9 w-full px-3 border text-xs text-zinc-950 ${manualBase} focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md`;
+const manualInputWithPrefix =
+  `h-9 w-full px-3 border border-l-0 text-xs text-zinc-950 ${manualBase} focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-r-md flex-1`;
+const manualInputWithSuffix =
+  `h-9 w-full px-3 border border-r-0 text-xs text-zinc-950 ${manualBase} focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md flex-1`;
+const manualPrefixBadge =
+  "text-[0.6rem] font-medium text-zinc-600 border border-r-0 border-orange-300 h-9 flex items-center px-2.5 bg-orange-100/70 shrink-0 rounded-l-md select-none";
+const manualSuffixBadge =
+  "text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-orange-300 h-9 flex items-center px-2.5 bg-orange-100/70 shrink-0 rounded-r-md select-none";
 const prefixBadge =
   "text-[0.6rem] font-medium text-zinc-600 border border-r-0 border-amber-200 h-9 flex items-center px-2.5 bg-amber-50/50 shrink-0 rounded-l-md select-none";
 const suffixBadge =
@@ -96,9 +123,9 @@ function SetupMarginPopover({
               min={0}
               max={95}
               onChange={onMarginChange}
-              className="h-7 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l"
+              className="h-7 flex-1 min-w-0 px-2 border border-amber-200 border-r-0 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded-l"
             />
-            <span className="h-7 flex items-center px-1.5 border border-amber-300 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-100/60 rounded-r select-none shrink-0">%</span>
+            <span className="h-7 flex items-center px-1.5 border border-amber-200 border-l-0 text-[0.58rem] text-zinc-600 bg-amber-50/60 rounded-r select-none shrink-0">%</span>
           </div>
         </div>
         <p className="text-[0.56rem] leading-snug text-zinc-500">
@@ -135,10 +162,16 @@ interface SymInputProps {
   formData: ProjectFormData;
   setFormField: (field: keyof ProjectFormData, value: string) => void;
   fullWidth?: boolean;
+  tone?: "auto" | "manual";
 }
-function SymInput({ field, type, sym, formData, setFormField, fullWidth }: SymInputProps) {
+function SymInput({ field, type, sym, formData, setFormField, fullWidth, tone = "auto" }: SymInputProps) {
   const isPrefix = sym === "$";
   const rawVal   = formData[field] ?? "";
+  const plainCls = tone === "manual" ? manualInputKey : inputKey;
+  const prefixCls = tone === "manual" ? manualInputWithPrefix : inputWithPrefix;
+  const suffixCls = tone === "manual" ? manualInputWithSuffix : inputWithSuffix;
+  const leftBadge = tone === "manual" ? manualPrefixBadge : prefixBadge;
+  const rightBadge = tone === "manual" ? manualSuffixBadge : suffixBadge;
 
   if (type === "number") {
     // Use CurrencyInput for all numeric fields
@@ -146,14 +179,14 @@ function SymInput({ field, type, sym, formData, setFormField, fullWidth }: SymIn
     const ciType: CurrencyInputType = sym === "$" ? "dollar" : sym === "%" ? "percent" : "integer";
     return (
       <div className={`flex items-center ${fullWidth ? "w-full" : "w-full sm:w-44 shrink-0"}`}>
-        {sym && isPrefix && <span className={prefixBadge}>{sym}</span>}
+      {sym && isPrefix && <span className={leftBadge}>{sym}</span>}
         <CurrencyInput
           type={ciType}
           value={numVal}
           onChange={(v) => setFormField(field, String(v))}
-          className={!sym ? inputKey : isPrefix ? inputWithPrefix : inputWithSuffix}
+          className={!sym ? plainCls : isPrefix ? prefixCls : suffixCls}
         />
-        {sym && !isPrefix && <span className={suffixBadge}>{sym}</span>}
+        {sym && !isPrefix && <span className={rightBadge}>{sym}</span>}
       </div>
     );
   }
@@ -165,9 +198,334 @@ function SymInput({ field, type, sym, formData, setFormField, fullWidth }: SymIn
         type="text"
         value={rawVal}
         onChange={(e) => setFormField(field, e.target.value)}
-        className={!sym ? inputKey : isPrefix ? inputWithPrefix : inputWithSuffix}
+        className={!sym ? plainCls : isPrefix ? prefixCls : suffixCls}
       />
-      {sym && !isPrefix && <span className={suffixBadge}>{sym}</span>}
+      {sym && !isPrefix && <span className={rightBadge}>{sym}</span>}
+    </div>
+  );
+}
+
+function PackagingCostDatabaseModal({
+  items,
+  setItems,
+  audit,
+  setAudit,
+  onClose,
+}: {
+  items: PackagingCostItem[];
+  setItems: React.Dispatch<React.SetStateAction<PackagingCostItem[]>>;
+  audit: PackagingCostAuditEntry[];
+  setAudit: React.Dispatch<React.SetStateAction<PackagingCostAuditEntry[]>>;
+  onClose: () => void;
+}) {
+  const [showAudit, setShowAudit] = useState(false);
+  const syncAuditFromServer = () => {
+    fetchPackagingCostAudit()
+      .then(next => {
+        setAudit(next);
+        savePackagingCostAudit(next);
+      })
+      .catch(() => {});
+  };
+  const recordAudit = (action: string, itemName: string) => {
+    const now = new Date();
+    const next = [{
+      id: String(uid()),
+      action,
+      itemName,
+      at: now.toISOString(),
+      user: "Current user",
+      details: itemName,
+    }, ...audit].slice(0, 100);
+    setAudit(next);
+    savePackagingCostAudit(next);
+  };
+  const updateItem = (id: string, patch: Partial<PackagingCostItem>) => {
+    setItems(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...patch } : item);
+      savePackagingCostItems(next);
+      return next;
+    });
+  };
+  const syncItem = (id: string) => {
+    const item = items.find(row => row.id === id);
+    if (!item) return;
+    updatePackagingCostItem(item)
+      .then(saved => {
+        setItems(prev => {
+          const next = prev.map(row => row.id === id ? saved : row);
+          savePackagingCostItems(next);
+          return next;
+        });
+        syncAuditFromServer();
+      })
+      .catch(() => {});
+  };
+  const addRow = () => {
+    const item: PackagingCostItem = {
+      id: String(uid()),
+      category: "Packaging",
+      itemName: "New item",
+      description: "",
+      moq: "",
+      landedCostEa: 0,
+      intakePackoutConfig: "",
+    };
+    setItems(prev => {
+      const next = [item, ...prev];
+      savePackagingCostItems(next);
+      return next;
+    });
+    recordAudit("Added row", item.itemName);
+    createPackagingCostItem(item)
+      .then(saved => {
+        setItems(prev => {
+          const next = prev.map(row => row.id === item.id ? saved : row);
+          savePackagingCostItems(next);
+          return next;
+        });
+        syncAuditFromServer();
+      })
+      .catch(() => {});
+  };
+  const deleteRow = (id: string) => {
+    const item = items.find(row => row.id === id);
+    setItems(prev => {
+      const next = prev.filter(row => row.id !== id);
+      savePackagingCostItems(next);
+      return next;
+    });
+    if (item) recordAudit("Deleted row", item.itemName);
+    if (item) {
+      deletePackagingCostItem(item)
+        .then(syncAuditFromServer)
+        .catch(() => {});
+    }
+  };
+  const exportCsv = () => {
+    const headers = ["Category", "Item name", "Description", "MOQ", "Landed cost/ea", "Intake packout config"];
+    const esc = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const csv = [headers.map(esc).join(","), ...items.map(item => [
+      item.category,
+      item.itemName,
+      item.description,
+      item.moq,
+      item.landedCostEa,
+      item.intakePackoutConfig,
+    ].map(esc).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "packaging_cost_database.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    recordAudit("Exported database", `${items.length} rows`);
+  };
+  const sheetCell = "border border-gray-200 p-0 bg-white";
+  const sheetInput = "h-7 w-full px-2 text-[0.72rem] text-zinc-900 bg-transparent border-0 rounded-none focus:outline-none focus:bg-amber-50 focus:ring-1 focus:ring-[#e8473f]/30";
+  const sheetHead = "px-2 py-1.5 text-left text-[0.58rem] uppercase tracking-wider text-zinc-600 border border-gray-300 bg-[#EDEAE0]";
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-5">
+      <div className="w-full max-w-6xl max-h-[86vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="h-12 px-4 border-b border-gray-200 flex items-center gap-3 shrink-0">
+          <Database size={15} className="text-blue-700" />
+          <div>
+            <p className="text-sm font-bold text-zinc-950">Packaging Cost Database</p>
+            <p className="text-[0.6rem] text-zinc-600">{items.length} items available for packaging level selection</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" onClick={addRow} className="h-8 px-3 rounded-md border border-[#e8473f]/40 text-[#e8473f] hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5">
+              <Plus size={12} /> Add Row
+            </button>
+            <button type="button" onClick={() => setShowAudit(open => !open)} className="h-8 px-3 rounded-md border border-gray-200 text-zinc-700 hover:border-blue-300 hover:text-blue-700 text-xs font-semibold">
+              Audit Log
+            </button>
+            <button type="button" onClick={exportCsv} className="h-8 px-3 rounded-md border border-gray-200 text-zinc-700 hover:border-blue-300 hover:text-blue-700 text-xs font-semibold flex items-center gap-1.5">
+              <Download size={12} /> Export
+            </button>
+            <button type="button" onClick={onClose} className="h-8 w-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-zinc-500">
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+        <div className="overflow-auto bg-white">
+          <table className="w-full min-w-[920px] border-collapse text-xs">
+            <thead className="sticky top-0 z-10">
+              <tr>
+                {["Category", "Item name", "Description", "MOQ", "Landed cost/ea", "Intake packout config", ""].map(label => (
+                  <th key={label} className={sheetHead}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(item => (
+                <tr key={item.id} className="hover:bg-blue-50/30">
+                  <td className={sheetCell}><input value={item.category} onChange={e => updateItem(item.id, { category: e.target.value })} onBlur={() => syncItem(item.id)} className={sheetInput} /></td>
+                  <td className={sheetCell}><input value={item.itemName} onChange={e => updateItem(item.id, { itemName: e.target.value })} onBlur={() => syncItem(item.id)} className={`${sheetInput} font-semibold`} /></td>
+                  <td className={sheetCell}><input value={item.description} onChange={e => updateItem(item.id, { description: e.target.value })} onBlur={() => syncItem(item.id)} className={sheetInput} /></td>
+                  <td className={sheetCell}><input value={item.moq} onChange={e => updateItem(item.id, { moq: e.target.value })} onBlur={() => syncItem(item.id)} className={sheetInput} /></td>
+                  <td className={sheetCell}><div onBlur={() => syncItem(item.id)}><CurrencyInput type="dollar" value={item.landedCostEa} onChange={v => updateItem(item.id, { landedCostEa: v })} className={`${sheetInput} text-right tabular-nums`} /></div></td>
+                  <td className={sheetCell}><input value={item.intakePackoutConfig} onChange={e => updateItem(item.id, { intakePackoutConfig: e.target.value })} onBlur={() => syncItem(item.id)} className={sheetInput} /></td>
+                  <td className="border border-gray-200 p-0 text-center bg-white w-10">
+                    <button type="button" onClick={() => deleteRow(item.id)} className="h-7 w-full inline-flex items-center justify-center text-red-500 hover:bg-red-50">
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {showAudit && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center p-6 pointer-events-none">
+          <div className="w-full max-w-4xl max-h-[60vh] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
+            <div className="h-11 px-4 border-b border-gray-200 flex items-center gap-3 shrink-0">
+              <p className="text-sm font-bold text-zinc-950">Audit Log</p>
+              <button type="button" onClick={() => setShowAudit(false)} className="ml-auto h-8 w-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-zinc-500">
+                <X size={15} />
+              </button>
+            </div>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[760px] border-collapse text-xs">
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    {["Timestamp", "Date", "User", "Action", "Details"].map(label => (
+                      <th key={label} className={sheetHead}>{label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.length === 0 ? (
+                    <tr><td colSpan={5} className="px-3 py-5 text-center text-zinc-500 italic border border-gray-200">No audit events yet.</td></tr>
+                  ) : audit.map(entry => {
+                    const parsedDate = new Date(entry.at);
+                    const validDate = !Number.isNaN(parsedDate.getTime());
+                    return (
+                      <tr key={entry.id}>
+                        <td className="border border-gray-200 px-2 py-1.5 tabular-nums">{validDate ? parsedDate.toLocaleTimeString() : entry.at}</td>
+                        <td className="border border-gray-200 px-2 py-1.5 tabular-nums">{validDate ? parsedDate.toLocaleDateString() : "-"}</td>
+                        <td className="border border-gray-200 px-2 py-1.5">{entry.user || "Current user"}</td>
+                        <td className="border border-gray-200 px-2 py-1.5 font-semibold">{entry.action}</td>
+                        <td className="border border-gray-200 px-2 py-1.5">{entry.details || entry.itemName}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+function PackagingItemPicker({
+  items,
+  value,
+  onSelect,
+}: {
+  items: PackagingCostItem[];
+  value: string;
+  onSelect: (item: PackagingCostItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 720 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        wrapRef.current &&
+        !wrapRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(760, window.innerWidth - 32);
+      const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
+      setMenuPos({ top: rect.bottom + 4, left, width });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+  const q = query.trim().toLowerCase();
+  const packagingItems = items.filter(item => item.category.trim().toLowerCase() === "packaging");
+  const filtered = packagingItems
+    .filter(item => !q || [item.itemName, item.description, item.category].some(value => value.toLowerCase().includes(q)))
+    .slice(0, 60);
+  const selected = packagingItems.find(item => item.itemName === value || item.id === value);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(open => !open)}
+        className="h-8 w-full px-2 border border-orange-300 text-[0.65rem] text-zinc-900 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded text-left flex items-center justify-between gap-2"
+      >
+        <span className="truncate">{selected?.itemName || value || "Select item..."}</span>
+        <ChevronDown size={12} className="shrink-0 text-zinc-600" />
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-50 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden"
+          style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+        >
+          <div className="p-2 border-b border-gray-100 flex items-center gap-1.5">
+            <Search size={12} className="text-zinc-500" />
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              autoFocus
+              placeholder="Search item, description, category..."
+              className="h-7 flex-1 px-2 text-xs border border-amber-200 bg-amber-50/70 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30"
+            />
+          </div>
+          <div className="grid grid-cols-[1.2fr_0.7fr_1.4fr] gap-2 px-2 py-1.5 bg-gray-50 text-[0.55rem] font-bold uppercase tracking-wider text-zinc-600 border-b border-gray-100">
+            <span>Item</span>
+            <span className="text-right">Landed cost/ea</span>
+            <span>Description</span>
+          </div>
+          <div className="max-h-[28rem] overflow-auto">
+            {filtered.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => { onSelect(item); setOpen(false); setQuery(""); }}
+                className="w-full grid grid-cols-[1.2fr_0.7fr_1.4fr] gap-2 px-2 py-2 text-left text-[0.65rem] hover:bg-amber-50 border-b border-gray-50"
+              >
+                <span className="font-semibold text-zinc-900 truncate">{item.itemName}</span>
+                <span className="text-right tabular-nums text-zinc-800">${item.landedCostEa.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                <span className="text-zinc-600 truncate">{item.description || "-"}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="px-3 py-4 text-xs text-zinc-500 italic">No matching items.</div>}
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
@@ -192,6 +550,9 @@ export default function ProjectDetails({
   const [setupMarginOpen, setSetupMarginOpen] = useState(false);
   const [setupMarginPct,  setSetupMarginPct]  = useState(60);
   const [manualPpuDenominator, setManualPpuDenominator] = useState(false);
+  const [packagingDbOpen, setPackagingDbOpen] = useState(false);
+  const [packagingCostItems, setPackagingCostItems] = useState<PackagingCostItem[]>(() => loadPackagingCostItems());
+  const [packagingCostAudit, setPackagingCostAudit] = useState<PackagingCostAuditEntry[]>(() => loadPackagingCostAudit());
   const setupMarginBtnRef = useRef<HTMLButtonElement | null>(null);
   const lastAutoIntakePallets = useRef<string | null>(null);
   const lastAutoMfgNetFillG = useRef<string | null>(null);
@@ -200,6 +561,25 @@ export default function ProjectDetails({
   const { notRequired } = useSectionRequired();
 
   const UNIT_OPTS = ["g", "kg", "oz", "lbs", "fl oz", "mL", "L"] as const;
+
+  useEffect(() => {
+    let active = true;
+    fetchPackagingCostItems()
+      .then(items => {
+        if (!active || items.length === 0) return;
+        setPackagingCostItems(items);
+        savePackagingCostItems(items);
+      })
+      .catch(() => {});
+    fetchPackagingCostAudit()
+      .then(entries => {
+        if (!active) return;
+        setPackagingCostAudit(entries);
+        savePackagingCostAudit(entries);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   // When the unit dropdown changes, auto-convert the current value to the new unit
   const handleUnitWeightUnitChange = (newUnit: string) => {
@@ -319,7 +699,7 @@ export default function ProjectDetails({
   const removePackagingLevel = (id: string) => {
     setPackagingLevels(prev => prev.filter(l => l.id !== id));
   };
-  const updatePackagingLevel = (id: string, patch: { units?: number; costPerUnit?: number; customLevelName?: string; unitsRefId?: string | undefined }) => {
+  const updatePackagingLevel = (id: string, patch: { units?: number; costPerUnit?: number; customLevelName?: string; unitsRefId?: string | undefined; packagingCostItemId?: string }) => {
     setPackagingLevels(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
     if (!manualPpuDenominator && id === packagingLevels[0]?.id && patch.units !== undefined && patch.units > 0) {
       setFormField("ppuDenominator", String(patch.units));
@@ -448,10 +828,10 @@ export default function ProjectDetails({
                 </button>
               </div>
               <div className="flex items-center w-40">
-                <span className={prefixBadge}>$</span>
+                <span className={manualPrefixBadge}>$</span>
                 <CurrencyInput type="dollar" value={parseFloat(formData.setupFeeCustomer) || 0}
                   onChange={v => setFormField("setupFeeCustomer", String(v))}
-                  className={inputWithPrefix} />
+                  className={manualInputWithPrefix} />
               </div>
             </div>
 
@@ -459,10 +839,10 @@ export default function ProjectDetails({
             <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-zinc-700">Project Management Fee</span>
               <div className="flex items-center w-40">
-                <span className={prefixBadge}>$</span>
+                <span className={manualPrefixBadge}>$</span>
                 <CurrencyInput type="dollar" value={parseFloat((formData as any).projectManagementFee) || 0}
                   onChange={v => setFormField("projectManagementFee" as keyof typeof formData, String(v))}
-                  className={inputWithPrefix} />
+                  className={manualInputWithPrefix} />
               </div>
             </div>
 
@@ -479,12 +859,12 @@ export default function ProjectDetails({
                   type="number"
                   value={formData.unitWeight ?? ""}
                   onChange={(e) => setFormField("unitWeight", e.target.value)}
-                  className="w-32 h-9 px-3 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
+                  className="w-32 h-9 px-3 border border-orange-300 text-xs text-zinc-950 bg-orange-100/80 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-l-md"
                 />
                 <select
                   value={formData.unitWeightUnit ?? "g"}
                   onChange={(e) => handleUnitWeightUnitChange(e.target.value)}
-                  className="text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-amber-200 h-9 px-1.5 bg-amber-50/50 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
+                  className="text-[0.6rem] font-medium text-zinc-600 border border-l-0 border-orange-300 h-9 px-1.5 bg-orange-100/70 shrink-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition cursor-pointer"
                 >
                   {UNIT_OPTS.map((u) => (
                     <option key={u} value={u}>{u}</option>
@@ -495,19 +875,28 @@ export default function ProjectDetails({
 
             {/* Packaging Structure table */}
             <div className="pt-3 pb-2">
-              <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-zinc-600 mb-2">Packaging Structure</p>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-zinc-600">Packaging Structure</p>
+                <button
+                  type="button"
+                  onClick={() => setPackagingDbOpen(true)}
+                  className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 text-[0.65rem] font-semibold text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+                >
+                  <Database size={12} /> Packaging Cost Database
+                </button>
+              </div>
               <p className="text-[0.65rem] text-zinc-600 mb-3">
                 Define every packaging level this project moves through, from individual unit up to shipper. This sets the shape of the whole quote — labor rates and markups for each level are configured later in <strong className="font-semibold text-zinc-800">Packaging Line Setup</strong>.
               </p>
               {/* Legend */}
               <div className="flex items-center gap-4 mb-3">
                 <span className="flex items-center gap-1.5 text-[0.6rem] text-zinc-600">
-                  <span className="w-3 h-3 rounded-sm border border-amber-300 bg-amber-50/80 inline-block" />
-                  Type here
+                  <span className="w-3 h-3 rounded-sm border border-amber-200 bg-amber-50/80 inline-block" />
+                  Default / Auto
                 </span>
                 <span className="flex items-center gap-1.5 text-[0.6rem] text-zinc-600">
-                  <span className="w-3 h-3 rounded-sm border border-orange-300 bg-orange-100/90 inline-block" />
-                  Calculated
+                  <span className="w-3 h-3 rounded-sm border border-orange-300 bg-orange-100/80 inline-block" />
+                  Manual input
                 </span>
               </div>
 
@@ -531,12 +920,14 @@ export default function ProjectDetails({
                         <tr key={lvl.id} className="border-b border-gray-200 last:border-b-0">
                           {/* Level name */}
                           <td className="border-r border-gray-200 p-2">
-                            <input
-                              type="text"
-                              value={lvl.customLevelName}
-                              onChange={e => updatePackagingLevel(lvl.id, { customLevelName: e.target.value })}
-                              placeholder={`e.g. ${["Individual Unit", "Final Kit", "Inner / Case", "Shipper / Outer"][idx] ?? "Custom"}`}
-                              className="h-8 w-full px-2 border border-amber-300 text-[0.65rem] text-zinc-900 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded placeholder:text-zinc-600 placeholder:italic"
+                            <PackagingItemPicker
+                              items={packagingCostItems}
+                              value={lvl.packagingCostItemId || lvl.customLevelName}
+                              onSelect={item => updatePackagingLevel(lvl.id, {
+                                customLevelName: item.itemName,
+                                costPerUnit: item.landedCostEa,
+                                packagingCostItemId: item.id,
+                              })}
                             />
                           </td>
                           {/* # of Units */}
@@ -545,7 +936,7 @@ export default function ProjectDetails({
                               type="integer"
                               value={lvl.units}
                               onChange={v => updatePackagingLevel(lvl.id, { units: v })}
-                              className="h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded tabular-nums"
+                              className="h-8 w-full px-2 border border-orange-300 text-xs text-zinc-950 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded tabular-nums"
                             />
                           </td>
                           {/* UOM */}
@@ -553,7 +944,7 @@ export default function ProjectDetails({
                             <select
                               value={lvl.unitsRefId ?? ""}
                               onChange={e => updatePackagingLevel(lvl.id, { unitsRefId: e.target.value || undefined })}
-                              className="h-8 w-full px-1.5 border border-amber-300 text-xs text-zinc-800 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded cursor-pointer"
+                              className="h-8 w-full px-1.5 border border-orange-300 text-xs text-zinc-800 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded cursor-pointer"
                             >
                               <option value="">units</option>
                               {priorNamed.map(pl => (
@@ -563,19 +954,19 @@ export default function ProjectDetails({
                           </td>
                           {/* Required Qty — calculated */}
                           <td className="border-r border-gray-200 p-2">
-                            <div className="h-8 flex items-center px-2 border border-orange-300 bg-orange-100/90 rounded text-xs font-semibold text-zinc-800 tabular-nums">
+                            <div className={`h-8 flex items-center px-2 border rounded text-xs font-semibold tabular-nums ${autoReadout}`}>
                               {requiredQty > 0 ? requiredQty.toLocaleString() : <span className="text-zinc-500 font-normal">—</span>}
                             </div>
                           </td>
                           {/* Cost / Unit */}
                           <td className="border-r border-gray-200 p-2">
-                            <div className="flex items-center h-8 border border-amber-300 bg-amber-50/70 rounded overflow-hidden">
-                              <span className="text-[0.6rem] text-zinc-600 px-2 select-none border-r border-amber-300 h-full flex items-center bg-amber-50/50">$</span>
-                              <CurrencyInput
-                                type="dollar"
-                                value={lvl.costPerUnit}
-                                onChange={v => updatePackagingLevel(lvl.id, { costPerUnit: v })}
-                                className="flex-1 h-full px-2 text-xs text-zinc-950 bg-transparent focus:outline-none tabular-nums"
+                            <div className="flex items-center h-8 border border-amber-200 bg-amber-50/70 rounded overflow-hidden">
+                              <span className="text-[0.6rem] text-zinc-600 px-2 select-none border-r border-amber-200 h-full flex items-center bg-amber-50/60">$</span>
+                              <input
+                                type="text"
+                                readOnly
+                                value={lvl.costPerUnit > 0 ? lvl.costPerUnit.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""}
+                                className="flex-1 h-full px-2 text-xs text-zinc-950 bg-transparent focus:outline-none tabular-nums cursor-default"
                               />
                             </div>
                           </td>
@@ -617,14 +1008,14 @@ export default function ProjectDetails({
                       type="integer"
                       value={parseFloat(formData.ppuDenominator) || 0}
                       onChange={v => setFormField("ppuDenominator", String(v))}
-                      className={inputKey}
+                      className={manualInputKey}
                     />
                   ) : (
                     <input
                       type="text"
                       readOnly
                       value={firstLvlQtyForSeed > 0 ? Math.round(firstLvlQtyForSeed).toLocaleString("en-US") : ""}
-                      className={`${inputKey} bg-zinc-100 text-zinc-700 border-zinc-200 cursor-default`}
+                      className={`${inputKey} ${autoReadout} cursor-default`}
                     />
                   )}
                 </div>
@@ -637,7 +1028,7 @@ export default function ProjectDetails({
                   }}
                   className={`h-8 px-2.5 rounded-md border text-[0.65rem] font-semibold transition-colors ${
                     manualPpuDenominator
-                      ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      ? "border-orange-300 bg-orange-100/80 text-orange-700 hover:bg-orange-100"
                       : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
                   }`}
                 >
@@ -649,7 +1040,7 @@ export default function ProjectDetails({
             {/* Lead Time Buffer */}
             <div id="section-lead-time" className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
               <span className="text-xs text-zinc-700">Lead Time Buffer</span>
-              <div className="flex items-center h-9 border border-amber-200 rounded-md overflow-hidden w-40">
+              <div className="flex items-center h-9 border border-orange-300 bg-orange-100/80 rounded-md overflow-hidden w-40">
                 <input
                   type="number"
                   value={
@@ -664,7 +1055,7 @@ export default function ProjectDetails({
                   }}
                   placeholder="0"
                   step={bufferUnit === "weeks" ? "0.5" : "1"}
-                  className="w-16 h-full px-2 text-xs text-right bg-amber-50/50 border-r border-amber-200 focus:outline-none focus:ring-1 focus:ring-[#e8473f] font-medium"
+                  className="w-16 h-full px-2 text-xs text-right bg-transparent border-r border-orange-300 focus:outline-none focus:ring-1 focus:ring-[#e8473f] font-medium"
                 />
                 {(["days", "weeks"] as const).map((u) => (
                   <button
@@ -727,9 +1118,9 @@ export default function ProjectDetails({
       <div className={sectionRow}>
       <div id="section-manufacturing-moq" className={card}>
         <div className="px-5 pt-4 pb-1">
-          <SectionHeader title="Manufacturing MOQ Conversion" open={mfgMoqOpen} onToggle={() => setMfgMoqOpen(o => !o)} />
+          <SectionHeader title="Manufacturing MOQ Conversion" open={mfgMoqOpen} onToggle={() => setMfgMoqOpen(o => !o)} sectionId="section-manufacturing-moq" />
         </div>
-        {mfgMoqOpen && (
+        {mfgMoqOpen && !notRequired["section-manufacturing-moq"] && (
           <div className="px-5 pb-5">
             <div className="divide-y divide-gray-100">
               <div className="grid grid-cols-[180px_1fr] items-center gap-5 py-1.5">
@@ -840,7 +1231,7 @@ export default function ProjectDetails({
         )}
       </div>
 
-      {mfgMoqOpen && <div className={outPanel}>
+      {mfgMoqOpen && !notRequired["section-manufacturing-moq"] && <div className={outPanel}>
         <div className={outTitle}>MOQ Conversion Outputs</div>
         <div className={outRow}><span className={outLbl}>Total Grams Required</span><span className={outVal}>{fmtDec(totalManufacturerGrams)}</span></div>
         <div className={outRow}><span className={outLbl}>Theoretical Units</span><span className={outVal}>{fmtInt(theoreticalFinishedUnits)}</span></div>
@@ -1199,6 +1590,15 @@ export default function ProjectDetails({
       onClose={() => setConvOpen(false)}
       prefill={convPrefill}
     />
+    {packagingDbOpen && (
+      <PackagingCostDatabaseModal
+        items={packagingCostItems}
+        setItems={setPackagingCostItems}
+        audit={packagingCostAudit}
+        setAudit={setPackagingCostAudit}
+        onClose={() => setPackagingDbOpen(false)}
+      />
+    )}
     </>
   );
 }
@@ -1258,8 +1658,8 @@ export function MoqSection({
   }, [notRequired["section-moq"]]);
 
   const addRowBtn = "flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors";
-  const inp = "h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
-  const inpRo = "h-8 w-full px-2 border border-orange-300 text-xs font-semibold text-zinc-800 bg-orange-100/90 rounded-md select-none tabular-nums";
+  const inp = "h-8 w-full px-2 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-md";
+  const inpRo = "h-8 w-full px-2 border border-amber-200 text-xs font-semibold text-zinc-800 bg-amber-50/70 rounded-md select-none tabular-nums";
   const colHead = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-widest";
 
   const removeMoqRow = (id: number) => setMoqRows(prev => prev.filter(r => r.id !== id));
@@ -1401,21 +1801,21 @@ export function MoqSection({
                       <div className="space-y-1">
                         <div className="flex items-center gap-1">
                           <div className="flex items-center flex-1 min-w-0">
-                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-zinc-600 rounded-l-md shrink-0 select-none whitespace-nowrap">/inn</span>
+                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-200 bg-amber-50/60 text-[0.58rem] text-zinc-600 rounded-l-md shrink-0 select-none whitespace-nowrap">/inn</span>
                             <CurrencyInput type="integer"
                               value={innerPack}
                               onChange={v => updateMoqRow(row.id, "unitsPerInner", String(v))}
                               placeholder={suggestedCasePack.unitsPerInner > 0 ? String(suggestedCasePack.unitsPerInner) : "0"}
-                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`} />
+                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-200 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-600 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.unitsPerInner ? "border-red-400 bg-red-50" : ""}`} />
                           </div>
                           <span className="text-[0.6rem] text-zinc-600 shrink-0">×</span>
                           <div className="flex items-center flex-1 min-w-0">
-                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.58rem] text-zinc-600 rounded-l-md shrink-0 select-none whitespace-nowrap">/mst</span>
+                            <span className="h-8 px-1.5 flex items-center border border-r-0 border-amber-200 bg-amber-50/60 text-[0.58rem] text-zinc-600 rounded-l-md shrink-0 select-none whitespace-nowrap">/mst</span>
                             <CurrencyInput type="integer"
                               value={masterPack}
                               onChange={v => updateMoqRow(row.id, "innersPerMaster", String(v))}
                               placeholder={suggestedCasePack.innersPerMaster > 0 ? String(suggestedCasePack.innersPerMaster) : "0"}
-                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`} />
+                              className={`h-8 flex-1 min-w-0 px-2 border border-amber-200 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-600 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md ${rowErr?.innersPerMaster ? "border-red-400 bg-red-50" : ""}`} />
                           </div>
                         </div>
                         {(innerCount > 0 || masterCount > 0) && (
@@ -1429,13 +1829,13 @@ export function MoqSection({
 
                       {/* PPU — editable, 2-way with margin */}
                       <div className="flex items-center">
-                        <span className="h-8 px-2 flex items-center border border-r-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-zinc-600 rounded-l-md shrink-0 select-none">$</span>
+                        <span className="h-8 px-2 flex items-center border border-r-0 border-amber-200 bg-amber-50/60 text-[0.65rem] text-zinc-600 rounded-l-md shrink-0 select-none">$</span>
                         <input
                           type="number" step="0.0001" min={0}
                           value={displayPpu}
                           onChange={e => handlePpuChange(row.id, e.target.value)}
                           placeholder={naturalPpu > 0 ? naturalPpu.toFixed(4) : "0.0000"}
-                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md tabular-nums"
+                          className="h-8 flex-1 min-w-0 px-2 border border-amber-200 border-l-0 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-r-md tabular-nums"
                         />
                       </div>
 
@@ -1446,9 +1846,9 @@ export function MoqSection({
                           value={displayMargin}
                           onChange={e => handleMarginChange(row.id, e.target.value)}
                           placeholder={moqResult ? moqResult.marginPct.toFixed(2) : "0.00"}
-                          className="h-8 flex-1 min-w-0 px-2 border border-amber-300 border-r-0 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-l-md tabular-nums"
+                          className="h-8 flex-1 min-w-0 px-2 border border-amber-200 border-r-0 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded-l-md tabular-nums"
                         />
-                        <span className="h-8 px-2 flex items-center border border-l-0 border-amber-300 bg-amber-100/60 text-[0.65rem] text-zinc-600 rounded-r-md shrink-0 select-none">%</span>
+                        <span className="h-8 px-2 flex items-center border border-l-0 border-amber-200 bg-amber-50/60 text-[0.65rem] text-zinc-600 rounded-r-md shrink-0 select-none">%</span>
                       </div>
 
                       {/* Revenue — read-only */}
@@ -1499,7 +1899,7 @@ export function MoqSection({
                           value={row.pallets ?? ""}
                           onChange={e => updateMoqRow(row.id, "pallets", e.target.value)}
                           placeholder={autoPallets !== null ? String(autoPallets) : "auto"}
-                          className="h-6 w-16 px-1.5 border border-amber-300 text-[0.7rem] text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md" />
+                          className="h-6 w-16 px-1.5 border border-amber-200 text-[0.7rem] text-zinc-950 placeholder:text-zinc-600 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md" />
                         {hasRateOverrides && <span className="text-[0.58rem] text-[#e8473f] font-medium shrink-0">⚙ custom rates</span>}
                       </div>
                       {/* Cost/gram */}
@@ -1509,7 +1909,7 @@ export function MoqSection({
                           value={row.costPerGram ?? ""}
                           onChange={e => updateMoqRow(row.id, "costPerGram", e.target.value)}
                           placeholder={derivedCostPerGram !== null ? derivedCostPerGram.toFixed(4) : "0.0000"}
-                          className="h-6 w-24 px-1.5 border border-amber-300 text-[0.7rem] text-zinc-950 placeholder:text-zinc-600 bg-amber-100/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md font-mono" />
+                          className="h-6 w-24 px-1.5 border border-amber-200 text-[0.7rem] text-zinc-950 placeholder:text-zinc-600 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 transition rounded-md font-mono" />
                         {row.costPerGram !== undefined && row.costPerGram !== "" && (
                           <button type="button" onClick={() => updateMoqRow(row.id, "costPerGram", "")}
                             title="Reset to derived" className="text-[0.6rem] text-zinc-500 hover:text-[#e8473f] transition-colors">↺</button>
