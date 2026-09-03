@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// -- Types ---------------------------------------------------------------------
 
 export type CurrencyInputType = "dollar" | "percent" | "integer" | "rate";
 
@@ -18,7 +18,7 @@ export interface CurrencyInputProps {
   placeholder?: string;
 }
 
-// ── Formatting helpers ────────────────────────────────────────────────────────
+// -- Formatting helpers --------------------------------------------------------
 
 const DOLLAR_MAX  = 9_999_999.9999;
 const PERCENT_MAX = 9_999.9999;      // markup fields can exceed 100%
@@ -46,7 +46,7 @@ function formatDisplay(v: number, type: CurrencyInputType): string {
         style: "currency", currency: "USD",
         minimumFractionDigits: DP, maximumFractionDigits: DP,
       });
-      // raw looks like "$1,234.4080" — trim the decimal part after the $symbol
+      // raw looks like "$1,234.4080" - trim the decimal part after the $symbol
       const match = raw.match(/^(\$[\d,]+)\.(\d+)$/);
       if (!match) return raw;
       const trimmed = trimTrailingZeros(`0.${match[2]}`, 2).slice(2); // just the decimal digits
@@ -93,7 +93,7 @@ function parse(raw: string, type: CurrencyInputType): number | null {
   return type === "integer" ? Math.round(n) : n;  // rate/dollar/percent: keep full precision
 }
 
-// ── CurrencyInput ──────────────────────────────────────────────────────────────
+// -- CurrencyInput --------------------------------------------------------------
 //
 // Shows a formatted value when blurred, a raw number when focused.
 // Works as a drop-in replacement for <input type="number">.

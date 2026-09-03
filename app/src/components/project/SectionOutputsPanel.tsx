@@ -67,13 +67,13 @@ export default function SectionOutputsPanel({ style }: Props) {
     return () => observerRef.current?.disconnect();
   }, []);
 
-  // ── Shared formatters ──────────────────────────────────────────────────────
+  // â"€â"€ Shared formatters â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const fmtN  = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   const fmtN3 = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 3 });
   const fmtD  = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-  const v     = (n: number, fmt: (n: number) => string) => n > 0 ? fmt(n) : "—";
+  const v     = (n: number, fmt: (n: number) => string) => n > 0 ? fmt(n) : "-";
 
-  // ── CPO packaging required qtys ───────────────────────────────────────────
+  // â"€â"€ CPO packaging required qtys â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const packagingRequiredQtys: number[] = [];
   for (let i = 0; i < packagingLevels.length; i++) {
     const lvl = packagingLevels[i];
@@ -90,20 +90,20 @@ export default function SectionOutputsPanel({ style }: Props) {
   const indivIdx = packagingLevels.findIndex(l => l.packagingLevel === "Individual Units");
   const baseQty  = indivIdx >= 0 ? (packagingRequiredQtys[indivIdx] ?? 0) : (packagingRequiredQtys[0] ?? 0);
 
-  // ── Section output definitions ─────────────────────────────────────────────
+  // â"€â"€ Section output definitions â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   function getCpoRows(): OutputRow[] {
     const setupOur = parseFloat(formData.setupFeeOur) || 0;
     const leadDays = parseFloat(formData.leadTimeBufferDays) || 0;
     const totalGramsReq = baseQty * unitWeightG;
     return [
       ...packagingLevels.map((lvl, i) => ({
-        label: `Total Kit Units — ${lvl.customLevelName?.trim() || lvl.packagingLevel || `Level ${i + 1}`}`,
+        label: `Total Kit Units - ${lvl.customLevelName?.trim() || lvl.packagingLevel || `Level ${i + 1}`}`,
         value: v(packagingRequiredQtys[i] ?? 0, fmtN),
       })),
       { label: "Total Grams Req (g)", value: v(totalGramsReq, fmtN) },
-      { label: "Project / Line Setup + QA — Our Cost", value: v(setupOur, fmtD) },
-      { label: "Lead Time — Days", value: v(leadDays, fmtN) },
-      { label: "Lead Time — Weeks", value: leadDays > 0 ? (leadDays / 7).toFixed(1) : "—" },
+      { label: "Project / Line Setup + QA - Project Cost", value: v(setupOur, fmtD) },
+      { label: "Lead Time - Days", value: v(leadDays, fmtN) },
+      { label: "Lead Time - Weeks", value: leadDays > 0 ? (leadDays / 7).toFixed(1) : "-" },
     ];
   }
 
@@ -117,17 +117,19 @@ export default function SectionOutputsPanel({ style }: Props) {
     const intakeFeePerPallet = parseFloat(formData.intakeFee as string) || 0;
     const testingFeePerSku   = (formData.testingRows ?? []).reduce((s, r) => s + (r.cost ?? 0), 0);
     const costPerGramVal     = parseFloat(formData.costPerGram as string) || 0;
+    const rawCostUnit        = formData.rawMaterialCostUnit || "g";
+    const costPerDisplayUnit = costPerGramVal * (GRAMS_PER[rawCostUnit] || 1);
     const totalWeightG       = baseQty * unitWeightG;
     return [
-      { label: "Materials — Req (g)",             value: v(reqGrams,           fmtN3) },
-      { label: "Materials — Req (oz)",             value: v(reqOz,              fmtN3) },
-      { label: "Materials — Req (lbs)",            value: v(reqLbs,             fmtN3) },
-      { label: "Materials — # of SKUs",            value: v(productSKUs,        fmtN)  },
-      { label: "Materials — # of Pallets",         value: v(numberOfPallets,    fmtN)  },
-      { label: "Materials — Intake fee / pallet",  value: v(intakeFeePerPallet, fmtD)  },
-      { label: "Materials — Testing fee / sku",    value: v(testingFeePerSku,   fmtD)  },
-      { label: "Materials — Cost per gram",        value: v(costPerGramVal,     fmtD)  },
-      { label: "Materials — Total Weight (g)",     value: v(totalWeightG,       fmtN3) },
+      { label: "Materials - Req (g)",             value: v(reqGrams,           fmtN3) },
+      { label: "Materials - Req (oz)",             value: v(reqOz,              fmtN3) },
+      { label: "Materials - Req (lbs)",            value: v(reqLbs,             fmtN3) },
+      { label: "Materials - # of SKUs",            value: v(productSKUs,        fmtN)  },
+      { label: "Materials - # of Pallets",         value: v(numberOfPallets,    fmtN)  },
+      { label: "Materials - Intake fee / pallet",  value: v(intakeFeePerPallet, fmtD)  },
+      { label: "Materials - Testing fee / sku",    value: v(testingFeePerSku,   fmtD)  },
+      { label: `Materials - Cost per ${rawCostUnit}`, value: v(costPerDisplayUnit, fmtD) },
+      { label: "Materials - Total Weight (g)",     value: v(totalWeightG,       fmtN3) },
     ];
   }
 
@@ -140,14 +142,14 @@ export default function SectionOutputsPanel({ style }: Props) {
     const totalCx       = totalOur * (1 + testingMarkup / 100);
     return [
       { label: "# of SKUs",            value: v(numSkus,      fmtN) },
-      { label: "Testing — Cost / SKU", value: v(totalPerSku,  fmtD) },
-      { label: "Testing — Our Total",  value: v(totalOur,     fmtD) },
-      { label: "Testing — Markup",     value: testingMarkup > 0 ? `${testingMarkup}%` : "—" },
-      { label: "Testing — Cx Total",   value: v(totalCx,      fmtD) },
+      { label: "Testing - Cost / SKU", value: v(totalPerSku,  fmtD) },
+      { label: "Testing - Our Total",  value: v(totalOur,     fmtD) },
+      { label: "Testing - Markup",     value: testingMarkup > 0 ? `${testingMarkup}%` : "-" },
+      { label: "Testing - Cx Total",   value: v(totalCx,      fmtD) },
     ];
   }
 
-  // ── Select content based on active section ─────────────────────────────────
+  // â"€â"€ Select content based on active section â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   let title = "Outputs";
   let rows: OutputRow[] = [];
 

@@ -9,13 +9,13 @@ interface Props {
   initialCustomer?: CustomerInfo;
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// -- Styles --------------------------------------------------------------------
 const inp  = "w-full h-7 px-2 text-xs text-zinc-950 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition placeholder:text-zinc-500";
 const ta   = "w-full px-2 py-1.5 text-xs text-zinc-950 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition placeholder:text-zinc-500 resize-none";
 const lbl  = "block text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-0.5";
 const inpR = "w-full h-7 px-2 text-xs text-zinc-950 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition text-right placeholder:text-zinc-500";
 
-// ── PDF zones: yStart/yEnd in mm on A4 (297mm tall) → right-panel section ────
+// -- PDF zones: yStart/yEnd in mm on A4 (297mm tall) -> right-panel section ----
 const PDF_H = 297;
 const ZONES = [
   { y0: 10,  y1: 62,  id: "sec-contact"  },
@@ -39,7 +39,7 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className={lbl}>{label}</label>{children}</div>;
 }
 
-// ── Pricing row state ─────────────────────────────────────────────────────────
+// -- Pricing row state ---------------------------------------------------------
 interface PricingRow { desc: string; qty: string; ppu: string; total: string; }
 type LtRow = { label: string; value: string };
 
@@ -97,7 +97,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
   const setLt = (i: number, field: keyof LtRow, val: string) =>
     setLtRows(rows => rows.map((r, ri) => ri === i ? { ...r, [field]: val } : r));
 
-  // Parse currency/number strings like "$1,495.00" or "6,600" → number
+  // Parse currency/number strings like "$1,495.00" or "6,600" -> number
   const parseNum = (s: string) => parseFloat(s.replace(/[$,]/g, "")) || 0;
 
   // Format helpers matching generateQuotePDF.ts
@@ -161,7 +161,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
     setTimeout(() => setActiveZone(null), 1800);
   };
 
-  // ── Top bar ───────────────────────────────────────────────────────────────────
+  // -- Top bar -------------------------------------------------------------------
   const topBar = (
     <div className="shrink-0 h-12 bg-white border-b border-gray-100 flex items-center px-4 gap-3 shadow-sm z-10">
       <button type="button" onClick={onClose}
@@ -177,14 +177,14 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
               className={`shrink-0 h-7 px-3 text-[0.65rem] font-semibold rounded-full transition-colors whitespace-nowrap ${
                 i === index ? "bg-[#e8473f] text-white" : "bg-gray-100 text-zinc-600 hover:bg-gray-200"
               }`}>
-              MOQ {p.moqLabel} · {p.packLabel}pk
+              MOQ {p.moqLabel}  -  {p.packLabel}pk
             </button>
           ))}
         </div>
       )}
       {previews.length === 1 && (
         <span className="text-xs font-semibold text-zinc-900 flex-1 min-w-0 truncate">
-          Edit Quote <span className="font-normal text-zinc-600 text-[0.62rem]">— click a section strip on the PDF to jump to it</span>
+          Edit Quote <span className="font-normal text-zinc-600 text-[0.62rem]">- click a section strip on the PDF to jump to it</span>
         </span>
       )}
 
@@ -215,7 +215,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
             className={`flex items-center gap-1.5 h-7 px-3 text-[0.65rem] font-semibold rounded-lg transition-colors disabled:opacity-40 ${
               saved ? "bg-teal-500 text-white" : "border border-teal-500 text-teal-600 hover:bg-teal-50"
             }`}>
-            {saved ? <><Check size={11} /> Applied!</> : regenerating ? "Regenerating…" : "Apply & Preview"}
+            {saved ? <><Check size={11} /> Applied!</> : regenerating ? "Regenerating..." : "Apply & Preview"}
           </button>
         )}
         <button type="button" onClick={() => triggerDownload(current)}
@@ -234,18 +234,18 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
 
   if (!draft) return null;
 
-  // ── Always open in edit+preview mode ──────────────────────────────────────────
+  // -- Always open in edit+preview mode ------------------------------------------
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60 backdrop-blur-sm">
       {topBar}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ── Left: edit panel ── */}
+        {/* -- Left: edit panel -- */}
         {editOpen && <div className="w-[380px] max-w-[42vw] bg-white border-r border-gray-100 flex flex-col overflow-hidden shrink-0" style={{ minWidth: 320 }}>
 
           <div className="px-4 py-3 border-b border-gray-100 bg-teal-600 shrink-0">
             <p className="text-xs font-bold text-white">Quote Details</p>
-            <p className="text-[0.58rem] text-teal-200 mt-0.5">Click the teal strip on the PDF → jumps to section · Apply to regenerate</p>
+            <p className="text-[0.58rem] text-teal-200 mt-0.5">Click the teal strip on the PDF {"->"} jumps to section - Apply to regenerate</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
@@ -302,7 +302,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
               <F label="Overview text">
                 <textarea className={ta} rows={4} value={draft.projectOverview}
                   onChange={e => setDraftField("projectOverview", e.target.value)}
-                  placeholder="Project scope, requirements, or notes…" />
+                  placeholder="Project scope, requirements, or notes..." />
               </F>
             </div>
 
@@ -327,7 +327,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                   </div>
                 ))}
                 {prRows.length === 0 && (
-                  <p className="text-[0.6rem] text-zinc-500 italic px-3 py-2">No rows — generate a quote first.</p>
+                  <p className="text-[0.6rem] text-zinc-500 italic px-3 py-2">No rows - generate a quote first.</p>
                 )}
                 {/* Auto-computed TOTALS row */}
                 {prRows.length > 0 && (
@@ -340,7 +340,7 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
                   </div>
                 )}
               </div>
-              <p className="text-[0.55rem] text-amber-500 mt-1.5">⚠ Editing Qty/PPU/Total auto-recalculates the other fields. Values are display-only overrides for the PDF.</p>
+              <p className="text-[0.55rem] text-amber-500 mt-1.5">Warning: Editing Qty/PPU/Total auto-recalculates the other fields. Values are display-only overrides for the PDF.</p>
             </div>
 
           </div>
@@ -351,22 +351,22 @@ export default function PdfPreviewModal({ previews, onClose, onRegenerate, initi
               className={`w-full h-9 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-40 ${
                 saved ? "bg-teal-500 text-white" : "bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
               }`}>
-              {saved ? <><Check size={13} /> PDF Updated!</> : regenerating ? "Regenerating…" : "Apply & Regenerate PDF"}
+              {saved ? <><Check size={13} /> PDF Updated!</> : regenerating ? "Regenerating..." : "Apply & Regenerate PDF"}
             </button>
             <p className="text-[0.55rem] text-zinc-600 text-center mt-1.5">PDF on the right refreshes after applying</p>
           </div>
         </div>}
 
-        {/* ── Right: scrollable PDF + clickable zone overlay ── */}
+        {/* -- Right: scrollable PDF + clickable zone overlay -- */}
         <div className="flex-1 bg-gray-200 overflow-auto">
           <div className="flex justify-center p-4 min-h-full">
             <div className="relative bg-white shadow-2xl" style={{ width: "min(960px,100%)", aspectRatio: "1/1.414", flexShrink: 0 }}>
 
-              {/* PDF — fully interactive (scrollable) */}
+              {/* PDF - fully interactive (scrollable) */}
               <iframe key={current.blobUrl} src={current.blobUrl}
                 className="absolute inset-0 w-full h-full border-0" />
 
-              {/* Section jump strips — prominent left-edge tabs */}
+              {/* Section jump strips - prominent left-edge tabs */}
               {editOpen && <div ref={clickCapRef} className="absolute inset-0 pointer-events-none">
                 {ZONES.map(z => {
                   const isActive = activeZone === z.id;

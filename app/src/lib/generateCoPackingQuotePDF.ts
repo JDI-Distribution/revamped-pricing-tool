@@ -12,7 +12,7 @@ const LOGO_SRCS: Record<string, string> = {
   pfg:         `${BASE}logo_pfg.png`,
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 const fmt = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 // PPU formatter: 4 decimal places for values < $1, 2 for values >= $1 (matches standard mode)
@@ -104,7 +104,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   const ltGray  = [180,180,180] as [number,number,number];
   const rowGray = [245,245,245] as [number,number,number];
 
-  // ── Section 1 — Header Box (identical to standard mode) ──────────────────
+  // -- Section 1 - Header Box (identical to standard mode) ------------------
   const HDR_TOP = 10;
   const HDR_H   = 50;
   const HDR_BOT = HDR_TOP + HDR_H;
@@ -129,7 +129,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   const contactLines = [
     `(p): ${brand.phone}`,
     `(e): ${brand.email}`,
-    `Sales Rep: ${customer.salesRep || "—"}`,
+    `Sales Rep: ${customer.salesRep || "-"}`,
     `Date: ${fmtDate(today)}`,
     `Price Good For Date: 14 days`,
   ];
@@ -140,7 +140,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   doc.text(brand.address1, R - 3, HDR_TOP + 9,  { align: "right" });
   doc.text(brand.address2, R - 3, HDR_TOP + 15, { align: "right" });
 
-  // ── Section 2 — Customer Info Box (identical to standard mode) ───────────
+  // -- Section 2 - Customer Info Box (identical to standard mode) -----------
   let y = HDR_BOT + 5;
   const CUST_H = 30;
   doc.setDrawColor(...ltGray);
@@ -148,11 +148,11 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   doc.rect(L, y, W, CUST_H);
 
   const custFields: [string, string][] = [
-    ["Customer:",    customer.customer   || "—"],
-    ["Customer ID:", customer.customerId || "—"],
-    ["Name:",        customer.name       || "—"],
-    ["Phone:",       customer.phone      || "—"],
-    ["Email:",       customer.email      || "—"],
+    ["Customer:",    customer.customer   || "-"],
+    ["Customer ID:", customer.customerId || "-"],
+    ["Name:",        customer.name       || "-"],
+    ["Phone:",       customer.phone      || "-"],
+    ["Email:",       customer.email      || "-"],
   ];
   const LBL_W = 26;
   custFields.forEach(([label, val], i) => {
@@ -167,14 +167,14 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   sf("bold", 12); doc.setTextColor(...gray);
   doc.text(quoteId, R - 3, y + 8, { align: "right" });
 
-  // ── Section 3 — Product Name / Description Block (identical to standard) ──
+  // -- Section 3 - Product Name / Description Block (identical to standard) --
   y += CUST_H + 5;
   const unitLabel = s.unitSizeUnit || "g";
   const projectName = customer.productName || `${customer.customer || "Customer"} Co-Packing`;
   const prodFields: [string, string][] = [
-    ["Project Name:",    projectName || "—"],
-    ["Unit Size:",       s.sachetSizeG > 0 ? `${s.sachetSizeG} ${unitLabel}` : "—"],
-    ["Product Category:", customer.productCategory || "—"],
+    ["Project Name:",    projectName || "-"],
+    ["Unit Size:",       s.sachetSizeG > 0 ? `${s.sachetSizeG} ${unitLabel}` : "-"],
+    ["Product Category:", customer.productCategory || "-"],
   ];
   const PROD_H = 5 + prodFields.length * 5 + 3;
   doc.setDrawColor(...ltGray);
@@ -191,14 +191,14 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     doc.text(val, L + 3 + PLBL_W, py);
   });
 
-  // ── Section 4 — Lead Time Table (identical to standard, omitted if no data) ─
+  // -- Section 4 - Lead Time Table (identical to standard, omitted if no data) -
   // Co-packing does not currently track lead-time/start-date inputs, so this
   // table is shown only if the host ever supplies that data via pricingAssumptions
-  // metadata. With no source of truth for these values, the section is omitted —
+  // metadata. With no source of truth for these values, the section is omitted -
   // matching the spec's "omit if all values are zero/empty" rule.
   y += PROD_H + 5;
 
-  // ── Page-break helper (mutates y via closure) ─────────────────────────────
+  // -- Page-break helper (mutates y via closure) -----------------------------
   const MARGIN_BOTTOM = 15;
   const checkPageBreak = (neededMm: number) => {
     if (y + neededMm > pageH - MARGIN_BOTTOM) {
@@ -207,7 +207,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     }
   };
 
-  // Packaging line items (Sachets, Cartons, SRDs, Shippers) — shown in table and included in grand total
+  // Packaging line items (Sachets, Cartons, SRDs, Shippers) - shown in table and included in grand total
   const EXCLUDED_SUMMARY_LABELS = ["setup", "material", "testing", "pallet"];
   const pkgSummaryRows = summaryRows.filter(r => {
     const lbl = r.label.toLowerCase();
@@ -222,29 +222,28 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   const grandTotal   = adjustedRevenue ?? (minApplies ? minCharge : cpNatural) + pkgTotal;
   const grandPPU     = s.unitsDelivered > 0 ? grandTotal / s.unitsDelivered : 0;
 
-  // ── Section 5 — Project Overview Box (identical to standard mode) ────────
-  const overviewText = customer.projectOverview || "";
+  // -- Section 5 - Project Overview Box (identical to standard mode) --------
+  const overviewText = (customer.projectOverview || "")
+    .replace(/^\s*project\s+overview\s*:?\s*/i, "")
+    .trim();
 
-  const ovPrefix  = "Project Overview:  ";
-  sf("bold", 10); doc.setTextColor(ar, ag, ab);
-  const ovPrefixW = doc.getTextWidth(ovPrefix);
   const ovWrapped = overviewText
-    ? doc.splitTextToSize(overviewText, W - 8 - ovPrefixW)
+    ? doc.splitTextToSize(overviewText, W - 8)
     : [""];
   const overviewH = Math.max(15, 8 + ovWrapped.length * 5);
 
-  // Pricing summary callout — drawn directly below the overview box, gives the
+  // Pricing summary callout - drawn directly below the overview box, gives the
   // reader the bottom line up front and points them to the itemized table below.
   const summaryPrefix = "Pricing Summary:  ";
   sf("bold", 10);
   const summaryPrefixW = doc.getTextWidth(summaryPrefix);
   sf("normal", 10);
-  const summaryLine = `Total Project Cost ${fmt(grandTotal)}  (${fmtPPU(grandPPU)} / unit)  —  see itemized breakdown below for details.`;
+  const summaryLine = `Total Project Cost ${fmt(grandTotal)}  (${fmtPPU(grandPPU)} / unit)  -  see itemized breakdown below for details.`;
   const summaryWrapped = doc.splitTextToSize(summaryLine, W - 8 - summaryPrefixW);
   const SUMMARY_H = Math.max(14, 6 + summaryWrapped.length * 5);
 
   // Reserve room for the overview box, the summary callout, AND the pricing
-  // table header + a few rows — so nothing gets orphaned onto the next page.
+  // table header + a few rows - so nothing gets orphaned onto the next page.
   const PRICING_TABLE_MIN_H = 50;
   checkPageBreak(overviewH + 2 + SUMMARY_H + 4 + PRICING_TABLE_MIN_H);
 
@@ -253,15 +252,13 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   doc.setLineWidth(0.3);
   doc.rect(L, y, W, overviewH, "FD");
 
-  sf("bold", 10); doc.setTextColor(ar, ag, ab);
-  doc.text(ovPrefix, L + 4, y + 6);
   sf("normal", 10); doc.setTextColor(...gray);
   if (overviewText) {
-    doc.text(ovWrapped[0], L + 4 + ovPrefixW, y + 6);
+    doc.text(ovWrapped[0], L + 4, y + 6);
     if (ovWrapped.length > 1) doc.text(ovWrapped.slice(1), L + 4, y + 11);
   }
 
-  // ── Pricing Summary callout ───────────────────────────────────────────────
+  // -- Pricing Summary callout -----------------------------------------------
   y += overviewH + 5;
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(...ltGray);
@@ -276,7 +273,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
 
   y += SUMMARY_H + 5;
 
-  // ── Section 6 — Pricing Table ─────────────────────────────────────────────
+  // -- Section 6 - Pricing Table ---------------------------------------------
   const body: string[][] = [];
 
   // Inbound Material Handling & Intake (always shown)
@@ -292,7 +289,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     ]);
   }
 
-  // Testing & Documentation — each test rendered as its own line item
+  // Testing & Documentation - each test rendered as its own line item
   if (s.testingEnabled && s.testingRows?.length) {
     const markup = s.testingMarkup ?? 0;
     for (const row of s.testingRows) {
@@ -301,7 +298,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
       const testName = row.testType === "Custom" ? (row.customTestName || "Custom") : row.testType;
       const ppu = s.unitsDelivered > 0 ? testCustomer / s.unitsDelivered : 0;
       body.push([
-        `Testing & Documentation – ${testName}`,
+        `Testing & Documentation - ${testName}`,
         `${s.numSkus} SKUs`,
         fmtPPU(ppu),
         fmt(testCustomer),
@@ -322,7 +319,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
 
 
 
-  // Packaging levels — one row per coPackingColumn / packaging summary row with non-zero customer total
+  // Packaging levels - one row per coPackingColumn / packaging summary row with non-zero customer total
   const ADMIN_LABELS = ["inbound", "setup", "pallet", "overhead", "minimum labor", "minimum job"];
   const levelResults = coPackingResults.filter(r => {
     const lbl = r.label.toLowerCase();
@@ -331,7 +328,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   for (const r of levelResults) {
     if (r.customerPrice <= 0) continue;
     const ppu = r.deliveredQty > 0 ? r.customerPrice / r.deliveredQty : 0;
-    const desc = r.description ? `${r.label} – ${r.description}` : (r.label || "Primary Fill");
+    const desc = r.description ? `${r.label} - ${r.description}` : (r.label || "Primary Fill");
     body.push([
       desc,
       fmtQty(r.deliveredQty, "units"),
@@ -345,13 +342,13 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   if (s.overheadEnabled && overheadResult && overheadResult.customerPrice > 0) {
     body.push([
       "Overhead & Indirect Costs",
-      "—",
-      "—",
+      "-",
+      "-",
       fmt(overheadResult.customerPrice),
     ]);
   }
 
-  // Packaging line items (informational — not included in grand total)
+  // Packaging line items (informational - not included in grand total)
   for (const r of pkgSummaryRows) {
     if (r.customerPrice <= 0) continue;
     const str = summaryTableRows.find(st => !st.isLeadTimeSummary && st.label === r.label);
@@ -359,8 +356,8 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     const ppu = qty > 0 ? r.customerPrice / qty : 0;
     body.push([
       r.label,
-      qty > 0 ? Math.round(qty).toLocaleString() : "—",
-      qty > 0 ? fmtPPU(ppu) : "—",
+      qty > 0 ? Math.round(qty).toLocaleString() : "-",
+      qty > 0 ? fmtPPU(ppu) : "-",
       fmt(r.customerPrice),
     ]);
   }
@@ -384,13 +381,13 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     const diff = minCharge - cpNatural;
     body.push([
       "Minimum Job Charge Adjustment",
-      "—",
-      "—",
+      "-",
+      "-",
       fmt(diff),
     ]);
   }
 
-  // Build pricing table snapshot BEFORE applying overrides — modal uses this to seed its edit rows.
+  // Build pricing table snapshot BEFORE applying overrides - modal uses this to seed its edit rows.
   // Append a sentinel TOTALS row so the modal seeds grandTotal correctly and passes it back on regenerate.
   const pricingSnapshot = {
     body: [
@@ -420,7 +417,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   const totalsRowOv = liOv[body.length];
   const displayTotal = (totalsRowOv?.[3] && totalsRowOv[3] !== "") ? totalsRowOv[3] as string : fmt(grandTotal);
 
-  // ── Upfront page-break check before drawing the table ────────────────────
+  // -- Upfront page-break check before drawing the table --------------------
   const rowCount    = body.length;
   const tableHeight = rowCount * 14 + 16; // 14mm/row + 16mm for the Total row
   if (tableHeight + y > pageH - 60) {
@@ -457,7 +454,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     },
   });
 
-  // ── Total Project Cost row — drawn on the SAME page as the last table row ──
+  // -- Total Project Cost row - drawn on the SAME page as the last table row --
   y = (doc as any).lastAutoTable.finalY;
 
   const ROW_H      = 10;
@@ -470,7 +467,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   sf("bold", 10.5); doc.setTextColor(...gray);
   doc.text("Total Project Cost", L + 4, totalRowY + 6.5);
 
-  // PPU — right-aligned to the PPU column (3rd col, width 28, sits before the Total col of width 28)
+  // PPU - right-aligned to the PPU column (3rd col, width 28, sits before the Total col of width 28)
   const displayPPU = s.unitsDelivered > 0 ? fmtPPU(grandTotal / s.unitsDelivered) : "";
   if (displayPPU) {
     sf("italic", 9); doc.setTextColor(120, 120, 120);
@@ -488,10 +485,10 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
 
   y = totalRowY + ROW_H + 10;
 
-  // ── Section 7 — Footer ────────────────────────────────────────────────────
+  // -- Section 7 - Footer ----------------------------------------------------
 
   // Co-packing-specific: Pricing Assumptions block (rendered first, ahead of the
-  // standard footer items) — preserves existing co-packing behavior of surfacing
+  // standard footer items) - preserves existing co-packing behavior of surfacing
   // material-supply assumptions text before the universal cancellation/disclaimer.
   const pricingAssumptionsText =
     "Customer supplies all materials (product, film, cartons). Pricing assumes production rates and handling consistent with prior testing. Material delays or product variability may impact schedule and/or cost.\n\nThis quote is valid for fourteen (14) days from the date of issue and subject to production scheduling availability and timely receipt of all customer-supplied materials.";
@@ -542,7 +539,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
   doc.text(disclaimerLines, L, y);
   y += disclaimerH;
 
-  // ── Pricing Tiers (separate page) ─────────────────────────────────────────
+  // -- Pricing Tiers (separate page) -----------------------------------------
   if (s.tiersEnabled) {
     const tierResults = computePricingTiers(s, coPackingProcesses);
     if (tierResults.length > 1) {
@@ -557,7 +554,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
         lbl,
         ...tierResults.map(tr => {
           const r = tr.results.find(r => r.label === lbl);
-          return r ? fmt(r.customerPrice) : "—";
+          return r ? fmt(r.customerPrice) : "-";
         }),
       ]);
       tierBody.push(["Total", ...tierResults.map(tr => fmt(tr.totalCustomer))]);
@@ -566,7 +563,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
       if (tierResults.length > 1) {
         const pilotPPU = tierResults[0].ppu;
         tierBody.push(["Savings vs " + tierResults[0].tier.label, ...tierResults.map((tr, i) =>
-          i === 0 ? "—" : tr.ppu < pilotPPU ? `-${fmt(pilotPPU - tr.ppu)}/unit` : "—"
+          i === 0 ? "-" : tr.ppu < pilotPPU ? `-${fmt(pilotPPU - tr.ppu)}/unit` : "-"
         )]);
       }
       const totalsStartIdx = allLabels.length;
@@ -587,7 +584,7 @@ export async function buildCoPackingQuotePreview(args: CoPackingPdfArgs): Promis
     }
   }
 
-  // ── Filename: {CustomerName}_{ProjectName}_{Units}_{YYYY-MM-DD}.pdf ────────
+  // -- Filename: {CustomerName}_{ProjectName}_{Units}_{YYYY-MM-DD}.pdf --------
   const clean = (str: string) => (str || "Unknown").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_\-]/g, "");
   const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
   const filename = [

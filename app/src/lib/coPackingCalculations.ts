@@ -1,7 +1,8 @@
 import { CoPackingState, CoPackingResult, CoPackingProcess, PricingTier } from "./types";
 import { qtyWithOverage } from "./quantityMath";
+import { processSpeedToGramsPerHour } from "./weightUnits";
 
-// ── Process speed → labor hours ───────────────────────────────────────────────
+// -- Process speed -> labor hours -----------------------------------------------
 export function calculateProcessHours(
   proc: CoPackingProcess,
   totalQtyWithOverage: number,
@@ -11,17 +12,14 @@ export function calculateProcessHours(
   if (speed === 0) return 0;
   const buffer = 1 - efficiencyBuffer / 100;
   if (buffer <= 0) return 0;
+  const gramsPerHour = processSpeedToGramsPerHour(speed, unit);
+  if (gramsPerHour > 0) return totalQtyWithOverage / (gramsPerHour * buffer);
 
   switch (unit) {
     case "units / min":
       return (totalQtyWithOverage / (speed * buffer)) / 60;
     case "units / hr":
       return totalQtyWithOverage / (speed * buffer);
-    case "kg / hr":
-    case "lbs / hr":
-      return totalQtyWithOverage / (speed * buffer);
-    case "g / min":
-      return (totalQtyWithOverage / (speed * buffer)) / 60;
     case "batches / hr": {
       const totalBatches = batchSize > 0 ? Math.ceil(totalQtyWithOverage / batchSize) : 1;
       return totalBatches / (speed * buffer);
@@ -41,7 +39,7 @@ export function calculateProcessHours(
   }
 }
 
-// ── Core calc engine ─────────────────────────────────────────────────────────
+// -- Core calc engine ---------------------------------------------------------
 // Accepts an optional units override for scaled-pricing tiers.
 export function computeCoPackingResults(
   s: CoPackingState,
@@ -57,7 +55,7 @@ export function computeCoPackingResults(
   const gramsDelivered = units * s.sachetSizeG;
   const gramsRequired  = gramsDelivered * (1 + s.inboundOverage);
 
-  // ── 1. Inbound Material Handling ─────────────────────────────────────────
+  // -- 1. Inbound Material Handling -----------------------------------------
   // Testing cost: sum of testingRows (new structured approach), or 0 if disabled
   const testingCostPerSku = s.testingEnabled && s.testingRows?.length
     ? s.testingRows.reduce((sum, row) => sum + (row.cost ?? 0), 0)
@@ -65,7 +63,7 @@ export function computeCoPackingResults(
   const testingOur = testingCostPerSku * s.numSkus;
   const testingCx  = testingOur * (1 + (s.testingMarkup ?? 0.20));
 
-  // Auto-calculate intake pallets: raw material grams → lbs ÷ pallet weight
+  // Auto-calculate intake pallets: raw material grams -> lbs / pallet weight
   const rawGramsRequired   = units * s.sachetSizeG * (1 + s.inboundOverage);
   const rawLbsRequired     = rawGramsRequired / 453.592;
   const palletWeightLbs    = s.intakePalletWeightLbs ?? 1200;
@@ -101,7 +99,7 @@ export function computeCoPackingResults(
     ppu:           inboundPPU,
   });
 
-  // ── 2. Project Setup + QA (fixed — not scaled with units) ────────────────
+  // -- 2. Project Setup + QA (fixed - not scaled with units) ----------------
   results.push({
     label:         "Project Setup, Line Dial-In & QA",
     description:   "",
@@ -112,7 +110,7 @@ export function computeCoPackingResults(
     ppu:           s.setupFeeCustomer,
   });
 
-  // ── 3b. Processes — co-packing labor steps ───────────────────────────────
+  // -- 3b. Processes - co-packing labor steps -------------------------------
   let processesLaborOur = 0;
 
   for (let i = 0; i < coPackingProcesses.length; i++) {
@@ -146,7 +144,7 @@ export function computeCoPackingResults(
     });
   }
 
-  // ── 6. Palletization & Outbound ───────────────────────────────────────────
+  // -- 6. Palletization & Outbound -------------------------------------------
   const palletOur = s.outboundPallets * s.outboundFeePerPallet;
   const palletCx  = palletOur * (1 + s.outboundMarkup);
   const palletPPU = s.outboundPallets > 0 ? palletCx / s.outboundPallets : 0;
@@ -160,7 +158,7 @@ export function computeCoPackingResults(
     ppu:           palletPPU,
   });
 
-  // ── Addition 3 — Overhead ─────────────────────────────────────────────────
+  // -- Addition 3 - Overhead -------------------------------------------------
   if (s.overheadEnabled) {
     const totalLaborOur = processesLaborOur;
     const ovhVarOur  = totalLaborOur * (s.overheadRate ?? 0.15);
@@ -196,7 +194,7 @@ export function computeCoPackingTotals(results: CoPackingResult[]): {
   return { totalOur, totalCustomer, margin };
 }
 
-// ── Addition 5 — Scaled Pricing Tiers ────────────────────────────────────────
+// -- Addition 5 - Scaled Pricing Tiers ----------------------------------------
 export interface TierResult {
   tier:          PricingTier;
   results:       CoPackingResult[];

@@ -1,14 +1,29 @@
-import React, { useState } from "react";
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Database, Search, Trash2 } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { PackagingLevel, ManualCharge } from "@/lib/types";
+import { PackagingCostItem } from "@/lib/packagingCostDatabase";
 import { useProject } from "@/lib/ProjectContext";
 import { uid as _uid } from "@/lib/uid";
 import { computeColumnOutputs } from "@/lib/calculations";
 import { RequiredToggle, useSectionRequired } from "@/lib/SectionRequiredContext";
+import { fromGrams, roundForDisplay, toGrams, WEIGHT_INPUT_UNITS } from "@/lib/weightUnits";
 const uid = () => String(_uid());
 
-// ── Packaging type presets ────────────────────────────────────────────────────
+function Toggle({ enabled, onToggle, label }: { enabled: boolean; onToggle: () => void; label: string }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none">
+      {label && <span className="text-[0.65rem] text-zinc-600">{label}</span>}
+      <button type="button" role="switch" aria-checked={enabled} onClick={onToggle}
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabled ? "bg-[#e8473f]" : "bg-gray-200"}`}>
+        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+      </button>
+    </label>
+  );
+}
+
+// â"€â"€ Packaging type presets â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const PACKAGING_TYPE_NAMES = [
   "Sachets", "Stick Packs", "4g Jars", "4oz Jars", "4oz Tins",
@@ -40,7 +55,7 @@ const PACKAGING_TYPE_PRESETS: Record<string, PackagingTypePreset> = {
   "Bulk Bags":      { overageRate: 0,  fillRatePerMin: 0.5,packagingWeightG: 0,  labelApplyRate: 0,  labelPrintCost: 0,   efficiencyBuffer: 15, laborMarkup: 35, unitCostMarkup: 125, tabsEnabled: false },
 };
 
-// ── Defaults ──────────────────────────────────────────────────────────────────
+// â"€â"€ Defaults â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export function defaultPackagingLevel(
   level: string = "",
@@ -63,14 +78,18 @@ export function defaultPackagingLevel(
     wageRate:         26,
     fillRatePerMin:   12,
     packagingWeightG: 0,
+    packagingWeightUnit: "g",
     numStaff:         1,
     hrsPerShift:      7,
     workingDays:      5,
     labelEnabled:     false,
+    labelTypeId:      "",
+    labelTypeName:    "",
     labelPrintCost:   0,
     labelApplyRate:   0,
     tabsEnabled:      false,
     tabCostPerUnit:   0,
+    tabApplyRate:     0,
     hvThreshold:      0,
     hvFillRate:       0,
     operations:       [],
@@ -88,7 +107,7 @@ export function effectiveTypeName(lvl: PackagingLevel): string {
 }
 
 
-// ── Shared cell styles ────────────────────────────────────────────────────────
+// â"€â"€ Shared cell styles â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const cellInp =
   "h-7 w-full px-2 border border-amber-200 text-[0.7rem] text-zinc-950 bg-amber-50/70 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
@@ -100,7 +119,7 @@ const manualCellInp =
   "h-7 w-full px-2 border border-orange-300 text-[0.7rem] text-zinc-950 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/40 focus:border-[#e8473f] transition rounded";
 const naCell = "text-[0.65rem] text-zinc-500 italic";
 
-// ── Stable Col helper (defined outside component to avoid remount on every render) ──
+// â"€â"€ Stable Col helper (defined outside component to avoid remount on every render) â"€â"€
 
 const CollapsedContext = React.createContext<Record<string, boolean>>({});
 
@@ -111,18 +130,124 @@ function Col({ lvl, children }: { lvl: PackagingLevel; children?: React.ReactNod
     : <td className="px-2 py-1 border-l border-amber-200 bg-[#fef9ee]">{children}</td>;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// â"€â"€ Component â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 interface Props {
   packagingLevels:    PackagingLevel[];
   setPackagingLevels: React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
+  packagingCostItems?: PackagingCostItem[];
   className?: string;
   sectionTitle?: string;
   sectionId?: string;
   onOpenChange?: (open: boolean) => void;
+  onOpenPackagingCostDatabase?: () => void;
 }
 
-export default function PackagingLevels({ packagingLevels, setPackagingLevels, className, sectionTitle = "Packout Configuration", sectionId = "section-packaging-summary", onOpenChange }: Props) {
+function LabelItemPicker({
+  items,
+  value,
+  onSelect,
+}: {
+  items: PackagingCostItem[];
+  value: string;
+  onSelect: (item: PackagingCostItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 620 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (wrapRef.current && !wrapRef.current.contains(target) && menuRef.current && !menuRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(720, window.innerWidth - 32);
+      const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
+      setMenuPos({ top: rect.bottom + 4, left, width });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const labelItems = items.filter(item => item.category.trim().toLowerCase().startsWith("label"));
+  const filtered = labelItems
+    .filter(item => !q || [item.itemName, item.description, item.category].some(text => text.toLowerCase().includes(q)))
+    .slice(0, 60);
+  const selected = labelItems.find(item => item.id === value || item.itemName === value);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(open => !open)}
+        className="h-7 w-full px-2 border border-orange-300 text-[0.65rem] text-zinc-900 bg-orange-100/80 focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30 focus:border-[#e8473f] transition rounded text-left flex items-center justify-between gap-2"
+      >
+        <span className="truncate">{selected?.itemName || value || "Select label..."}</span>
+        <ChevronDown size={12} className="shrink-0 text-zinc-600" />
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-50 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden"
+          style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+        >
+          <div className="p-2 border-b border-gray-100 flex items-center gap-1.5">
+            <Search size={12} className="text-zinc-500" />
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              autoFocus
+              placeholder="Search label, description, category..."
+              className="h-7 flex-1 px-2 text-xs border border-amber-200 bg-amber-50/70 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f]/30"
+            />
+          </div>
+          <div className="grid grid-cols-[1.2fr_0.7fr_1.4fr] gap-2 px-2 py-1.5 bg-gray-50 text-[0.55rem] font-bold uppercase tracking-wider text-zinc-600 border-b border-gray-100">
+            <span>Item</span>
+            <span className="text-right">Landed cost/ea</span>
+            <span>Description</span>
+          </div>
+          <div className="max-h-[28rem] overflow-auto">
+            {filtered.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => { onSelect(item); setOpen(false); setQuery(""); }}
+                className="w-full grid grid-cols-[1.2fr_0.7fr_1.4fr] gap-2 px-2 py-2 text-left text-[0.65rem] hover:bg-amber-50 border-b border-gray-50"
+              >
+                <span className="font-semibold text-zinc-900 truncate">{item.itemName}</span>
+                <span className="text-right tabular-nums text-zinc-800">${item.landedCostEa.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                <span className="text-zinc-600 truncate">{item.description || "-"}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="px-3 py-4 text-xs text-zinc-500 italic">No matching label items.</div>}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+export default function PackagingLevels({ packagingLevels, setPackagingLevels, packagingCostItems = [], className, sectionTitle = "Packout Configuration", sectionId = "section-packaging-summary", onOpenChange, onOpenPackagingCostDatabase }: Props) {
   const [sectionOpen, setSectionOpen]     = useState(true);
   const handleToggle = (open: boolean) => { setSectionOpen(open); onOpenChange?.(open); };
   const [laborOpen, setLaborOpen] = useState(false);
@@ -158,6 +283,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
       overageRate:      preset.overageRate,
       fillRatePerMin:   preset.fillRatePerMin,
       packagingWeightG: preset.packagingWeightG,
+      packagingWeightUnit: "g",
       labelApplyRate:   preset.labelApplyRate,
       labelPrintCost:   preset.labelPrintCost,
       labelEnabled:     preset.labelPrintCost > 0 || preset.labelApplyRate > 0,
@@ -165,10 +291,11 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
       laborMarkup:      preset.laborMarkup,
       unitCostMarkup:   preset.unitCostMarkup,
       tabsEnabled:      preset.tabsEnabled,
+      tabApplyRate:     0,
     });
   };
 
-  // ── Manual charges ─────────────────────────────────────────────────────────
+  // â"€â"€ Manual charges â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const [draftCharge, setDraftCharge] = useState<{ name: string; amount: string; basis: "per_unit" | "fixed"; levelId: string }>({
     name: "", amount: "", basis: "per_unit", levelId: "",
   });
@@ -199,7 +326,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
   return (
     <div id={sectionId} className={className ?? "bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mb-4 overflow-hidden max-w-4xl"}>
 
-      {/* ── Section header ── */}
+      {/* â"€â"€ Section header â"€â"€ */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <button type="button" onClick={() => handleToggle(!sectionOpen)}
           className="flex items-center gap-1.5 group">
@@ -210,25 +337,27 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
             ? <ChevronUp size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />
             : <ChevronDown size={13} className="text-zinc-500 group-hover:text-[#e8473f] transition-colors shrink-0" />}
         </button>
-        <div className="ml-auto shrink-0"><RequiredToggle sectionId={sectionId} /></div>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {onOpenPackagingCostDatabase && sectionOpen && !notRequired[sectionId] && (
+            <button
+              type="button"
+              onClick={onOpenPackagingCostDatabase}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 text-[0.7rem] font-semibold hover:bg-blue-100"
+            >
+              <Database size={12} /> Packaging Cost Database
+            </button>
+          )}
+          <RequiredToggle sectionId={sectionId} />
+        </div>
       </div>
 
-      {/* ── Subtitle ── */}
-      {sectionOpen && !notRequired[sectionId] && (
-        <div className="px-4 pb-2">
-          <p className="text-[0.6rem] text-[#e8473f] leading-relaxed">
-            Type, rates, staffing, and markup for each packaging level set in{" "}
-            <span className="font-semibold">Project Overview</span>. Add or remove levels there — this section always tracks whatever levels exist. Picking a <span className="font-semibold">Type</span> auto-fills typical values for the rows below; every value stays editable after.
-          </p>
-        </div>
-      )}
 
       {sectionOpen && !notRequired[sectionId] && packagingLevels.length > 0 && (
         <CollapsedContext.Provider value={collapsedCols}>
         <div className="overflow-x-auto">
           <table className="border-collapse" style={{ minWidth: tableMinWidth }}>
 
-            {/* ── Column headers ── */}
+            {/* â"€â"€ Column headers â"€â"€ */}
             <thead>
               <tr>
                 {/* Rate Field label cell */}
@@ -250,7 +379,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                             className="flex items-center justify-center w-full text-zinc-600 hover:text-white transition-colors">
                             <ChevronRight size={12} />
                           </button>
-                          {/* vertical label — absolutely positioned so it doesn't stretch the header row */}
+                          {/* vertical label - absolutely positioned so it doesn't stretch the header row */}
                           <span
                             className="text-[0.65rem] font-bold text-zinc-950 uppercase tracking-widest whitespace-nowrap pointer-events-none select-none"
                             style={{
@@ -283,7 +412,8 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
             </thead>
 
             <tbody>
-              {/* ── Type row ── */}
+              {/* â"€â"€ Type row â"€â"€ */}
+              {false && (
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Type</td>
                 {packagingLevels.map(lvl => (
@@ -292,11 +422,11 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                       <div className="flex items-center gap-0.5">
                         <input type="text" value={lvl.customTypeName}
                           onChange={e => update(lvl.id, { customTypeName: e.target.value })}
-                          placeholder="Type name…"
+                          placeholder="Type name..."
                           className={`${manualCellInp} flex-1 min-w-0`} autoFocus />
                         <button type="button"
                           onClick={() => update(lvl.id, { packagingType: "", customTypeName: "" })}
-                          className="shrink-0 text-zinc-600 hover:text-[#e8473f] text-sm">×</button>
+                          className="shrink-0 text-zinc-600 hover:text-[#e8473f] text-sm">x</button>
                       </div>
                     ) : (
                       <select
@@ -307,16 +437,17 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           else update(lvl.id, { packagingType: "" });
                         }}
                         className={manualCellInp}>
-                        <option value="">— select type —</option>
+                        <option value="">- select type -</option>
                         {PACKAGING_TYPE_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
-                        <option value="custom_mode">Custom…</option>
+                        <option value="custom_mode">Custom...</option>
                       </select>
                     )}
                   </Col>
                 ))}
               </tr>
+              )}
 
-              {/* ── Overage Rate ── */}
+              {/* â"€â"€ Overage Rate â"€â"€ */}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Overage Rate</td>
                 {packagingLevels.map(lvl => (
@@ -331,7 +462,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Wage Rate ── */}
+              {/* â"€â"€ Wage Rate â"€â"€ */}
               <tr className="border-b border-amber-200/70">
                 <td colSpan={packagingLevels.length + 1} className="px-3 py-1.5 bg-amber-50/50 sticky left-0 z-10">
                   <button
@@ -359,7 +490,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Unit Fill Rate / Min ── */}
+              {/* â"€â"€ Unit Fill Rate / Min â"€â"€ */}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Unit Fill Rate / Min</td>
                 {packagingLevels.map(lvl => (
@@ -371,8 +502,26 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Label Print Cost / Unit ── */}
+              {/* â"€â"€ Label Print Cost / Unit â"€â"€ */}
               </>)}
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Type</td>
+                {packagingLevels.map(lvl => (
+                  <Col key={lvl.id} lvl={lvl}>
+                    <LabelItemPicker
+                      items={packagingCostItems}
+                      value={lvl.labelTypeId || lvl.labelTypeName || ""}
+                      onSelect={item => update(lvl.id, {
+                        labelTypeId: item.id,
+                        labelTypeName: item.itemName,
+                        labelPrintCost: item.landedCostEa,
+                        labelEnabled: true,
+                      })}
+                    />
+                  </Col>
+                ))}
+              </tr>
+
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Print Cost / Unit</td>
                 {packagingLevels.map(lvl => (
@@ -387,7 +536,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Label Apply Rate / Min ── */}
+              {/* â"€â"€ Label Apply Rate / Min â"€â"€ */}
               {laborOpen && (<>
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Label Apply Rate / Min</td>
@@ -400,23 +549,29 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Packaging Weight ── */}
+              {/* â"€â"€ Packaging Weight â"€â"€ */}
               </>)}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Packaging Weight</td>
                 {packagingLevels.map(lvl => (
                   <Col key={lvl.id} lvl={lvl}>
                     <div className="flex items-center">
-                      <CurrencyInput type="rate" value={lvl.packagingWeightG}
-                        onChange={v => update(lvl.id, { packagingWeightG: v })}
+                      <CurrencyInput type="rate" value={roundForDisplay(fromGrams(lvl.packagingWeightG, lvl.packagingWeightUnit ?? "g"))}
+                        onChange={v => update(lvl.id, { packagingWeightG: toGrams(v, lvl.packagingWeightUnit ?? "g") })}
                         className={cellInpSuffix} />
-                      <span className={suffixUnit}>g</span>
+                      <select
+                        value={lvl.packagingWeightUnit ?? "g"}
+                        onChange={e => update(lvl.id, { packagingWeightUnit: e.target.value })}
+                        className="h-7 px-1 border border-l-0 border-amber-200 text-[0.58rem] text-zinc-600 bg-amber-50/60 focus:outline-none rounded-r shrink-0 w-20"
+                      >
+                        {WEIGHT_INPUT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
                     </div>
                   </Col>
                 ))}
               </tr>
 
-              {/* ── No. of Staff / Stations ── */}
+              {/* â"€â"€ No. of Staff / Stations â"€â"€ */}
               {laborOpen && (<>
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">No. of Staff / Stations</td>
@@ -429,7 +584,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Hrs / Shift ── */}
+              {/* â"€â"€ Hrs / Shift â"€â"€ */}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Hrs / Shift</td>
                 {packagingLevels.map(lvl => (
@@ -441,7 +596,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Working Days ── */}
+              {/* â"€â"€ Working Days â"€â"€ */}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Working Days</td>
                 {packagingLevels.map(lvl => (
@@ -453,8 +608,24 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Tab Cost / Unit ── */}
+              {/* â"€â"€ Tab Cost / Unit â"€â"€ */}
               </>)}
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Tabs</td>
+                {packagingLevels.map(lvl => (
+                  <Col key={lvl.id} lvl={lvl}>
+                    <Toggle
+                      enabled={lvl.tabsEnabled}
+                      onToggle={() => update(lvl.id, {
+                        tabsEnabled: !lvl.tabsEnabled,
+                        ...(!lvl.tabsEnabled ? {} : { tabCostPerUnit: 0, tabApplyRate: 0 }),
+                      })}
+                      label=""
+                    />
+                  </Col>
+                ))}
+              </tr>
+
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Tab Cost / Unit</td>
                 {packagingLevels.map(lvl => (
@@ -467,13 +638,28 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           className={cellInp + " rounded-l-none border-l-0"} />
                       </div>
                     ) : (
-                      <span className={naCell}>—</span>
+                      <span className={naCell}>-</span>
                     )}
                   </Col>
                 ))}
               </tr>
 
-              {/* ── Eff. Buffer % ── */}
+              {/* â"€â"€ Eff. Buffer % â"€â"€ */}
+              <tr className="border-b border-amber-200/70">
+                <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Tab Apply Rate / Min</td>
+                {packagingLevels.map(lvl => (
+                  <Col key={lvl.id} lvl={lvl}>
+                    {lvl.tabsEnabled ? (
+                      <CurrencyInput type="rate" value={lvl.tabApplyRate ?? 0}
+                        onChange={v => update(lvl.id, { tabApplyRate: v })}
+                        className={cellInp} />
+                    ) : (
+                      <span className={naCell}>-</span>
+                    )}
+                  </Col>
+                ))}
+              </tr>
+
               {laborOpen && (<>
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Eff. Buffer %</td>
@@ -489,7 +675,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Labor Mkp % ── */}
+              {/* â"€â"€ Labor Mkp % â"€â"€ */}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Labor Mkp %</td>
                 {packagingLevels.map(lvl => (
@@ -504,7 +690,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 ))}
               </tr>
 
-              {/* ── Unit Mkp % ── */}
+              {/* â"€â"€ Unit Mkp % â"€â"€ */}
               </>)}
               <tr className="border-b border-amber-200/70">
                 <td className="px-3 py-1.5 text-[0.68rem] font-semibold text-zinc-800 bg-[#ede8dc] sticky left-0 z-10">Unit Mkp %</td>
@@ -521,7 +707,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
               </tr>
 
 
-              {/* ── Outputs toggle row ── */}
+              {/* â"€â"€ Outputs toggle row â"€â"€ */}
               <tr className="bg-gray-50 border-t-2 border-gray-200">
                 <td className="px-3 py-1 sticky left-0 z-10 bg-gray-50">
                   <span className="text-[0.55rem] font-semibold uppercase tracking-widest text-zinc-600">Outputs</span>
@@ -544,7 +730,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 })}
               </tr>
 
-              {/* ── Outputs rows (shown per-level when toggled open) ── */}
+              {/* â"€â"€ Outputs rows (shown per-level when toggled open) â"€â"€ */}
               {packagingLevels.some(lvl => outputsOpen[lvl.id] && !collapsedCols[lvl.id]) && (() => {
                 const fmtN0 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
                 const fmtN2 = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -561,21 +747,43 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                     lvl.fillRatePerMin, lvl.efficiencyBuffer, lvl.wageRate, lvl.numStaff,
                     lvl.hrsPerShift, lvl.workingDays, lvl.packagingWeightG, displayUnits,
                     lvl.overageRate, lvl.costPerUnit, lvl.laborMarkup, lvl.labelApplyRate,
+                    lvl.tabsEnabled ? (lvl.tabApplyRate ?? 0) : 0,
                   );
                 });
 
                 const costs = packagingLevels.map((lvl, index) => {
                   const out    = outputs[index];
+                  const computedUnits = lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0
+                    ? lvl.cpoRequiredQty
+                    : effectiveUnits(lvl, index, packagingLevels);
+                  const displayUnits = (lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0)
+                    ? lvl.cpoRequiredQty
+                    : (lvl.isAutoUnits || lvl.units === 0 ? computedUnits : lvl.units);
                   const ourLabor = out.ourLaborCost;
                   const cxLabor  = out.customerLaborCost;
-                  // Material cost = (packaging cost/unit + label cost/unit + tab cost/unit) × units required
-                  // Customer material = our material × (1 + unitCostMarkup%)
+                  // Material cost = (packaging cost/unit + label cost/unit + tab cost/unit) x units required
+                  // Customer material = our material x (1 + unitCostMarkup%)
                   const labelCost = lvl.labelEnabled ? lvl.labelPrintCost : 0;
                   const tabCost   = lvl.tabsEnabled  ? lvl.tabCostPerUnit : 0;
                   const ourPkgPerUnit = lvl.costPerUnit + labelCost + tabCost;
                   const ourPkg   = ourPkgPerUnit * out.unitsReq;
                   const cxPkg    = ourPkg * (1 + lvl.unitCostMarkup / 100);
-                  return { ourLabor, cxLabor, ourPkg, cxPkg, ourTotal: ourLabor + ourPkg, cxTotal: cxLabor + cxPkg };
+                  const baselineOut = computeColumnOutputs(
+                    lvl.fillRatePerMin, lvl.efficiencyBuffer, lvl.wageRate, lvl.numStaff,
+                    lvl.hrsPerShift, lvl.workingDays, lvl.packagingWeightG, displayUnits,
+                    0, lvl.costPerUnit, 0, lvl.labelApplyRate,
+                    lvl.tabsEnabled ? (lvl.tabApplyRate ?? 0) : 0,
+                  );
+                  const baselinePkg = ourPkgPerUnit * displayUnits;
+                  return {
+                    ourLabor,
+                    cxLabor,
+                    ourPkg,
+                    cxPkg,
+                    baselineOur: baselineOut.ourLaborCost + baselinePkg,
+                    ourTotal: ourLabor + ourPkg,
+                    cxTotal: cxLabor + cxPkg,
+                  };
                 });
 
                 // Each row is either a single-value metric or a dual our/customer cost row
@@ -584,18 +792,19 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                   | { kind: "cost";   label: string; our: (i: number) => number; cx: (i: number) => number; bold?: boolean };
 
                 const rows: Row[] = [
-                  { kind: "metric", label: "Units Required",       val: i => outputs[i].unitsReq > 0      ? fmtN0(outputs[i].unitsReq)      : "—" },
-                  { kind: "metric", label: "Eff. Rate / min",      val: i => outputs[i].effRate > 0       ? fmtN2(outputs[i].effRate)        : "—" },
-                  { kind: "metric", label: "Per Hour",             val: i => outputs[i].perHr > 0         ? fmtN0(outputs[i].perHr)          : "—" },
-                  { kind: "metric", label: "Total Hrs Required",   val: i => outputs[i].totalHrsReq > 0   ? fmtN0(outputs[i].totalHrsReq)    : "—" },
-                  { kind: "metric", label: "Total Min Required",   val: i => outputs[i].totalMinReq > 0   ? fmtN0(outputs[i].totalMinReq)    : "—" },
+                  { kind: "metric", label: "Units Required",       val: i => outputs[i].unitsReq > 0      ? fmtN0(outputs[i].unitsReq)      : "-" },
+                  { kind: "metric", label: "Eff. Rate / min",      val: i => outputs[i].effRate > 0       ? fmtN2(outputs[i].effRate)        : "-" },
+                  { kind: "metric", label: "Per Hour",             val: i => outputs[i].perHr > 0         ? fmtN0(outputs[i].perHr)          : "-" },
+                  { kind: "metric", label: "Total Hrs Required",   val: i => outputs[i].totalHrsReq > 0   ? fmtN0(outputs[i].totalHrsReq)    : "-" },
+                  { kind: "metric", label: "Total Min Required",   val: i => outputs[i].totalMinReq > 0   ? fmtN0(outputs[i].totalMinReq)    : "-" },
                   { kind: "cost",   label: "Cost / Min",           our: i => outputs[i].costPerMin,       cx: i => outputs[i].costPerMin * (1 + packagingLevels[i].laborMarkup / 100)  },
                   { kind: "cost",   label: "Labor Cost",           our: i => costs[i].ourLabor,           cx: i => costs[i].cxLabor },
                   { kind: "cost",   label: "Packaging Cost",       our: i => costs[i].ourPkg,             cx: i => costs[i].cxPkg },
+                  { kind: "cost",   label: "Baseline Project Cost",    our: i => costs[i].baselineOur,        cx: () => 0 },
                   { kind: "cost",   label: "Total Cost",           our: i => costs[i].ourTotal,           cx: i => costs[i].cxTotal, bold: true },
-                  { kind: "metric", label: "Pkg Total Weight (g)", val: i => outputs[i].pkgWeight > 0     ? fmtN0(outputs[i].pkgWeight)      : "—" },
-                  { kind: "metric", label: "Lead Time (days)",     val: i => outputs[i].leadTimeDays > 0  ? outputs[i].leadTimeDays.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "—" },
-                  { kind: "metric", label: "Lead Time (weeks)",    val: i => outputs[i].leadTimeWeeks > 0 ? fmtN2(outputs[i].leadTimeWeeks)  : "—" },
+                  { kind: "metric", label: "Pkg Total Weight (g)", val: i => outputs[i].pkgWeight > 0     ? fmtN0(outputs[i].pkgWeight)      : "-" },
+                  { kind: "metric", label: "Lead Time (days)",     val: i => outputs[i].leadTimeDays > 0  ? outputs[i].leadTimeDays.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "-" },
+                  { kind: "metric", label: "Lead Time (weeks)",    val: i => outputs[i].leadTimeWeeks > 0 ? fmtN2(outputs[i].leadTimeWeeks)  : "-" },
                 ];
 
                 // Sub-header row showing Our / Customer column labels
@@ -609,7 +818,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                           <td key={lvl.id} className="px-2 py-0.5 border-l border-amber-200 bg-amber-50/40">
                             {outputsOpen[lvl.id] && (
                               <div className="flex justify-between">
-                                <span className="text-[0.52rem] font-bold text-zinc-600 uppercase tracking-wider">Our Cost</span>
+                                <span className="text-[0.52rem] font-bold text-zinc-600 uppercase tracking-wider">Project Cost</span>
                                 <span className="text-[0.52rem] font-bold text-[#e8473f] uppercase tracking-wider">Selling Price</span>
                               </div>
                             )}
@@ -629,16 +838,16 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                       </td>
                       {packagingLevels.map((lvl, i) => {
                         if (collapsedCols[lvl.id]) return <td key={lvl.id} className="w-9 border-l border-amber-200 bg-amber-50/40" />;
-                        if (!outputsOpen[lvl.id]) return <td key={lvl.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-zinc-500">—</span></td>;
+                        if (!outputsOpen[lvl.id]) return <td key={lvl.id} className="px-2 py-1 border-l border-amber-200 text-right"><span className="text-[0.65rem] text-zinc-500">-</span></td>;
                         return (
                           <td key={lvl.id} className={`px-2 py-1 border-l ${isCost ? "border-amber-200" : "border-gray-200"}`}>
                             {isCost ? (
                               <div className="flex justify-between gap-1">
                                 <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-zinc-800" : "font-semibold text-zinc-700"}`}>
-                                  {(row as { our: (i: number) => number }).our(i) > 0 ? fmtD((row as { our: (i: number) => number }).our(i)) : "—"}
+                                  {(row as { our: (i: number) => number }).our(i) > 0 ? fmtD((row as { our: (i: number) => number }).our(i)) : "-"}
                                 </span>
                                 <span className={`text-[0.7rem] tabular-nums ${bold ? "font-bold text-[#e8473f]" : "font-semibold text-[#e8473f]/80"}`}>
-                                  {(row as { cx: (i: number) => number }).cx(i) > 0 ? fmtD((row as { cx: (i: number) => number }).cx(i)) : "—"}
+                                  {(row as { cx: (i: number) => number }).cx(i) > 0 ? fmtD((row as { cx: (i: number) => number }).cx(i)) : "-"}
                                 </span>
                               </div>
                             ) : (
@@ -646,7 +855,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                                 <span className="text-[0.72rem] font-semibold text-zinc-900 tabular-nums">
                                   {(row as { val: (i: number) => string }).val(i)}
                                 </span>
-                                <span className="text-[0.65rem] text-zinc-500">—</span>
+                                <span className="text-[0.65rem] text-zinc-500">-</span>
                               </div>
                             )}
                           </td>
@@ -663,7 +872,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
           </table>
         </div>
 
-        {/* ── Manual Charge (toggle) — outside scroll container so it respects card width ── */}
+        {/* â"€â"€ Manual Charge (toggle) - outside scroll container so it respects card width â"€â"€ */}
         <div className="mx-4 mb-3 mt-1 border border-dashed border-amber-400 rounded-lg bg-amber-50/60">
           <button
             type="button"
@@ -704,7 +913,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                         <span className="font-semibold text-zinc-800 flex-1 min-w-0 truncate">{c.name}</span>
                         <span className="text-[0.6rem] text-zinc-600 shrink-0 italic">{assignedLabel}</span>
                         <span className="text-zinc-600 shrink-0 text-[0.6rem]">${c.amount.toFixed(2)} {c.basis === "per_unit" ? "/unit" : "fixed"}</span>
-                        <span className="text-zinc-500 shrink-0">→</span>
+                        <span className="text-zinc-500 shrink-0">{"->"}</span>
                         {chargeRows.map(({ lvl, total, unitsWithOverage }) => (
                           <span key={lvl.id} className="text-[#e8473f] font-semibold tabular-nums shrink-0 text-[0.65rem]">
                             ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -721,7 +930,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
                 </div>
               )}
 
-              {/* add new charge — compact 2-row grid layout */}
+              {/* add new charge - compact 2-row grid layout */}
               <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-1.5 items-end">
                 {/* Row 1: Name + Level + Amount */}
                 <div>
@@ -793,7 +1002,7 @@ export default function PackagingLevels({ packagingLevels, setPackagingLevels, c
 
       {sectionOpen && packagingLevels.length === 0 && (
         <div className="px-5 py-4">
-          <p className="text-xs text-zinc-500 italic text-center">No packaging levels — click Add Level</p>
+          <p className="text-xs text-zinc-500 italic text-center">No packaging levels - click Add Level</p>
         </div>
       )}
     </div>

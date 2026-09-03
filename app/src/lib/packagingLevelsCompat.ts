@@ -1,11 +1,11 @@
 /**
- * Converts PackagingLevel[] → Column[] for the existing calculation engine.
+ * Converts PackagingLevel[] -> Column[] for the existing calculation engine.
  * This is the bridge between the new unified PackagingLevels UI and the
  * existing computeDetailSections / computeColumn math.
  */
 import { Column, PackagingLevel } from "./types";
 
-// Stable numeric id from a string id — take last 8 hex chars of the string
+// Stable numeric id from a string id - take last 8 hex chars of the string
 // as an integer so Column.id (number) stays stable across renders.
 function numId(strId: string): number {
   let h = 0;
@@ -15,7 +15,7 @@ function numId(strId: string): number {
   return Math.abs(h) || 1;
 }
 
-// Effective unit count for a level — explicit units take priority, then perOuter cascade, then 0
+// Effective unit count for a level - explicit units take priority, then perOuter cascade, then 0
 export function effectiveUnitsForLevel(
   lvl: PackagingLevel,
   index: number,
@@ -42,7 +42,7 @@ export function packagingLevelsToColumns(
   innersPerMaster: number,
 ): Column[] {
   return levels.map((lvl, index) => {
-    // Prefer cpoRequiredQty when set — it is the CPO cascade Required Qty and represents
+    // Prefer cpoRequiredQty when set - it is the CPO cascade Required Qty and represents
     // the actual units needed (including any packaging-level overage in the cascade).
     // Fall back to the MOQ-based auto-derivation when no CPO sync has run.
     const units = (lvl.cpoRequiredQty != null && lvl.cpoRequiredQty > 0)
@@ -69,12 +69,13 @@ export function packagingLevelsToColumns(
         "Unit Fill Rate / min":    String(lvl.fillRatePerMin),
         "Packaging Cost / unit":   String(lvl.costPerUnit),
         "Label Print Cost / unit": lvl.labelEnabled ? String(lvl.labelPrintCost) : "0",
-        "Label Apply Rate / min":  String(lvl.labelApplyRate), // always pass — throughput bottleneck independent of labelEnabled
+        "Label Apply Rate / min":  String(lvl.labelApplyRate), // always pass - throughput bottleneck independent of labelEnabled
         "Packaging Weight (g)":    String(lvl.packagingWeightG),
         "No. of Staff / Stations": String(lvl.numStaff),
         "Hrs / Shift":             String(lvl.hrsPerShift),
         "Working Days":            String(lvl.workingDays),
         "Tab Cost / unit":         lvl.tabsEnabled ? String(lvl.tabCostPerUnit) : "0",
+        "Tab Apply Rate / min":    lvl.tabsEnabled ? String(lvl.tabApplyRate ?? 0) : "0",
       },
     };
 

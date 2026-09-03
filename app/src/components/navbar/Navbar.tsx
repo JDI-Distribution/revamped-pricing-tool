@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronRight, ChevronLeft, FolderOpen, Menu, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, FolderOpen, LogOut, Menu, X, UserCircle } from "lucide-react";
 import logo from "@/assets/JDI_Distribution_Logo.png";
 import MarginCalculator from "@/components/MarginCalculator";
 import ConversionCalculator from "@/components/ConversionCalculator";
 import NavbarSaveButton from "@/components/navbar/NavbarSaveButton";
+import { useProject } from "@/lib/ProjectContext";
+import { goToCatalystLogin, signOutOfCatalyst } from "@/lib/catalystAuth";
 
 const navLinks = [
   { label: "Home",                  href: "/",                    drawer: null },
@@ -22,6 +24,12 @@ export default function Navbar() {
   const [menuOpen,      setMenuOpen]      = useState(false);
   const [marginOpen,    setMarginOpen]    = useState(false);
   const [conversionOpen, setConversionOpen] = useState(false);
+  const { currentUser, currentUserLoading } = useProject();
+
+  const handleSignOut = async () => {
+    const signedOut = await signOutOfCatalyst();
+    if (!signedOut) window.location.href = "/app/";
+  };
 
   const handleNavClick = (drawer: string | null, e: React.MouseEvent) => {
     if (drawer === "margin") {
@@ -38,7 +46,7 @@ export default function Navbar() {
   // Called when user applies a margin from the calculator
   const handleApplyMargin = (_moqRowId: number, _adjPPU: number) => {
     // The calculator is read-only for the main quote by default.
-    // When the user clicks "Apply to Quote" we close the drawer — the
+    // When the user clicks "Apply to Quote" we close the drawer - the
     // QuotePage's moqPpuInputs/moqMargins state would need to be lifted
     // to the context to fully wire this up; for now we just close.
     setMarginOpen(false);
@@ -47,7 +55,7 @@ export default function Navbar() {
   return (
     <>
       <nav className="w-full bg-white border-b border-gray-100 sticky top-0 z-30">
-        {/* ── Main bar ── */}
+        {/* -- Main bar -- */}
         <div className="px-4 md:px-6 py-3 flex items-center gap-4 md:gap-12">
           {/* Logo */}
           <Link to="/" onClick={() => setMenuOpen(false)}>
@@ -97,7 +105,36 @@ export default function Navbar() {
           </div>
 
           {/* Desktop Next / Back */}
-          <div className="hidden md:flex ml-auto">
+          <div className="hidden md:flex ml-auto items-center gap-2">
+            {currentUser?.authenticated ? (
+              <div className="flex h-9 items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50" title={currentUser.email}>
+                <div className="flex items-center gap-2 px-2.5">
+                  <UserCircle size={15} className="text-zinc-500" />
+                  <div className="leading-tight">
+                    <div className="text-[0.7rem] font-semibold text-zinc-800 max-w-36 truncate">{currentUser.name || currentUser.email}</div>
+                    <div className="text-[0.58rem] text-zinc-500 max-w-36 truncate">{currentUser.email}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="flex h-full items-center gap-1 border-l border-gray-200 bg-white px-2 text-[0.65rem] font-semibold text-zinc-600 hover:bg-red-50 hover:text-red-600"
+                  title="Sign out"
+                >
+                  <LogOut size={12} />
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={goToCatalystLogin}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 h-9 text-xs font-semibold text-zinc-700 hover:bg-gray-50"
+              >
+                <UserCircle size={15} />
+                {currentUserLoading ? "Checking..." : "Sign in"}
+              </button>
+            )}
             {isQuotePage || isSavedPage ? (
               <Link
                 to="/"
@@ -119,6 +156,26 @@ export default function Navbar() {
 
           {/* Mobile: Save + action + hamburger */}
           <div className="flex items-center gap-2 ml-auto md:hidden">
+            {currentUser?.authenticated ? (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-zinc-700"
+                title={`Sign out ${currentUser.name || currentUser.email}`}
+              >
+                <LogOut size={16} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goToCatalystLogin}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-zinc-700"
+                aria-label="Sign in"
+                title={currentUserLoading ? "Checking signed-in user" : "Sign in"}
+              >
+                <UserCircle size={18} />
+              </button>
+            )}
             {isQuotePage || isSavedPage ? (
               <Link
                 to="/"
@@ -149,7 +206,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* ── Mobile dropdown menu ── */}
+        {/* -- Mobile dropdown menu -- */}
         {menuOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white shadow-lg">
             <ul className="flex flex-col py-2">
@@ -209,6 +266,7 @@ export default function Navbar() {
         open={conversionOpen}
         onClose={() => setConversionOpen(false)}
       />
+
     </>
   );
 }

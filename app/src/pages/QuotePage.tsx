@@ -1,5 +1,6 @@
-﻿import { useState } from "react";
-import { FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+import { Check, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect } from "react";
 import Navbar from "@/components/navbar/Navbar";
 import DatePicker from "@/components/ui/DatePicker";
 import { useProject } from "@/lib/ProjectContext";
@@ -15,12 +16,38 @@ import workdriveLogo from "@/assets/zoho-workdrive.png";
 import crmLogo       from "@/assets/zoho-crm.png";
 import { calculateProcessHours, computePricingTiers } from "@/lib/coPackingCalculations";
 import { qtyWithOverage } from "@/lib/quantityMath";
+import { buildQuoteBaseName, buildVersionedQuoteName, nextQuoteRevisionVersion, parseQuoteVersion, quoteFamilyKey } from "@/lib/quoteVersioning";
+import { useSectionRequired } from "@/lib/SectionRequiredContext";
+import { toGrams } from "@/lib/weightUnits";
+import { applyAdjustedRevenueToProjectCostRows, buildProjectCostRows, calculateProjectProcessCosts, ProjectCostRow } from "@/lib/projectCostRows";
 
 const fmt        = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const fmtPct     = (v: number) => `${v.toFixed(1)}%`;
 const calcMargin = (price: number, cost: number) => price > 0 ? ((price - cost) / price) * 100 : 0;
+const QUOTES_API = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/quotes";
+const CRM_PUSH_API = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/crm/push-quote";
+const CRM_PDF_UPLOAD_API = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/crm/upload-quote-pdf";
+const REVISION_SOURCE_STORAGE_KEY = "jdi_revision_source";
+const blobToBase64 = async (blob: Blob) => {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+};
 
 const labelCls = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-0.5";
+const isPackagingCostRow = (label: string) =>
+  label !== "Setup / QA Fee" &&
+  label !== "Materials" &&
+  label !== "Pallets & Fees" &&
+  !label.startsWith("Testing");
+const isUnitProcessSpeed = (unit: string) => unit.includes("unit") || unit.includes("batch");
+const fmtDays = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtWeeks = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+type OverviewRow = { rowIdx: number; desc: string; qty: number | null; total: number; ourCost: number; summaryLabel: string; levelIdx: number | null };
 
 export default function QuotePage() {
   const {
@@ -37,14 +64,18 @@ export default function QuotePage() {
     moqMargins, moqPpuInputs, moqLastEdited, costPpuOverrides,
     packagingLevels,
     additionalFees,
+    quoteApproval, setQuoteApproval,
+    currentUser,
+    activeMoqId,
     scenarioA: _scenarioA, scenarioB: _scenarioB, saveScenario: _saveScenario, clearScenarios: _clearScenarios,
     crmAccountId, crmContactId,
     saveState,
+    markSaved,
   } = useProject();
 
   const [generating,      setGenerating]      = useState(false);
   const [previews,        setPreviews]        = useState<QuotePreview[] | null>(null);
-  const [activeSummaryMoq, setActiveSummaryMoq] = useState<number>(() => moqRows[0]?.id ?? 0);
+  const [activeSummaryMoq, setActiveSummaryMoq] = useState<number>(() => activeMoqId || moqRows[0]?.id || 0);
   const [customPreviewing, setCustomPreviewing] = useState(false);
   const [xlsxModalOpen,   setXlsxModalOpen]   = useState(false);
   const [xlsxGenerating,  setXlsxGenerating]  = useState(false);
@@ -59,6 +90,22 @@ export default function QuotePage() {
   const [overviewExpanded, setOverviewExpanded] = useState<Record<number, boolean>>({});
   // "total" = folded into Level 1, "line" = separate line item, "exclude" = not shown
   const [processIncluded, setProcessIncluded] = useState<Record<string, "total" | "line" | "exclude">>({});
+  const { notRequired } = useSectionRequired();
+  const includeSetup = !notRequired["section-cpo"];
+  const includeRawMaterials = !notRequired["section-raw-materials"];
+  const includeTesting = !notRequired["section-testing"];
+  const includeProcesses = !notRequired["section-processes"];
+  const includePackaging = !notRequired["section-packaging-summary"];
+  const includePalletization = !notRequired["section-palletization"];
+  const includeAdditionalFees = !notRequired["section-additional-costs"];
+  const includeSummaryRow = (label: string) => {
+    if (label === "Setup / QA Fee") return includeSetup;
+    if (label === "Materials") return includeRawMaterials;
+    if (label === "Pallets & Fees") return includePalletization;
+    if (label.startsWith("Testing")) return includeTesting;
+    if (isPackagingCostRow(label)) return includePackaging;
+    return true;
+  };
 
   // Addition 5  -- Pricing tiers (computed live)
   const tierResults = coPackingState.tiersEnabled ? computePricingTiers(coPackingState, coPackingProcesses) : [];
@@ -84,8 +131,37 @@ export default function QuotePage() {
   const [customPpuInput,   setCustomPpuInput]    = useState("");
   const [customLastEdited, setCustomLastEdited]  = useState<"margin" | "ppu">("margin");
 
-  const activeSummaryRows = perMoqSummaryRows.get(activeSummaryMoq) ?? summaryRows;
+  const rawActiveSummaryRows = perMoqSummaryRows.get(activeSummaryMoq) ?? summaryRows;
+  const activeSummaryRows = rawActiveSummaryRows.filter(row => includeSummaryRow(row.label));
+  const activeSummaryTableRows = summaryTableRows.filter(row => row.isLeadTimeSummary || includeSummaryRow(row.label));
   const activeMoqResult   = allMoqResults.find(r => r.moqRow.id === activeSummaryMoq);
+  const overviewPpuDenominator = (() => {
+    const materialTableRow = activeSummaryTableRows.find(row => row.label === "Materials" && !row.isLeadTimeSummary);
+    const materialBaseQty = materialTableRow?.totalUnits ?? null;
+    if (materialBaseQty != null && materialBaseQty > 1) return materialBaseQty;
+
+    const firstPackagingRow = activeSummaryTableRows.find(row =>
+      !row.isLeadTimeSummary &&
+      row.totalUnits != null &&
+      row.totalUnits > 1 &&
+      isPackagingCostRow(row.label)
+    );
+    const firstPackagingIndex = activeSummaryTableRows
+      .filter(row => !row.isLeadTimeSummary && isPackagingCostRow(row.label))
+      .findIndex(row => row.label === firstPackagingRow?.label);
+    const firstLevel = firstPackagingIndex >= 0 ? packagingLevels[firstPackagingIndex] : packagingLevels[0];
+    const deliveredQty = firstLevel
+      ? (firstLevel.cpoRequiredQty ?? firstLevel.units ?? firstPackagingRow?.totalUnits ?? null)
+      : firstPackagingRow?.totalUnits ?? null;
+    const intakeQty = firstLevel && deliveredQty != null
+      ? Math.ceil(deliveredQty * (1 + firstLevel.overageRate / 100))
+      : deliveredQty;
+    return intakeQty && intakeQty > 0 ? intakeQty : ppuUnits;
+  })();
+
+  useEffect(() => {
+    if (activeMoqId && activeMoqId !== activeSummaryMoq) setActiveSummaryMoq(activeMoqId);
+  }, [activeMoqId, activeSummaryMoq]);
 
   const totalCustomerPrice = activeSummaryRows.reduce((s, r) => s + r.customerPrice, 0);
   const totalOurCosts      = activeSummaryRows.reduce((s, r) => s + r.ourCosts, 0);
@@ -114,17 +190,24 @@ export default function QuotePage() {
   // Adjusted revenue  -- MOQ adj PPU takes priority, then no-MOQ whatIfPpus[0], then unadjusted
   const adjustedRevenue = (() => {
     if (activeMoqAdjPPU > 0 && activeMoqResult) return activeMoqAdjPPU * activeMoqResult.ppuDenominator;
-    // No-MOQ mode: Price Adjustment uses whatIfPpus[0] × ppuUnits
+    // No-MOQ mode: keep the quote/PDF denominator aligned with Total Project Costs.
     const wiStr0 = whatIfPpus[0];
-    if (wiStr0 !== undefined && wiStr0 !== "" && ppuUnits > 0) {
+    if (wiStr0 !== undefined && wiStr0 !== "" && overviewPpuDenominator > 0) {
       const wiPpu = parseFloat(wiStr0);
-      if (!isNaN(wiPpu) && wiPpu > 0) return wiPpu * ppuUnits;
+      if (!isNaN(wiPpu) && wiPpu > 0) return wiPpu * overviewPpuDenominator;
     }
     return totalCustomerPrice;
   })();
+  const hasPdfPriceAdjustment = (() => {
+    if (activeMoqAdjPPU > 0 && activeMoqResult) return true;
+    const wiStr0 = whatIfPpus[0];
+    if (wiStr0 === undefined || wiStr0 === "" || overviewPpuDenominator <= 0) return false;
+    const wiPpu = parseFloat(wiStr0);
+    return !isNaN(wiPpu) && wiPpu > 0;
+  })();
 
   // Compute additional fee costs for the active MOQ
-  const additionalFeeCosts = (additionalFees ?? []).map(fee => ({
+  const additionalFeeCosts = (includeAdditionalFees ? (additionalFees ?? []) : []).map(fee => ({
     ...fee,
     cost: fee.mode === "$" ? fee.amount : adjustedRevenue * fee.amount,
   }));
@@ -162,11 +245,10 @@ export default function QuotePage() {
   const hasCustomAdj = hasMargin || hasPpuAdj;
 
   // Compute delivered qtys and primary product name for PDF/Excel exports
-  const colItems = summaryTableRows.filter(str =>
+  const colItems = activeSummaryTableRows.filter(str =>
     !str.isLeadTimeSummary &&
-    !str.label.toLowerCase().includes("material") &&
-    !str.label.toLowerCase().includes("pallet") &&
-    !str.label.toLowerCase().includes("setup")
+    isPackagingCostRow(str.label) &&
+    includeSummaryRow(str.label)
   );
   // Delivered qtys: use totalUnits from summaryTableRows (columns drive this via scaledColumns)
   const deliveredQtys = colItems.map(col => col.totalUnits ?? 0);
@@ -174,79 +256,189 @@ export default function QuotePage() {
   const primaryProductName = (primaryLevel
     ? (primaryLevel.packagingType === "custom_mode" ? primaryLevel.customTypeName : primaryLevel.packagingType)
     : "") || customer.productName || "";
-  const processCustomerCost = (proc: typeof coPackingProcesses[number]) => {
-    const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
-    let hrs = calculateProcessHours(proc, totalUnits);
-    if (proc.minLaborHrs > 0 && hrs < proc.minLaborHrs) hrs = proc.minLaborHrs;
-    const ops = proc.numStaff > 0 ? proc.numStaff : 1;
-    const our = hrs * proc.laborRate * ops;
-    return our * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
-  };
-  const testingSummaryTotal = (rows: typeof activeSummaryRows) =>
-    rows.reduce((sum, row) => row.label.startsWith("Testing") ? sum + row.customerPrice : sum, 0);
-  const directTestingTotal = (() => {
-    if (formData.testingEnabled === "false") return 0;
-    const markup = parseFloat(String(formData.testingMarkup ?? "0")) || 0;
-    const defaultSkus = parseFloat(String(formData.numSkus ?? "1")) || 1;
-    return (formData.testingRows ?? []).reduce((sum, row) => {
-      const cost = row.cost ?? 0;
-      const skus = row.numSkus ?? defaultSkus;
-      return sum + cost * skus * (1 + markup / 100);
-    }, 0);
-  })();
 
-  // Build Overview line items for PDF (same logic as Overview table in render)
-  const overviewLineItems = (() => {
-    const strByLabel = (lbl: string) => summaryTableRows.find(s => !s.isLeadTimeSummary && s.label === lbl);
-    const levelRows2 = activeSummaryRows.filter(r =>
-      r.label !== "Setup / QA Fee" && r.label !== "Materials" && r.label !== "Pallets & Fees" && !r.label.startsWith("Testing")
+  const quoteCostProcesses = includeProcesses
+    ? coPackingProcesses.filter(proc => (processIncluded[proc.id] ?? "total") !== "exclude")
+    : [];
+  const quoteUnitWeightG = toGrams(parseFloat(formData.unitWeight) || 0, formData.unitWeightUnit || "g");
+  const quoteProcessCostSummary = calculateProjectProcessCosts(quoteCostProcesses, quoteUnitWeightG);
+  const quoteProjectCostSummary = buildProjectCostRows({
+    formData,
+    summaryRows: activeSummaryRows,
+    summaryTableRows: activeSummaryTableRows,
+    packagingLevels,
+    processes: quoteCostProcesses,
+    processRows: quoteProcessCostSummary.rows,
+    processCostTotals: quoteProcessCostSummary.totals,
+    additionalFees: includeAdditionalFees ? additionalFees : [],
+    notRequired,
+  });
+  const quoteProjectCostRows = applyAdjustedRevenueToProjectCostRows(
+    quoteProjectCostSummary,
+    hasPdfPriceAdjustment ? adjustedRevenue : undefined,
+  );
+
+  const overviewRows = (() => {
+    const packagingLabels = activeSummaryTableRows
+      .filter(row => !row.isLeadTimeSummary && isPackagingCostRow(row.label))
+      .map(row => row.label);
+    const levelIdxFor = (row: ProjectCostRow) => packagingLabels.indexOf(row.label);
+    const levelNameFor = (levelIdx: number, row: ProjectCostRow) => {
+      const lvl = packagingLevels[levelIdx];
+      return lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || row.label) : row.label;
+    };
+    const descFor = (row: ProjectCostRow, levelIdx: number | null) => {
+      if (row.label === "Setup / QA Fee") return "Project Setup, Line Dial-In & Quality Assurance";
+      if (row.label === "Pallets & Fees") return "Palletization & Outbound Shipping";
+      if (levelIdx === 0) return `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${levelNameFor(levelIdx, row)}`;
+      if (levelIdx === 1) return `Secondary Packout  -- ${levelNameFor(levelIdx, row)}`;
+      return levelIdx != null ? levelNameFor(levelIdx, row) : row.label;
+    };
+    const isInternalFoldedRow = (row: ProjectCostRow) =>
+      row.label === "Material - Total" ||
+      row.label === "Project Mgmt Fee" ||
+      row.id.startsWith("additional-fee-");
+    const foldedIntoSetup = quoteProjectCostRows.filter(row => row.label === "Project Mgmt Fee");
+    const foldedIntoLevel1 = quoteProjectCostRows.filter(row =>
+      isInternalFoldedRow(row) && row.label !== "Project Mgmt Fee"
     );
-    const summaryTesting = testingSummaryTotal(activeSummaryRows);
-    const hiddenLevel1Total = activeSummaryRows.reduce((sum, row) =>
-      row.label === "Materials" || row.label.startsWith("Testing") ? sum + row.customerPrice : sum, 0)
-      + (summaryTesting > 0 ? 0 : directTestingTotal);
-    const foldedProcessTotal = coPackingProcesses.reduce((sum, proc) =>
-      processIncluded[proc.id] === "line" || processIncluded[proc.id] === "exclude"
-        ? sum
-        : sum + processCustomerCost(proc), 0);
-    const items: { desc: string; qty: number | null; total: number }[] = [];
-    activeSummaryRows.forEach(sr => {
-      const str = strByLabel(sr.label);
-      const qty = str?.totalUnits ?? null;
-      if (sr.label === "Setup / QA Fee") {
-        items.push({ desc: "Project Setup, Line Dial-In & Quality Assurance", qty: 1, total: sr.customerPrice });
-      } else if (sr.label === "Materials") {
-        // Folded into Level 1 for the customer-facing overview.
-      } else if (sr.label.startsWith("Testing")) {
-        // Folded into Level 1 for the customer-facing overview.
-      } else if (sr.label === "Pallets & Fees") {
-        items.push({ desc: "Palletization & Outbound Staging", qty: strByLabel("Pallets & Fees")?.totalUnits ?? null, total: sr.customerPrice });
-      } else {
-        const lvlIdx = levelRows2.findIndex(lr => lr.label === sr.label);
-        const isLvl1 = lvlIdx === 0;
-        const lvl = packagingLevels[lvlIdx];
-        const name = lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || sr.label) : sr.label;
-        const desc = isLvl1 ? `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${name}` : (lvlIdx === 1 ? `Secondary Packout  -- ${name}` : name);
-        items.push({ desc, qty, total: sr.customerPrice + (isLvl1 ? hiddenLevel1Total + foldedProcessTotal : 0) });
-      }
+    const rows: OverviewRow[] = [];
+    let rowIdx = 0;
+
+    quoteProjectCostRows.forEach(row => {
+      if (isInternalFoldedRow(row)) return;
+      const levelIdx = levelIdxFor(row);
+      const isPackagingRow = levelIdx >= 0;
+      const setupExtras = row.label === "Setup / QA Fee" ? foldedIntoSetup : [];
+      const level1Extras = isPackagingRow && levelIdx === 0 ? foldedIntoLevel1 : [];
+      const extras = [...setupExtras, ...level1Extras];
+      rows.push({
+        rowIdx: rowIdx++,
+        desc: descFor(row, isPackagingRow ? levelIdx : null),
+        qty: row.deliverableQty ?? row.intakeQty,
+        total: row.sellingPrice + extras.reduce((sum, extra) => sum + extra.sellingPrice, 0),
+        ourCost: row.ourCost + extras.reduce((sum, extra) => sum + extra.ourCost, 0),
+        summaryLabel: row.label,
+        levelIdx: isPackagingRow ? levelIdx : null,
+      });
     });
-    // Add line-item processes after Level 1
-    const lvl1Idx = items.findIndex(it => it.desc.startsWith("Product Filling"));
-    coPackingProcesses.filter(p => processIncluded[p.id] === 'line').forEach((proc, _i) => {
-      const cust = processCustomerCost(proc);
-      items.splice(lvl1Idx + 1 + coPackingProcesses.indexOf(proc), 0, { desc: proc.name || `Process ${coPackingProcesses.indexOf(proc) + 1}`, qty: proc.units > 0 ? proc.units : null, total: cust });
-    });
-    return items;
+
+    return rows;
   })();
 
-  const adjPPUforPdf = ppuUnits > 0 ? adjustedRevenue / ppuUnits : 0;
+  const overviewLineItems = overviewRows.map(row => ({
+    desc: row.desc,
+    qty: row.qty,
+    total: row.total,
+  }));
+
+  const crmProductCodeForDescription = (description: string) => {
+    const desc = description.toLowerCase();
+    if (desc.includes("project setup") || desc.includes("quality assurance")) return "SETUP";
+    if (desc.includes("palletization") || desc.includes("outbound")) return "OUTBOUND-PALLET";
+    if (desc.startsWith("product filling") || desc.includes("intake")) return "COPACK-PRIMARY";
+    if (desc.startsWith("secondary packout")) return "COPACK-SECONDARY";
+    if (desc.includes("inner") || desc.includes("case pack")) return "COPACK-INNERS";
+    if (desc.includes("shipper")) return "COPACK-SHIPPERS";
+    return "PROCESS";
+  };
+
+  const crmLineItems = overviewLineItems.map(item => {
+    const qty = item.qty && item.qty > 0 ? item.qty : 1;
+    return {
+      description: item.desc,
+      productCode: crmProductCodeForDescription(item.desc),
+      quantity: qty,
+      unitPrice: qty > 0 ? item.total / qty : item.total,
+      total: item.total,
+    };
+  });
+
+  const adjPPUforPdf = hasPdfPriceAdjustment && overviewPpuDenominator > 0 ? adjustedRevenue / overviewPpuDenominator : undefined;
+  const pdfFileBaseName = saveState.savedQuoteName && !saveState.hasUnsavedChanges
+    ? saveState.savedQuoteName
+    : buildQuoteBaseName({
+      formData,
+      customer,
+      ppuDenominator: overviewPpuDenominator,
+      productNameFallback: primaryProductName,
+    });
+
+  const leadTimeScheduleRows = (() => {
+    type LeadTimeRow = { label: string; days: number; weeks: number; kind?: "original" | "buffer" | "total" };
+    const rows: LeadTimeRow[] = [];
+
+    const processRows = includeProcesses
+      ? coPackingProcesses
+          .filter((proc) => (processIncluded[proc.id] ?? "total") !== "exclude")
+          .map((proc, index) => {
+            const totalWeightG = qtyWithOverage(proc.units, proc.overageRate);
+            const unitWeightG = toGrams(parseFloat(formData.unitWeight) || 0, formData.unitWeightUnit || "g");
+            const unitsRequired = unitWeightG > 0 ? totalWeightG / unitWeightG : totalWeightG;
+            const laborQty = isUnitProcessSpeed(proc.processSpeedUnit) ? unitsRequired : totalWeightG;
+            let hours = calculateProcessHours(proc, laborQty);
+            if (proc.minLaborHrs > 0 && hours < proc.minLaborHrs) hours = proc.minLaborHrs;
+            const hoursPerDay = Math.max(proc.hrsPerShift || 7, 1);
+            const workingDays = Math.max(proc.workingDays || 5, 1);
+            const days = hours / hoursPerDay;
+            const weeks = days / workingDays;
+            return {
+              label: proc.name || `Process ${index + 1}`,
+              days,
+              weeks,
+            };
+          })
+          .filter((row) => row.weeks > 0)
+      : [];
+
+    const processWeeks = processRows.reduce((sum, row) => sum + row.weeks, 0);
+    if (processWeeks > 0) {
+      rows.push({ label: "Processes", days: processWeeks * 5, weeks: processWeeks });
+    }
+
+    const packoutWeeks = Math.max(
+      0,
+      ...activeSummaryTableRows
+        .filter((row) => !row.isLeadTimeSummary && isPackagingCostRow(row.label) && row.leadTimeWeeks != null)
+        .map((row) => row.leadTimeWeeks ?? 0)
+    );
+    if (packoutWeeks > 0) {
+      rows.push({ label: "Packout", days: packoutWeeks * 5, weeks: packoutWeeks });
+    }
+
+    const originalWeeks = processWeeks + packoutWeeks;
+    if (originalWeeks > 0) {
+      rows.push({ label: "Original Lead Time", days: originalWeeks * 5, weeks: originalWeeks, kind: "original" });
+    }
+
+    const bufferDays = parseFloat(formData.leadTimeBufferDays) || 0;
+    const bufferWeeks = bufferDays / 5;
+    if (bufferDays > 0) {
+      rows.push({ label: "Buffer", days: bufferDays, weeks: bufferWeeks, kind: "buffer" });
+    }
+
+    const totalWeeks = originalWeeks + bufferWeeks;
+    if (totalWeeks > 0) {
+      rows.push({ label: "Final Lead Time", days: totalWeeks * 5, weeks: totalWeeks, kind: "total" });
+    }
+
+    return rows;
+  })();
+  const finalLeadTimeRow = leadTimeScheduleRows.find((row) => row.kind === "total");
+  const originalLeadTime = leadTimeScheduleRows.find((row) => row.kind === "original") ?? { days: 0, weeks: 0 };
 
   const quoteArgs = {
     brandId: selectedBrand, moqResults: allMoqResults, moqMargins: resolvedMoqMargins,
     whatIfPpus, deliveredQtys, primaryProductName,
-    summaryRows, summaryTableRows, formData, customer,
-    overviewLineItems, adjustedRevenue, adjustedPPU: adjPPUforPdf,
-    ppuDenominator: ppuUnits,
+    summaryRows: activeSummaryRows, summaryTableRows: activeSummaryTableRows, formData, customer,
+    overviewLineItems,
+    adjustedRevenue: hasPdfPriceAdjustment ? adjustedRevenue : undefined,
+    adjustedPPU: adjPPUforPdf,
+    ppuDenominator: overviewPpuDenominator,
+    leadTimeDaysOverride: finalLeadTimeRow?.days,
+    leadTimeWeeksOverride: finalLeadTimeRow?.weeks,
+    quoteIdOverride: saveState.crmQuoteNumber || undefined,
+    pdfFileBaseName,
   };
 
   // -- CRM push: derive totals/lead-time for the active MOQ (standard mode) --
@@ -254,13 +446,97 @@ export default function QuotePage() {
   const crmGrandOurCost  = totalOurCosts + crmTotalFeeCost;
   const crmGrandCustomer = adjustedRevenue;
   const crmMarginPercent = calcMargin(crmGrandCustomer, crmGrandOurCost);
-  const crmLeadTimeWeeks = summaryTableRows.find(r => r.label === "Estimated Total Lead Time")?.leadTimeWeeks ?? 0;
+  const crmLeadTimeWeeks = finalLeadTimeRow?.weeks ?? activeSummaryTableRows.find(r => r.label === "Estimated Total Lead Time")?.leadTimeWeeks ?? 0;
+  const quoteApprovalBy = currentUser?.name || quoteApproval.decidedBy || customer.salesRep || customer.name || "Current user";
+  const quoteApprovalByEmail = currentUser?.email || quoteApproval.decidedByEmail || "";
+  const updateQuoteApproval = (status: "Draft" | "Approved" | "Rejected") => {
+    setQuoteApproval(status === "Draft"
+      ? { status, decidedAt: "", decidedBy: "", decidedByEmail: "", decidedByCrmUserId: "" }
+      : { status, decidedAt: new Date().toISOString(), decidedBy: quoteApprovalBy, decidedByEmail: quoteApprovalByEmail, decidedByCrmUserId: "" });
+  };
+  const approvalMeta = quoteApproval.status === "Draft" || !quoteApproval.decidedAt
+    ? ""
+    : `${new Date(quoteApproval.decidedAt).toLocaleDateString()} by ${quoteApproval.decidedBy || quoteApprovalBy}`;
+
+  const currentUserName = currentUser?.name || currentUser?.email || "";
+  const buildLocalQuoteData = (meta: Record<string, unknown> = {}) => JSON.stringify({
+    moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId,
+    packagingLevels, projectType, coPackingState, coPackingProcesses, additionalFees,
+    quoteApproval, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides,
+    createdBy: currentUserName,
+    modifiedBy: currentUserName,
+    savedBy: currentUserName,
+    ...meta,
+  });
+  const fetchExistingQuoteNames = async () => {
+    const res = await fetch(QUOTES_API);
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const data: { quote_name: string }[] = await res.json();
+    return Array.isArray(data) ? data.map(q => q.quote_name) : [];
+  };
+  const ensureCurrentSavedVersion = async () => {
+    const baseName = buildQuoteBaseName({
+      formData,
+      customer,
+      ppuDenominator: overviewPpuDenominator,
+      productNameFallback: primaryProductName,
+    });
+    const familyKey = quoteFamilyKey(baseName, crmAccountId);
+    if (saveState.savedQuoteId && saveState.savedQuoteName && !saveState.hasUnsavedChanges) {
+      return {
+        id: saveState.savedQuoteId,
+        name: saveState.savedQuoteName,
+        version: parseQuoteVersion(saveState.savedQuoteName, baseName) || 1,
+        baseName,
+        familyKey,
+      };
+    }
+    const version = nextQuoteRevisionVersion(
+      baseName,
+      await fetchExistingQuoteNames(),
+      saveState.savedQuoteId && saveState.hasUnsavedChanges ? saveState.savedQuoteName : null,
+    );
+    const name = buildVersionedQuoteName(baseName, version);
+    const res = await fetch(QUOTES_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quote_name: name,
+        quote_data: buildLocalQuoteData({
+          quoteVersion: version,
+          quoteBaseName: baseName,
+          quoteFamilyKey: familyKey,
+          crmDealId: crmAccountId,
+          sentToCrm: false,
+        }),
+      }),
+    });
+    if (res.status === 409) throw new Error("A quote with this generated name already exists");
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const saved: { id: string } = await res.json();
+    markSaved(saved.id, name);
+    return { id: saved.id, name, version, baseName, familyKey };
+  };
 
   const handlePushToCrm = async () => {
     setCrmStatus("sending");
     setCrmError("");
     try {
-      const res = await fetch("https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/crm/push-quote", {
+      const revisionSource = (() => {
+        try {
+          return JSON.parse(localStorage.getItem(REVISION_SOURCE_STORAGE_KEY) || "null") as {
+            crmQuoteId?: string;
+            crmQuoteNumber?: string;
+            sourceSavedQuoteId?: string;
+            sourceSavedQuoteName?: string;
+            sourceQuoteVersion?: string | number;
+          } | null;
+        } catch {
+          return null;
+        }
+      })();
+      const localQuote = await ensureCurrentSavedVersion();
+      const res = await fetch(CRM_PUSH_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -269,19 +545,128 @@ export default function QuotePage() {
           phone:        customer.phone,
           email:        customer.email,
           crmAccountId, crmContactId,
-          quoteId: saveState.savedQuoteId ?? "DRAFT",
+          crmDealId: crmAccountId,
+          quoteId: localQuote.id,
+          quoteName: localQuote.name,
+          quoteVersion: localQuote.version,
+          quoteFamilyKey: localQuote.familyKey,
           productName: customer.productName || primaryProductName,
           brand: selectedBrand,
           projectType,
+          lineItems: crmLineItems,
+          ppuDenominator: overviewPpuDenominator,
+          pdfDownloadUrlFieldApiName: "PDF_Download_URL",
+          approvalStatus: quoteApproval.status,
+          approvalDate: quoteApproval.decidedAt,
+          approvalBy: quoteApproval.decidedBy,
+          approvalByEmail: quoteApproval.decidedByEmail,
+          approvalByCrmUserId: quoteApproval.decidedByCrmUserId,
           totalRevenue: crmGrandCustomer,
-          adjustedRevenue: activeMoqAdjPPU > 0 && activeMoqResult ? activeMoqAdjPPU * (deliveredQtys[0] ?? activeMoqResult.ppuDenominator) : undefined,
+          adjustedRevenue: hasPdfPriceAdjustment ? adjustedRevenue : undefined,
           ourCost: crmGrandOurCost,
           marginPercent: crmMarginPercent,
           leadTimeWeeks: crmLeadTimeWeeks,
+          revisionOfCrmQuoteId: revisionSource?.crmQuoteId || "",
+          revisionOfCrmQuoteNumber: revisionSource?.crmQuoteNumber || "",
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Failed to push to CRM");
+      if (json.quoteEventType === "First Quote" && json.dealStageUpdate && !json.dealStageUpdate.success) {
+        const detail = json.dealStageUpdate.message
+          || json.dealStageUpdate.error
+          || json.dealStageUpdate.reason
+          || json.dealStageUpdate.details?.data?.[0]?.message
+          || "";
+        throw new Error(`CRM Quote created, but Deal stage did not update to Quote Created${detail ? `: ${detail}` : ""}`);
+      }
+      if (json.approvalStatusUpdate && !json.approvalStatusUpdate.success) {
+        const failedAttempt = Array.isArray(json.approvalStatusUpdate.attempts)
+          ? json.approvalStatusUpdate.attempts.find((attempt: { success?: boolean }) => !attempt.success)
+          : null;
+        const detail = json.approvalStatusUpdate.message
+          || json.approvalStatusUpdate.error
+          || (failedAttempt ? `${failedAttempt.label}: ${failedAttempt.message || "CRM rejected the field value"}` : "")
+          || json.approvalStatusUpdate.details?.data?.[0]?.message
+          || "";
+        throw new Error(`CRM Quote created, but approval fields did not update${detail ? `: ${detail}` : ""}`);
+      }
+
+      const crmQuoteNumber = String(json.quoteNumber || json.quoteId || "CRM-QUOTE");
+      const [crmPdfPreview] = await buildQuotePreviews({
+        ...quoteArgs,
+        quoteIdOverride: crmQuoteNumber,
+        moqResults: activeMoqResult ? [activeMoqResult] : quoteArgs.moqResults,
+      });
+      const crmPdfBlob = crmPdfPreview?.doc.output("blob");
+      if (crmPdfBlob) {
+        const pdfUploadRes = await fetch(CRM_PDF_UPLOAD_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteId: json.quoteId,
+            quoteNumber: crmQuoteNumber,
+            productName: customer.productName || primaryProductName,
+            customerName: customer.customer,
+            pdfDownloadUrlFieldApiName: "PDF_Download_URL",
+            quotePdf: {
+              filename: crmPdfPreview.filename,
+              contentType: "application/pdf",
+              base64: await blobToBase64(crmPdfBlob),
+              fieldApiName: "Quote_PDF",
+            },
+          }),
+        });
+        const pdfJson = await pdfUploadRes.json();
+        if (!pdfUploadRes.ok || !pdfJson.success) {
+          const detail = pdfJson.quotePdfAttachment?.message
+            || pdfJson.quotePdfUpload?.message
+            || pdfJson.error
+            || "";
+          throw new Error(`CRM Quote created, but PDF upload failed${detail ? `: ${detail}` : ""}`);
+        }
+      }
+
+      const quoteData = buildLocalQuoteData({
+        crmQuoteId: json.quoteId,
+        crmQuoteNumber,
+        quoteVersion: localQuote.version,
+        quoteBaseName: localQuote.baseName,
+        quoteFamilyKey: localQuote.familyKey,
+        crmDealId: crmAccountId,
+        sentToCrm: true,
+        revisionOfCrmQuoteId: revisionSource?.crmQuoteId || "",
+        revisionOfCrmQuoteNumber: revisionSource?.crmQuoteNumber || "",
+        revisionSourceSavedQuoteId: revisionSource?.sourceSavedQuoteId || "",
+        revisionSourceSavedQuoteName: revisionSource?.sourceSavedQuoteName || "",
+      });
+      const saveRes = await fetch(`${QUOTES_API}/${localQuote.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote_name: localQuote.name, quote_data: quoteData }),
+      });
+      if (saveRes.ok) {
+        markSaved(localQuote.id, localQuote.name, { crmQuoteId: json.quoteId, crmQuoteNumber });
+        try {
+          const draft = JSON.parse(localStorage.getItem("jdi_draft_v1") || "{}");
+          localStorage.setItem("jdi_draft_v1", JSON.stringify({
+            ...draft,
+            crmQuoteId: json.quoteId,
+            crmQuoteNumber,
+            saveState: {
+              ...(draft.saveState || {}),
+              savedQuoteId: localQuote.id,
+              savedQuoteName: localQuote.name,
+              crmQuoteId: json.quoteId,
+              crmQuoteNumber,
+              lastSavedAt: new Date().toISOString(),
+            },
+          }));
+        } catch {
+          // Draft persistence is best-effort; the saved quote still contains CRM metadata.
+        }
+      }
+      localStorage.removeItem(REVISION_SOURCE_STORAGE_KEY);
       setCrmStatus("success");
       setTimeout(() => setCrmStatus("idle"), 3000);
     } catch (err) {
@@ -380,59 +765,41 @@ export default function QuotePage() {
               <div className="w-1 h-5 rounded-full bg-[#e8473f] shrink-0" />
               <div>
                 <h1 className="text-sm font-semibold text-zinc-950 tracking-tight leading-none">Quote Overview</h1>
-                <p className="text-[0.65rem] text-zinc-600 mt-0.5">Review pricing and export the quote</p>
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="text-[0.65rem] text-zinc-600">Review pricing and export the quote</span>
+                  <span className={`text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                    quoteApproval.status === "Approved"
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : quoteApproval.status === "Rejected"
+                        ? "bg-red-50 border-red-200 text-red-700"
+                        : "bg-gray-50 border-gray-200 text-zinc-600"
+                  }`}>
+                    {quoteApproval.status}
+                  </span>
+                  {approvalMeta && <span className="text-[0.65rem] text-zinc-500">{approvalMeta}</span>}
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-0 h-7 border border-gray-200 overflow-hidden">
-                <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
-                  Start Date
-                </span>
-                <div className="w-32">
-                  <DatePicker
-                    value={formData.startDate}
-                    onChange={(v) => setFormField("startDate", v)}
-                    placeholder="Pick date"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center h-7 border border-gray-200 overflow-hidden">
-                <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
-                  Buffer
-                </span>
-                <input
-                  type="number"
-                  value={
-                    bufferUnit === "weeks"
-                      ? formData.leadTimeBufferDays ? (parseFloat(formData.leadTimeBufferDays) / 5).toFixed(1) : ""
-                      : formData.leadTimeBufferDays
-                  }
-                  onChange={(e) => {
-                    const raw = parseFloat(e.target.value);
-                    if (isNaN(raw)) { setFormField("leadTimeBufferDays", ""); return; }
-                    setFormField("leadTimeBufferDays", bufferUnit === "weeks" ? String(Math.round(raw * 5)) : String(raw));
-                  }}
-                  className="w-12 h-full px-1.5 text-[0.7rem] text-right bg-white border-r border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#e8473f] font-medium"
-                  placeholder="0"
-                  step={bufferUnit === "weeks" ? "0.5" : "1"}
-                />
-                {(["days", "weeks"] as const).map((u) => (
-                  <button
-                    type="button"
-                    key={u}
-                    onClick={() => setBufferUnit(u)}
-                    className={`h-7 px-2 text-[0.6rem] font-semibold transition-colors ${
-                      bufferUnit === u ? "bg-[#e8473f] text-white" : "text-zinc-600 hover:text-zinc-800 bg-gray-50"
-                    }`}
-                  >
-                    {u}
-                  </button>
-                ))}
-              </div>
+              <select
+                value={quoteApproval.status}
+                onChange={(e) => updateQuoteApproval(e.target.value as "Draft" | "Approved" | "Rejected")}
+                className="h-7 rounded-lg border border-gray-200 bg-white px-2 text-xs font-medium text-zinc-700 focus:outline-none focus:ring-1 focus:ring-[#e8473f]"
+                title="Quote status"
+              >
+                <option value="Draft">Draft</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
             </div>
           </div>
+          {crmStatus === "error" && (
+            <div className="mt-3 flex items-start justify-between gap-3 bg-red-50 border border-red-200 text-red-700 text-xs font-medium px-4 py-2 rounded-lg shadow-sm">
+              <span>{crmError || "Failed to push to CRM"}</span>
+              <button type="button" onClick={() => setCrmStatus("idle")} className="text-red-400 hover:text-red-700 text-sm leading-none">x</button>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 flex-wrap">
             {projectType === "standard" && hasMoqErrors && (
@@ -451,7 +818,7 @@ export default function QuotePage() {
               {generating ? "Generating..." : projectType === "copacking" ? "Preview & Export" : allMoqResults.length > 0 ? `Preview & Export (${allMoqResults.length})` : "Preview & Export"}
             </button>
             <SaveQuoteButton
-              quotePageState={{ customer, selectedBrand, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, additionalFees }}
+              quotePageState={{ customer, selectedBrand, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, additionalFees, quoteApproval }}
               disabled={projectType === "standard" && hasMoqErrors}
               disabledReason={hasMoqErrors ? "Fix MOQ configuration errors before saving" : undefined}
             />
@@ -461,8 +828,8 @@ export default function QuotePage() {
                 onClick={() => {
                   if (allMoqResults.length === 0) {
                     // No MOQ rows  -- export directly with a synthetic base-quote row
-                    const totalCustomer = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
-                    const totalOur      = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
+                    const totalCustomer = activeSummaryRows.reduce((s, r) => s + r.customerPrice, 0);
+                    const totalOur      = activeSummaryRows.reduce((s, r) => s + r.ourCosts, 0);
                     const denom         = parseFloat(formData.ppuDenominator) || 1;
                     const baseRow = {
                       moqRow: { id: 0, moq: "Base", individualUnits: String(denom), unitsPerInner: "0", innersPerMaster: "0" },
@@ -471,7 +838,7 @@ export default function QuotePage() {
                       marginDollars: totalCustomer - totalOur,
                       marginPct: totalCustomer > 0 ? ((totalCustomer - totalOur) / totalCustomer) * 100 : 0,
                     };
-                    const syntheticMap = new Map([[-1, summaryRows]]);
+                    const syntheticMap = new Map([[-1, activeSummaryRows]]);
                     setXlsxGenerating(true);
                     generateQuoteXLSX({ formData, columns, allMoqResults: [baseRow], perMoqSummaryRows: syntheticMap, customer, selectedBrand, moqMargins: {}, selectedMoq: baseRow, primaryProductName, primaryDelivQty: deliveredQtys[0] ?? 0 })
                       .finally(() => setXlsxGenerating(false));
@@ -521,7 +888,10 @@ export default function QuotePage() {
               }`}
             >
               {crmStatus === "success" ? (
-                "âœ` Sent to CRM"
+                <>
+                  <Check size={13} />
+                  Sent to CRM
+                </>
               ) : (
                 <>
                   <img src={crmLogo} alt="CRM" className="w-3 h-3 object-contain" />
@@ -533,31 +903,12 @@ export default function QuotePage() {
         </div>
 
         {/* -- Overview Table -- */}
-        {summaryRows.length > 0 && (() => {
+        {activeSummaryRows.length > 0 && (() => {
           const fmtPPU2 = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const fmtQty0 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
-          // Compute per-process labor costs
-          const procCosts = coPackingProcesses.map(proc => {
-            const totalUnits = qtyWithOverage(proc.units, proc.overageRate);
-            let hrsRequired = calculateProcessHours(proc, totalUnits);
-            if (proc.minLaborHrs > 0 && hrsRequired < proc.minLaborHrs) hrsRequired = proc.minLaborHrs;
-            const operators = proc.numStaff > 0 ? proc.numStaff : 1;
-            const ourCost = hrsRequired * proc.laborRate * operators;
-            const custCost = ourCost * (1 + proc.laborMarkup / 100) * (1 + ((proc as any).costMarkup ?? 0) / 100);
-            return { ourCost, custCost, hrsRequired };
-          });
-          const summaryTesting = testingSummaryTotal(activeSummaryRows);
-          const hiddenLevel1Total = activeSummaryRows.reduce((sum, row) =>
-            row.label === "Materials" || row.label.startsWith("Testing") ? sum + row.customerPrice : sum, 0)
-            + (summaryTesting > 0 ? 0 : directTestingTotal);
-          const foldedProcessTotal = coPackingProcesses.reduce((sum, proc, i) =>
-            processIncluded[proc.id] === "line" || processIncluded[proc.id] === "exclude"
-              ? sum
-              : sum + procCosts[i].custCost, 0);
-
           // summaryTableRows lookup for qty/units
-          const strByLabel = (label: string) => summaryTableRows.find(s => !s.isLeadTimeSummary && s.label === label);
+          const strByLabel = (label: string) => activeSummaryTableRows.find(s => !s.isLeadTimeSummary && s.label === label);
 
           // Packaging level rows (everything not Setup/Materials/Testing/Pallets)
           const levelRows = activeSummaryRows.filter(r =>
@@ -579,73 +930,18 @@ export default function QuotePage() {
             }));
           };
 
-          // Build rows directly from summaryRows  -- no plug, use actual values
-          type OverviewRow = { rowIdx: number; desc: string; qty: number | null; total: number; summaryLabel: string; levelIdx: number | null };
-          const rows: OverviewRow[] = [];
-          let rowIdx = 0;
-
-          activeSummaryRows.forEach(sr => {
-            const str = strByLabel(sr.label);
-            const qty = str?.totalUnits ?? null;
-
-            if (sr.label === "Setup / QA Fee") {
-              rows.push({ rowIdx: rowIdx++, desc: "Project Setup, Line Dial-In & Quality Assurance", qty: 1, total: sr.customerPrice, summaryLabel: sr.label, levelIdx: null });
-
-            } else if (sr.label === "Materials") {
-              // Folded into Level 1 for the customer-facing overview.
-
-            } else if (sr.label.startsWith("Testing")) {
-              // Folded into Level 1 for the customer-facing overview.
-
-            } else if (sr.label === "Pallets & Fees") {
-              const palletStr = strByLabel("Pallets & Fees");
-              const palletQty = palletStr?.totalUnits ?? null;
-              rows.push({ rowIdx: rowIdx++, desc: "Palletization & Outbound Shipping", qty: palletQty, total: sr.customerPrice, summaryLabel: sr.label, levelIdx: null });
-
-            } else {
-              // Packaging level
-              const lvlIdx = levelRows.findIndex(lr => lr.label === sr.label);
-              const isLvl1 = lvlIdx === 0;
-              const prefix = lvlIdx === 1 ? "Secondary Packout  -- " : "";
-              const lvl = packagingLevels[lvlIdx];
-              const name = lvl ? (lvl.customLevelName?.trim() || lvl.packagingLevel || lvl.packagingType || sr.label) : sr.label;
-              const desc = isLvl1
-                ? `Product Filling, Handling, & Intake (receiving, inspection, staging)  -- ${name}`
-                : `${prefix}${name}`;
-              rows.push({
-                rowIdx: rowIdx++,
-                desc,
-                qty,
-                total: sr.customerPrice + (isLvl1 ? hiddenLevel1Total + foldedProcessTotal : 0),
-                summaryLabel: sr.label,
-                levelIdx: lvlIdx,
-              });
-            }
-          });
-
-          // Processes marked "as line item" appear after Level 1
-          const level1RowIdx = rows.findIndex(r => r.levelIdx === 0);
-          const lineItemProcs = coPackingProcesses.filter(p => processIncluded[p.id] === 'line');
-          if (lineItemProcs.length > 0 && level1RowIdx >= 0) {
-            lineItemProcs.forEach((proc, i) => {
-              const pc = procCosts[coPackingProcesses.indexOf(proc)];
-              const qty = proc.units > 0 ? proc.units : null;
-              rows.splice(level1RowIdx + 1 + i, 0, {
-                rowIdx: rowIdx++,
-                desc: proc.name || `Process ${coPackingProcesses.indexOf(proc) + 1}`,
-                qty,
-                total: pc.custCost,
-                summaryLabel: `__proc_${proc.id}`,
-                levelIdx: null,
-              });
-            });
-          }
-
+          const rows = overviewRows;
           const grandTotal = rows.reduce((s, r) => s + r.total, 0);
-          const hasProcesses = coPackingProcesses.length > 0;
+          const includedProcesses = quoteCostProcesses;
+          const procCosts = quoteProcessCostSummary.rows.map(row => ({
+            ourCost: row.laborOur,
+            custCost: row.laborCust,
+            hrsRequired: row.laborOur > 0 ? row.laborOur / ((quoteCostProcesses[quoteProcessCostSummary.rows.indexOf(row)]?.laborRate || 1) * (quoteCostProcesses[quoteProcessCostSummary.rows.indexOf(row)]?.numStaff || 1)) : 0,
+          }));
+          const hasProcesses = includedProcesses.length > 0;
 
           return (
-            <div className="border border-gray-100 rounded-sm overflow-hidden mb-4">
+            <div className="border border-gray-100 rounded-sm overflow-x-auto mb-4">
               <div className="bg-gray-50 border-b border-gray-100 px-3 py-2">
                 <span className="text-xs font-semibold text-black uppercase tracking-wide">Overview</span>
               </div>
@@ -657,11 +953,16 @@ export default function QuotePage() {
                     <th className={thr}>Delivered Qty</th>
                     <th className={thr}>PPU</th>
                     <th className={thr}>Total</th>
+                    <th className={thr}>Project Cost</th>
+                    <th className={thr}>Margin $</th>
+                    <th className={thr}>Margin %</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => {
                     const ppu = row.qty && row.qty > 0 ? row.total / row.qty : row.total;
+                    const marginDollars = row.total - row.ourCost;
+                    const marginPct = row.total > 0 ? (marginDollars / row.total) * 100 : 0;
                     const isExpanded = !!overviewExpanded[row.rowIdx];
                     const detail = row.levelIdx !== null ? detailForLabel(row.summaryLabel) : null;
                     const charges = row.levelIdx !== null ? manualChargesForLevelIdx(row.levelIdx) : [];
@@ -684,13 +985,16 @@ export default function QuotePage() {
                           <td className={tdr}>{row.qty != null ? fmtQty0(row.qty) : " --"}</td>
                           <td className={tdr}>{ppu > 0 ? fmtPPU2(ppu) : " --"}</td>
                           <td className={tdr}>{fmt(row.total)}</td>
+                          <td className={tdr}>{fmt(row.ourCost)}</td>
+                          <td className={`${tdr} ${marginDollars >= 0 ? "text-green-700" : "text-red-500"}`}>{fmt(marginDollars)}</td>
+                          <td className={`${tdr} ${marginPct >= 0 ? "text-green-700" : "text-red-500"}`}>{fmtPct(marginPct)}</td>
                         </tr>
 
                         {/* -- Breakdown dropdown -- */}
                         {isExpanded && hasDetail && (
                           <tr key={`${row.rowIdx}-detail`} className="border-b border-gray-100">
                             <td />
-                            <td colSpan={4} className="px-4 py-2 bg-gray-50/60">
+                            <td colSpan={7} className="px-4 py-2 bg-gray-50/60">
                               <div className="space-y-1">
 
                                 {/* Detail section rows (packaging cost breakdown) */}
@@ -715,11 +1019,11 @@ export default function QuotePage() {
                                     <div className="grid text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1 pr-1" style={{ gridTemplateColumns: "1fr 80px 80px 80px auto" }}>
                                       <span>Name</span>
                                       <span className="text-right">Hrs</span>
-                                      <span className="text-right">Our Cost</span>
+                                      <span className="text-right">Project Cost</span>
                                       <span className="text-right">Customer</span>
                                       <span className="text-center">Include As</span>
                                     </div>
-                                    {coPackingProcesses.map((proc, pi) => {
+                                    {includedProcesses.map((proc, pi) => {
                                       const pc = procCosts[pi];
                                       const mode = processIncluded[proc.id] ?? `total`;
                                       const procOpts = [
@@ -779,12 +1083,117 @@ export default function QuotePage() {
                     <td className={`${td} font-bold italic`}>TOTAL</td>
                     <td /><td />
                     <td className={`${tdr} font-bold`}>{fmt(grandTotal)}</td>
+                    <td className={`${tdr} font-bold`}>{fmt(rows.reduce((s, r) => s + r.ourCost, 0))}</td>
+                    <td className={`${tdr} font-bold text-green-700`}>{fmt(grandTotal - rows.reduce((s, r) => s + r.ourCost, 0))}</td>
+                    <td className={`${tdr} font-bold text-green-700`}>{fmtPct(grandTotal > 0 ? ((grandTotal - rows.reduce((s, r) => s + r.ourCost, 0)) / grandTotal) * 100 : 0)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           );
         })()}
+
+        {activeSummaryRows.length > 0 && (
+          <div className="w-full max-w-3xl border border-gray-100 rounded-sm overflow-hidden mb-4">
+            <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-black uppercase tracking-wide shrink-0">Timeline & Delivery</span>
+              <div className="ml-auto flex items-center gap-0 h-8 border border-gray-200 overflow-hidden bg-white">
+                <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap px-2 bg-gray-50 h-full flex items-center border-r border-gray-200">
+                  Start Date
+                </span>
+                <div className="w-36">
+                  <DatePicker
+                    value={formData.startDate}
+                    onChange={(v) => setFormField("startDate", v)}
+                    placeholder="Pick date"
+                  />
+                </div>
+              </div>
+            </div>
+            <table className="w-full border-collapse table-fixed">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="py-2 px-3 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900">Section</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900 w-32">Days</th>
+                  <th className="py-2 px-3 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider border-b-2 border-gray-900 w-32">Weeks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leadTimeScheduleRows.length === 0 ? (
+                  <tr className="border-b border-gray-100">
+                    <td colSpan={3} className="py-3 px-3 text-xs text-zinc-600 italic">
+                      No process or packout lead time has been calculated yet.
+                    </td>
+                  </tr>
+                ) : leadTimeScheduleRows.map((row) => (
+                  <tr
+                    key={row.label}
+                    className={`border-b border-gray-100 last:border-0 ${
+                      row.kind === "total" ? "bg-sky-50 font-bold border-t-2 border-gray-900" : row.kind === "original" ? "bg-gray-50 font-semibold border-t border-gray-200" : row.kind === "buffer" ? "bg-amber-50/40" : "hover:bg-gray-50/50"
+                    }`}
+                  >
+                    <td className={`${td} ${row.kind === "total" ? "font-bold italic" : row.kind === "original" ? "font-semibold italic" : "font-medium"}`}>{row.label}</td>
+                    <td className={`${tdr} ${row.kind === "total" || row.kind === "original" ? "font-bold" : ""}`}>{fmtDays(row.days)}</td>
+                    <td className={`${tdr} ${row.kind === "total" || row.kind === "original" ? "font-bold" : "font-semibold"}`}>{fmtWeeks(row.weeks)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="bg-gray-50 border-t border-gray-100 px-3 py-3 flex items-center gap-3 flex-wrap">
+              <span className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap">
+                Lead Time Buffer
+              </span>
+              <div className="flex items-center h-9 border border-gray-200 overflow-hidden bg-white">
+                <input
+                  type="number"
+                  value={
+                    bufferUnit === "weeks"
+                      ? formData.leadTimeBufferDays ? (parseFloat(formData.leadTimeBufferDays) / 5).toFixed(1) : ""
+                      : formData.leadTimeBufferDays
+                  }
+                  onChange={(e) => {
+                    const raw = parseFloat(e.target.value);
+                    if (isNaN(raw)) { setFormField("leadTimeBufferDays", ""); return; }
+                    setFormField("leadTimeBufferDays", bufferUnit === "weeks" ? String(Math.round(raw * 5)) : String(raw));
+                  }}
+                  className="w-28 h-full px-3 text-sm text-right bg-white border-r border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#e8473f] font-semibold"
+                  placeholder="0"
+                  step={bufferUnit === "weeks" ? "0.5" : "1"}
+                />
+                {(["days", "weeks"] as const).map((u) => (
+                  <button
+                    type="button"
+                    key={u}
+                    onClick={() => setBufferUnit(u)}
+                    className={`h-9 px-3 text-[0.65rem] font-semibold transition-colors ${
+                      bufferUnit === u ? "bg-[#e8473f] text-white" : "text-zinc-600 hover:text-zinc-800 bg-white"
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+              <div className="ml-auto grid grid-cols-2 gap-2">
+                <div className="min-w-44 border border-gray-200 bg-white px-3 py-2">
+                  <div className="text-[0.58rem] font-semibold uppercase tracking-wider text-zinc-500">Original Lead Time</div>
+                  <div className="mt-1 text-xs font-bold text-zinc-900">
+                    {fmtDays(originalLeadTime.days)} days
+                    <span className="mx-1 text-zinc-300">/</span>
+                    {fmtWeeks(originalLeadTime.weeks)} weeks
+                  </div>
+                </div>
+                <div className="min-w-44 border border-sky-200 bg-sky-50 px-3 py-2">
+                  <div className="text-[0.58rem] font-semibold uppercase tracking-wider text-sky-700">Final Lead Time</div>
+                  <div className="mt-1 text-xs font-bold text-zinc-950">
+                    {fmtDays(finalLeadTimeRow?.days ?? originalLeadTime.days)} days
+                    <span className="mx-1 text-sky-300">/</span>
+                    {fmtWeeks(finalLeadTimeRow?.weeks ?? originalLeadTime.weeks)} weeks
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* -- Tiers + Scenario -- */}
         {(<>
@@ -876,7 +1285,7 @@ export default function QuotePage() {
                         : "bg-gray-100 text-zinc-600 hover:bg-gray-200"
                     }`}
                   >
-                    {r.moqRow.moq || " --"} MOQ · {r.casePack}pk
+                    {r.moqRow.moq || " --"} MOQ  -  {r.casePack}pk
                   </button>
                 ))}
                 {activeMoqResult && (
@@ -1079,14 +1488,14 @@ export default function QuotePage() {
                     )}
                     <details className="group">
                       <summary className="cursor-pointer text-[0.65rem] font-semibold text-zinc-600 hover:text-zinc-700 uppercase tracking-wider select-none list-none flex items-center gap-1">
-                        <span className="group-open:rotate-90 transition-transform inline-block">â–¶</span>
+                        <span className="group-open:rotate-90 transition-transform inline-block">{">"}</span>
                         Full cost breakdown ({parsedQty.toLocaleString()} units)
                       </summary>
                       <table className="w-full border-collapse mt-2">
                         <thead>
                           <tr className="border-b border-gray-200">
                             <th className="py-1.5 px-2 text-left text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Line Item</th>
-                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Our Cost</th>
+                            <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Project Cost</th>
                             <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Cost PPU</th>
                             <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Customer Price</th>
                             <th className="py-1.5 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider">Cust. PPU</th>
@@ -1128,12 +1537,6 @@ export default function QuotePage() {
 
       </div>
 
-      {crmStatus === "error" && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-xs font-medium px-4 py-2 rounded-lg shadow-lg">
-          {crmError || "Failed to push to CRM"}
-          <button type="button" onClick={() => setCrmStatus("idle")} className="text-red-400 hover:text-red-700 text-sm leading-none ml-1">×</button>
-        </div>
-      )}
     </main>
   );
 }

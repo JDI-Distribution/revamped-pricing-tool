@@ -11,7 +11,7 @@ interface Props {
   sections: SidebarSection[];
 }
 
-// Navbar height = py-3 (12px × 2) + md:h-10 logo (40px) = 64px = top-16
+// Navbar height = py-3 (12px x 2) + md:h-10 logo (40px) = 64px = top-16
 const NAVBAR_H = 64;
 
 export default function SectionSidebar({ sections }: Props) {
@@ -106,7 +106,7 @@ export default function SectionSidebar({ sections }: Props) {
 
   return (
     <>
-      {/* ── Desktop sidebar — fixed, starts below navbar (top-16 = 64px) ── */}
+      {/* -- Desktop sidebar - fixed, starts below navbar (top-16 = 64px) -- */}
       <aside
         className="hidden lg:flex flex-col fixed left-0 bottom-0 w-42 bg-[#fafafa] border-r border-gray-200 z-30"
         style={{ top: NAVBAR_H }}
@@ -119,7 +119,7 @@ export default function SectionSidebar({ sections }: Props) {
         </div>
       </aside>
 
-      {/* ── Mobile hamburger ── */}
+      {/* -- Mobile hamburger -- */}
       <div className="lg:hidden fixed bottom-5 left-4 z-40">
         <button
           type="button"
@@ -130,7 +130,7 @@ export default function SectionSidebar({ sections }: Props) {
         </button>
       </div>
 
-      {/* ── Mobile overlay ── */}
+      {/* -- Mobile overlay -- */}
       {mobileOpen && (
         <div
           className="lg:hidden fixed inset-0 z-39 bg-black/30"

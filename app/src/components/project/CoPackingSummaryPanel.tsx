@@ -1,4 +1,4 @@
-import { useProject } from "@/lib/ProjectContext";
+﻿import { useProject } from "@/lib/ProjectContext";
 
 const fmt  = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtN = (n: number, dec = 0) => n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -26,7 +26,7 @@ export default function CoPackingSummaryPanel() {
             <tr className="border-b border-gray-100">
               <th className="text-left text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest pb-2 px-2">Line Item</th>
               <th className={thCls}>Qty</th>
-              <th className={thCls}>Our Cost</th>
+              <th className={thCls}>Project Cost</th>
               <th className={thCls}>Price</th>
               <th className={thCls}>PPU</th>
             </tr>
@@ -60,7 +60,7 @@ export default function CoPackingSummaryPanel() {
       {/* Margin summary */}
       <div className="border border-gray-100 rounded-lg p-3 grid grid-cols-3 gap-3">
         <div className="text-center">
-          <p className="text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest mb-0.5">Our Cost</p>
+          <p className="text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest mb-0.5">Project Cost</p>
           <p className="text-sm font-bold text-zinc-900">{fmt(totalOur)}</p>
         </div>
         <div className="text-center border-x border-gray-100">

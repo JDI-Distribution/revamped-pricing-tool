@@ -46,27 +46,27 @@ export default function CpoOutputsPanel({ style }: Props) {
         const name = lvl.customLevelName?.trim() || lvl.packagingLevel || `Level ${i + 1}`;
         return (
           <div key={lvl.id} className={ROW}>
-            <span className={LBL}>Total Kit Units — {name}</span>
-            <span className={VAL}>{qty > 0 ? fmtN(qty) : "—"}</span>
+            <span className={LBL}>Total Kit Units - {name}</span>
+            <span className={VAL}>{qty > 0 ? fmtN(qty) : "-"}</span>
           </div>
         );
       })}
 
       <div className={ROW}>
         <span className={LBL}>Total Grams Req (g)</span>
-        <span className={VAL}>{totalGramsReq > 0 ? fmtN(totalGramsReq) : "—"}</span>
+        <span className={VAL}>{totalGramsReq > 0 ? fmtN(totalGramsReq) : "-"}</span>
       </div>
       <div className={ROW}>
-        <span className={LBL}>Project / Line Setup + QA — Our Cost</span>
-        <span className={VAL}>{setupOur > 0 ? fmtD(setupOur) : "—"}</span>
+        <span className={LBL}>Project / Line Setup + QA - Project Cost</span>
+        <span className={VAL}>{setupOur > 0 ? fmtD(setupOur) : "-"}</span>
       </div>
       <div className={ROW}>
-        <span className={LBL}>Lead Time — Days</span>
-        <span className={VAL}>{leadDays > 0 ? fmtN(leadDays) : "—"}</span>
+        <span className={LBL}>Lead Time - Days</span>
+        <span className={VAL}>{leadDays > 0 ? fmtN(leadDays) : "-"}</span>
       </div>
       <div className={ROW}>
-        <span className={LBL}>Lead Time — Weeks</span>
-        <span className={VAL}>{leadDays > 0 ? (leadDays / 7).toFixed(1) : "—"}</span>
+        <span className={LBL}>Lead Time - Weeks</span>
+        <span className={VAL}>{leadDays > 0 ? (leadDays / 7).toFixed(1) : "-"}</span>
       </div>
     </div>
   );

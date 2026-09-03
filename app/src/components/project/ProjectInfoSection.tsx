@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useProject } from "@/lib/ProjectContext";
 import { BRANDS } from "@/lib/generateQuotePDF";
+import type { PackagingLevel } from "@/lib/types";
 import CompanySearchInput from "./CompanySearchInput";
+import DealSearchInput from "./DealSearchInput";
 
 const labelCls = "text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1 block";
 const inputCls =
@@ -19,9 +21,94 @@ function GroupDivider({ label }: { label: string }) {
   );
 }
 
+const formatWhole = (value: number) => Math.round(value).toLocaleString("en-US");
+
+const formatWeeks = (daysText: string) => {
+  const days = parseFloat(daysText || "0") || 0;
+  if (days <= 0) return "";
+  const weeks = days / 7;
+  return Number.isInteger(weeks) ? String(weeks) : weeks.toFixed(1).replace(/\.0$/, "");
+};
+
+const levelLabel = (level?: PackagingLevel) => {
+  const raw = (level?.pdfLabel || level?.customLevelName || level?.packagingLevel || level?.packagingType || "").trim();
+  return raw || "finished units";
+};
+
+const levelTypeLabel = (level?: PackagingLevel) => {
+  const raw = (level?.customTypeName || level?.packagingType || "").trim();
+  return raw && raw !== "-- select type --" ? raw : "";
+};
+
+const levelQty = (level?: PackagingLevel) => {
+  if (!level) return 0;
+  return Number(level.cpoRequiredQty ?? level.units ?? 0) || 0;
+};
+
 export default function ProjectInfoSection() {
-  const { customer, setCustomerField, selectedBrand, setSelectedBrand } = useProject();
+  const { customer, setCustomerField, selectedBrand, setSelectedBrand, packagingLevels, formData } = useProject();
   const [open, setOpen] = useState(true);
+  const lastGeneratedOverview = useRef("");
+
+  const generatedOverview = useMemo(() => {
+    const firstLevel = packagingLevels[0];
+    const sellableQty = levelQty(firstLevel) || (parseFloat(formData.ppuDenominator || "0") || 0);
+    const qtyText = sellableQty > 0 ? formatWhole(sellableQty) : "TBD";
+    const productName = (customer.productName || "Product").trim();
+    const firstLabel = levelLabel(firstLevel);
+    const firstType = levelTypeLabel(firstLevel);
+    const unitSize = parseFloat(formData.unitWeight || "0") || 0;
+    const unitSizeText = unitSize > 0 ? `${formData.unitWeight} ${formData.unitWeightUnit || "g"}` : "";
+
+    const introParts = [
+      `${qtyText} Units`,
+      unitSizeText ? `${unitSizeText} per unit` : "",
+      `${firstType || productName} packed into ${qtyText} ${firstLabel}`,
+    ].filter(Boolean);
+
+    const hierarchy = packagingLevels.slice(1)
+      .map((level) => {
+        const label = levelLabel(level);
+        const perOuter = Number(level.perOuter || 0) || 0;
+        const qty = levelQty(level);
+        if (perOuter > 0) return `${formatWhole(perOuter)} ct ${label}`;
+        if (qty > 0) return `${formatWhole(qty)} ${label}`;
+        return label;
+      })
+      .filter(Boolean);
+
+    const packout = hierarchy.length > 0
+      ? `${qtyText} units would be packed out into ${hierarchy.join(", then ")}.`
+      : "";
+    const weeks = formatWeeks(formData.leadTimeBufferDays);
+    const leadTime = weeks ? `Lead time is approx ${weeks} wks.` : "";
+
+    return [
+      `Project Overview: ${introParts.join(", ")}.`,
+      packout,
+      "Shipping/ freight not included.",
+      leadTime,
+    ].filter(Boolean).join(" ");
+  }, [
+    customer.productName,
+    formData.leadTimeBufferDays,
+    formData.ppuDenominator,
+    formData.unitWeight,
+    formData.unitWeightUnit,
+    packagingLevels,
+  ]);
+
+  useEffect(() => {
+    const current = (customer.projectOverview || "").trim();
+    const previousGenerated = lastGeneratedOverview.current.trim();
+    const shouldUseGenerated = !current || (previousGenerated && current === previousGenerated);
+
+    if (generatedOverview && shouldUseGenerated && current !== generatedOverview.trim()) {
+      setCustomerField("projectOverview", generatedOverview);
+    }
+
+    lastGeneratedOverview.current = generatedOverview;
+  }, [customer.projectOverview, generatedOverview, setCustomerField]);
 
   return (
     <div id="section-project-info" className="bg-white border border-gray-200 rounded-xl mx-4 md:mx-6 mt-4 mb-4 overflow-hidden max-w-4xl">
@@ -39,12 +126,16 @@ export default function ProjectInfoSection() {
 
         {open && (
           <div className="max-w-4xl">
-            {/* ── CUSTOMER INFO ── */}
+            {/* -- CUSTOMER INFO -- */}
             <GroupDivider label="Customer Info" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
-              <div>
+              <div className="col-span-2">
                 <label className={labelCls}>Account Name</label>
                 <CompanySearchInput />
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>Deal Search</label>
+                <DealSearchInput />
               </div>
               <div>
                 <label className={labelCls}>Customer ID</label>
@@ -72,7 +163,7 @@ export default function ProjectInfoSection() {
               </div>
             </div>
 
-            {/* ── PRODUCT ── */}
+            {/* -- PRODUCT -- */}
             <GroupDivider label="Product" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
               <div className="col-span-2">
@@ -90,7 +181,7 @@ export default function ProjectInfoSection() {
               </div>
             </div>
 
-            {/* ── SALES REPRESENTATIVE ── */}
+            {/* -- SALES REPRESENTATIVE -- */}
             <GroupDivider label="Sales Representative" />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
               <div className="col-span-2">
@@ -123,13 +214,24 @@ export default function ProjectInfoSection() {
 
             {/* Project Overview */}
             <div className="mt-4">
-              <label className={labelCls}>Project Overview (leave blank to auto-generate)</label>
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <label className="text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-wider block">
+                  Project Overview (auto-generated; editable)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCustomerField("projectOverview", generatedOverview)}
+                  className="h-6 px-2 text-[0.6rem] font-semibold text-zinc-700 bg-white border border-gray-200 rounded hover:border-[#e8473f] hover:text-[#e8473f] transition"
+                >
+                  Reset to generated
+                </button>
+              </div>
               <textarea
                 value={customer.projectOverview}
                 onChange={(e) => setCustomerField("projectOverview", e.target.value)}
                 rows={2}
                 className="w-full px-2.5 py-1.5 text-xs text-zinc-950 border border-orange-300 bg-orange-100/80 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-600 resize-none"
-                placeholder="Auto-generated from project data if left blank…"
+                placeholder="Auto-generated from project data..."
               />
             </div>
           </div>

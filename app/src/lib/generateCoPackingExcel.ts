@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { CoPackingState, CoPackingResult } from "./types";
 import { BrandId, CustomerInfo } from "./generateQuotePDF";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const currFmt   = '"$"#,##0.00';
 const ppuFmt    = '"$"#,##0.0000';
 const intFmt    = "#,##0";
@@ -26,7 +26,7 @@ function headerRow(row: ExcelJS.Row, bgColor = "FFE8E8E8") {
   row.eachCell(cell => { bold(cell); bg(cell, bgColor); border(cell); cell.alignment = { vertical: "middle" }; });
 }
 
-// ── Sheet 1: Customer View – Quote ───────────────────────────────────────────
+// â"€â"€ Sheet 1: Customer View - Quote â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function buildCustomerSheet(
   ws: ExcelJS.Worksheet,
   results: CoPackingResult[],
@@ -95,7 +95,7 @@ function buildCustomerSheet(
   assumptionsRow.getCell(1).font = { italic: true, size: 9 };
 }
 
-// ── Sheet 2: Overview ─────────────────────────────────────────────────────────
+// â"€â"€ Sheet 2: Overview â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function buildOverviewSheet(
   ws: ExcelJS.Worksheet,
   results: CoPackingResult[],
@@ -151,7 +151,7 @@ function buildOverviewSheet(
   const rh = ws.getRow(1);
   rh.getCell(7).value = "Total Project Costs";
   rh.getCell(8).value = "Customer Price";
-  rh.getCell(9).value = "Our Costs";
+  rh.getCell(9).value = "Project Costs";
   rh.getCell(10).value = "Margin %";
   [7, 8, 9, 10].forEach(i => { bold(rh.getCell(i)); bg(rh.getCell(i), "FFE8E8E8"); border(rh.getCell(i)); });
 
@@ -197,7 +197,7 @@ function buildOverviewSheet(
   });
 }
 
-// ── Sheet 3: Co-Packing Pricing (internal costing) ───────────────────────────
+// â"€â"€ Sheet 3: Co-Packing Pricing (internal costing) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function buildCostingSheet(
   ws: ExcelJS.Worksheet,
   s: CoPackingState,
@@ -233,7 +233,7 @@ function buildCostingSheet(
     });
   };
 
-  // ── Project Overview ──
+  // â"€â"€ Project Overview â"€â"€
   section(ws.getRow(rowN++), "Customer Project Overview");
   addRows([
     ["Units Delivered",        s.unitsDelivered],
@@ -242,10 +242,10 @@ function buildCostingSheet(
     ["Units / Inner",          s.sachetsPerInner],
     ["Inners / Master",       s.innersPerMaster],
     ["Setup Fee (Customer)",  s.setupFeeCustomer],
-    ["Setup Fee (Our Cost)",  s.setupFeeOurCost],
+    ["Setup Fee (Project Cost)",  s.setupFeeOurCost],
   ], lbl => lbl.includes("Fee") || lbl.includes("Grams") ? currFmt : undefined);
 
-  // ── Inbound ──
+  // â"€â"€ Inbound â"€â"€
   const inboundResult = results.find(r => r.label.toLowerCase().includes("inbound"));
   if (inboundResult) {
     section(ws.getRow(rowN++), "Inbound Material Handling");
@@ -257,13 +257,13 @@ function buildCostingSheet(
       ["Testing Cost / SKU",       s.testingRows?.reduce((sum, r) => sum + (r.cost ?? 0), 0) ?? 0],
       ["# of SKUs",               s.numSkus],
       ["Testing Fee Markup %",    (s.testingMarkup ?? 0.20) * 100],
-      ["Our Cost",                inboundResult.ourCost],
+      ["Project Cost",                inboundResult.ourCost],
       ["Customer Price",          inboundResult.customerPrice],
       ["PPU (per gram)",          inboundResult.ppu],
     ], lbl => lbl.includes("Cost") || lbl.includes("Price") || lbl.includes("Fee / P") ? currFmt : lbl.includes("PPU") ? ppuFmt : undefined);
   }
 
-  // ── Packaging & Packout (per-column loop, mirrors coPackingCalculations.ts) ──
+  // â"€â"€ Packaging & Packout (per-column loop, mirrors coPackingCalculations.ts) â"€â"€
   const cpSummaryRows = s.coPackingPackagingSummaryRows ?? [];
   const cpCols        = s.coPackingColumns ?? [];
   cpCols.forEach((col, i) => {
@@ -277,7 +277,7 @@ function buildCostingSheet(
     const effectiveRate = nominal * (1 - col.efficiencyBuffer);
     const calcHrs = effectiveRate > 0 ? (unitsReq / effectiveRate) / 60 : 0;
     const colResult = results[results.findIndex(r => r.label === (col.type || sRow.packagingLevel || `Packaging Level ${i + 1}`))];
-    section(ws.getRow(rowN++), `${sRow.packagingLevel || `Level ${i + 1}`} – ${col.type || "Packaging"}`);
+    section(ws.getRow(rowN++), `${sRow.packagingLevel || `Level ${i + 1}`} - ${col.type || "Packaging"}`);
     addRows([
       ["Delivered Qty",          deliveredQty],
       ["Overage Rate %",         col.overageRate * 100],
@@ -290,13 +290,13 @@ function buildCostingSheet(
       ["Labor Markup %",         col.laborMarkup * 100],
       ["Unit Cost Markup %",     col.unitCostMarkup * 100],
       ["Packaging Cost / unit",  sRow.costPerUnit],
-      ["Our Cost",               colResult?.ourCost ?? 0],
+      ["Project Cost",               colResult?.ourCost ?? 0],
       ["Customer Price",         colResult?.customerPrice ?? 0],
       ["PPU",                    colResult?.ppu ?? 0],
     ], lbl => lbl.includes("Cost") || lbl.includes("Price") ? currFmt : lbl === "PPU" ? ppuFmt : lbl.includes("Hours") ? "0.00" : undefined);
   });
 
-  // ── Palletization ──
+  // â"€â"€ Palletization â"€â"€
   const palletResult = results.find(r => r.label.toLowerCase().includes("pallet"));
   if (palletResult) {
     section(ws.getRow(rowN++), "Palletization & Outbound");
@@ -304,19 +304,19 @@ function buildCostingSheet(
       ["# of Outbound Pallets",  s.outboundPallets],
       ["Outbound Fee / Pallet",  s.outboundFeePerPallet],
       ["Outbound Markup %",      s.outboundMarkup * 100],
-      ["Our Cost",               palletResult.ourCost],
+      ["Project Cost",               palletResult.ourCost],
       ["Customer Price",         palletResult.customerPrice],
     ], lbl => lbl.includes("Cost") || lbl.includes("Price") || lbl.includes("Fee") ? currFmt : undefined);
   }
 
-  // ── Totals ──
+  // â"€â"€ Totals â"€â"€
   const soTot = ws.getRow(rowN++); section(soTot, "Project Totals");
   const totalOur = results.reduce((s, r) => s + r.ourCost, 0);
   const totalCx  = results.reduce((s, r) => s + r.customerPrice, 0);
   const margin   = totalCx > 0 ? ((totalCx - totalOur) / totalCx) * 100 : 0;
 
   [
-    ["Total Our Cost", totalOur],
+    ["Total Project Cost", totalOur],
     ["Total Customer Price", totalCx],
     ["Overall Margin %", margin],
   ].forEach(([lbl, val]) => {
@@ -331,7 +331,7 @@ function buildCostingSheet(
   });
 }
 
-// ── Main export function ───────────────────────────────────────────────────────
+// â"€â"€ Main export function â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export interface CoPackingExcelArgs {
   brandId:          BrandId;
   customer:         CustomerInfo;

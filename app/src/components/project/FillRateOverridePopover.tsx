@@ -37,7 +37,7 @@ export default function FillRateOverridePopover({ row, columns, onSave, onClose 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
           <div>
-            <p className="text-xs font-semibold text-zinc-900">⚙ Fill Rate Overrides</p>
+            <p className="text-xs font-semibold text-zinc-900">gear Fill Rate Overrides</p>
             <p className="text-[0.6rem] text-zinc-600 mt-0.5">{moqQty.toLocaleString()} units row</p>
           </div>
           <button type="button" onClick={onClose} className="text-zinc-600 hover:text-zinc-700 transition-colors">
@@ -97,7 +97,7 @@ type="button"                       onClick={() => set(col.id, "")}
 
           {hasAny && (
             <p className="text-[0.6rem] text-[#e8473f] font-medium">
-              ⚙ {Object.values(overrides).filter(v => v !== "").length} override(s) active for this row
+              gear {Object.values(overrides).filter(v => v !== "").length} override(s) active for this row
             </p>
           )}
         </div>

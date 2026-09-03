@@ -25,7 +25,7 @@ const fmt      = (val: number) => val.toLocaleString("en-US", { style: "currency
 const fmtPct   = (val: number) => `${val.toFixed(1)}%`;
 const calcMargin = (price: number, cost: number) => price > 0 ? ((price - cost) / price) * 100 : 0;
 
-// ── UOM helpers ───────────────────────────────────────────────────────────────
+// â"€â"€ UOM helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const LEAD_TIME_UNITS  = ["wks", "days", "hrs", "mins"] as const;
 const THROUGHPUT_UNITS = ["/ hr", "/ min", "/ shift", "/ day"] as const;
 type LeadTimeUnit   = typeof LEAD_TIME_UNITS[number];
@@ -42,15 +42,15 @@ const fmtThroughput = (perHr: number, unit: ThroughputUnit) => {
   return `${val.toLocaleString("en-US", { maximumFractionDigits: val < 1 ? 3 : 1 })}${unit}`;
 };
 
-// ── Null-safe data cell ───────────────────────────────────────────────────────
+// â"€â"€ Null-safe data cell â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function DataCell({ val, formatter, bold }: { val: number | null; formatter: (v: number) => string; bold?: boolean }) {
   const cls = `py-2 px-2 text-right text-xs ${bold ? "font-bold text-zinc-950" : "text-zinc-800"}`;
   if (val === null || val === 0)
-    return <td className={`${cls} text-zinc-500`}>—</td>;
+    return <td className={`${cls} text-zinc-500`}>-</td>;
   return <td className={cls}>{formatter(val)}</td>;
 }
 
-// ── UOM dropdown inside a <th> ────────────────────────────────────────────────
+// â"€â"€ UOM dropdown inside a <th> â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function UomSelect<T extends string>({ value, options, onChange }: { value: T; options: readonly T[]; onChange: (v: T) => void }) {
   return (
     <select
@@ -77,7 +77,7 @@ export default function SummaryTables({
   const [leadTimeUnit,    setLeadTimeUnit]    = useState<LeadTimeUnit>("wks");
   const [throughputUnit,  setThroughputUnit]  = useState<ThroughputUnit>("/ hr");
 
-  // ── Totals ────────────────────────────────────────────────────
+  // â"€â"€ Totals â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const totalCustomerPrice = summaryRows.reduce((s, r) => s + r.customerPrice, 0);
   const totalOurCosts      = summaryRows.reduce((s, r) => s + r.ourCosts, 0);
   const totalMarginDollars = totalCustomerPrice - totalOurCosts;
@@ -86,7 +86,7 @@ export default function SummaryTables({
   const ppuCustomer        = ppuUnits > 0 ? totalCustomerPrice / ppuUnits : 0;
   const ppuCost            = ppuUnits > 0 ? totalOurCosts / ppuUnits : 0;
 
-  // ── Active combo ──────────────────────────────────────────────
+  // â"€â"€ Active combo â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const activeCombo       = comboViews.find((cv) => cv.id === selectedCombo);
   const activeRows        = selectedCombo === "all" ? summaryTableRows : (activeCombo?.summaryTableRows ?? summaryTableRows);
   const activeSections    = selectedCombo === "all" ? detailSections   : (activeCombo?.detailSections   ?? detailSections);
@@ -95,7 +95,7 @@ export default function SummaryTables({
   const activeTotalCost   = activeRows.reduce((s, r) => s + (r.totalCost  ?? 0), 0);
   const activeTotalPrice  = activeRows.reduce((s, r) => s + (r.totalPrice ?? 0), 0);
 
-  // ── Build a label→section lookup for the pivot ───────────────
+  // â"€â"€ Build a label->section lookup for the pivot â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   // summaryTableRows and detailSections share the same labels
   const sectionByLabel = new Map(activeSections.map((s) => [s.title, s]));
 
@@ -106,13 +106,13 @@ export default function SummaryTables({
       return next;
     });
 
-  // ── Style tokens ──────────────────────────────────────────────
+  // â"€â"€ Style tokens â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const thBase   = "py-2 px-2 text-right text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider whitespace-nowrap border-b-2 border-gray-900";
 
   return (
     <div className="p-4 flex flex-col gap-3">
 
-      {/* ══ Unified Details table ══════════════════════════════════ */}
+      {/* â-â- Unified Details table â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â- */}
       <div className="border border-gray-100 rounded-sm overflow-hidden">
 
         {/* Header bar */}
@@ -152,7 +152,7 @@ export default function SummaryTables({
                 {/* 6 */}
                 <th className={thBase}>Total</th>
                 {/* 7 */}
-                <th className={thBase}>Our Cost</th>
+                <th className={thBase}>Project Cost</th>
                 {/* 8 */}
                 <th className={thBase}>Margin $$</th>
                 {/* 9 */}
@@ -177,7 +177,7 @@ export default function SummaryTables({
               {activeRows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-4 text-center text-xs text-zinc-600 italic">
-                    No data yet — fill in project details and columns
+                    No data yet - fill in project details and columns
                   </td>
                 </tr>
               ) : activeRows.map((row) => {
@@ -186,17 +186,17 @@ export default function SummaryTables({
                   return (
                     <tr key={row.label} className={`border-b border-gray-100 ${isTotalRow ? "bg-blue-50/60" : "bg-gray-50/30"}`}>
                       <td className={`py-2 px-2 text-xs ${isTotalRow ? "font-semibold text-zinc-950" : "text-zinc-600 pl-5"}`}>{row.label}</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                      <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                      <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
                       <td className={`py-2 px-2 text-right text-xs ${isTotalRow ? "font-semibold text-zinc-950" : "text-zinc-700"}`}>
-                        {row.leadTimeWeeks !== null ? fmtLeadTime(row.leadTimeWeeks, leadTimeUnit) : "—"}
+                        {row.leadTimeWeeks !== null ? fmtLeadTime(row.leadTimeWeeks, leadTimeUnit) : "-"}
                       </td>
                     </tr>
                   );
@@ -214,7 +214,7 @@ export default function SummaryTables({
 
                 return (
                   <Fragment key={row.label}>
-                    {/* ── Summary row ── */}
+                    {/* â"€â"€ Summary row â"€â"€ */}
                     <tr
                       onClick={() => hasDetail && toggleRow(row.label)}
                       className={`border-b border-gray-100 ${hasDetail ? "cursor-pointer hover:bg-gray-50/70" : "hover:bg-gray-50/30"}`}
@@ -245,7 +245,7 @@ export default function SummaryTables({
                       <DataCell val={row.costPerUnit}   formatter={fmt} />
                       {/* 6 Total (Customer Price) */}
                       <DataCell val={custPrice || null} formatter={fmt} />
-                      {/* 7 Our Cost */}
+                      {/* 7 Project Cost */}
                       <DataCell val={ourCost   || null} formatter={fmt} />
                       {/* 8 Margin $$ */}
                       <DataCell val={marginD   || null} formatter={fmt} />
@@ -257,54 +257,54 @@ export default function SummaryTables({
                       <DataCell val={row.leadTimeWeeks} formatter={(v) => fmtLeadTime(v, leadTimeUnit)} />
                     </tr>
 
-                    {/* ── Expanded detail sub-rows ── */}
+                    {/* â"€â"€ Expanded detail sub-rows â"€â"€ */}
                     {hasDetail && expanded && section!.rows.map((dRow) => (
                       <tr key={dRow.label} className="border-b border-gray-50 bg-gray-50/40">
                         <td className="py-1 pl-6 pr-2 text-[0.7rem] text-zinc-600">{dRow.label}</td>
-                        {/* Qty / Cost PPU / Markup — empty */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
-                        {/* Customer PPU — show non-currency project detail (e.g. units/min) */}
+                        {/* Qty / Cost PPU / Markup - empty */}
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
+                        {/* Customer PPU - show non-currency project detail (e.g. units/min) */}
                         <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-600">
                           {!dRow.isCurrency && dRow.projectDetails !== null
                             ? dRow.projectDetails.toLocaleString("en-US", { maximumFractionDigits: 2 })
-                            : "—"}
+                            : "-"}
                         </td>
-                        {/* Total — customer-facing currency value */}
+                        {/* Total - customer-facing currency value */}
                         <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-600">
-                          {dRow.isCurrency && dRow.projectDetails !== null ? fmt(dRow.projectDetails) : "—"}
+                          {dRow.isCurrency && dRow.projectDetails !== null ? fmt(dRow.projectDetails) : "-"}
                         </td>
-                        {/* Our Cost */}
+                        {/* Project Cost */}
                         <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-600">
-                          {dRow.isCurrency && dRow.projectCosts !== null ? fmt(dRow.projectCosts) : "—"}
+                          {dRow.isCurrency && dRow.projectCosts !== null ? fmt(dRow.projectCosts) : "-"}
                         </td>
-                        {/* Margin $$ / Margin % / Throughput / Lead Time — empty */}
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
-                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">—</td>
+                        {/* Margin $$ / Margin % / Throughput / Lead Time - empty */}
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
+                        <td className="py-1 px-2 text-right text-[0.7rem] text-zinc-500">-</td>
                       </tr>
                     ))}
                   </Fragment>
                 );
               })}
 
-              {/* ── TOTALS row ── */}
+              {/* â"€â"€ TOTALS row â"€â"€ */}
               {activeRows.length > 0 && (
                 <>
                   <tr className="border-t-2 border-gray-900 bg-sky-50">
                     <td className="py-2 px-2 text-xs font-bold text-zinc-950 italic">TOTALS</td>
-                    <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{ppuUnits > 0 ? fmt(ppuCost) : "—"}</td>
+                    <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{ppuUnits > 0 ? fmt(ppuCost) : "-"}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmtPct(totalMarkupPct)}</td>
-                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{ppuUnits > 0 ? fmt(ppuCustomer) : "—"}</td>
+                    <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{ppuUnits > 0 ? fmt(ppuCustomer) : "-"}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(activeTotalPrice)}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(activeTotalCost)}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmt(totalMarginDollars)}</td>
                     <td className="py-2 px-2 text-right text-xs font-bold text-zinc-950">{fmtPct(totalMarginPct)}</td>
-                    <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
-                    <td className="py-2 px-2 text-right text-xs text-zinc-500">—</td>
+                    <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
+                    <td className="py-2 px-2 text-right text-xs text-zinc-500">-</td>
                   </tr>
                 </>
               )}

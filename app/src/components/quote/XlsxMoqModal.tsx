@@ -77,13 +77,13 @@ export default function XlsxMoqModal({ moqResults, defaultMoqId, generating, onC
                         </div>
                       </td>
                       <td className={`py-3 px-3 font-semibold ${isSelected ? "text-[#e8473f]" : "text-zinc-950"}`}>
-                        {r.moqRow.moq || "—"}
+                        {r.moqRow.moq || "-"}
                       </td>
                       <td className="py-3 px-3 text-zinc-700">{r.casePack}</td>
-                      <td className="py-3 px-3 text-right text-zinc-800">{r.ppuCost > 0 ? fmt(r.ppuCost) : "—"}</td>
-                      <td className="py-3 px-3 text-right text-zinc-800">{r.ppu > 0 ? fmt(r.ppu) : "—"}</td>
-                      <td className="py-3 px-3 text-right text-zinc-800">{r.marginPct > 0 ? fmtPct(r.marginPct) : "—"}</td>
-                      <td className="py-3 px-3 text-right text-zinc-800">{r.totalCustomerPrice > 0 ? fmt(r.totalCustomerPrice) : "—"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.ppuCost > 0 ? fmt(r.ppuCost) : "-"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.ppu > 0 ? fmt(r.ppu) : "-"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.marginPct > 0 ? fmtPct(r.marginPct) : "-"}</td>
+                      <td className="py-3 px-3 text-right text-zinc-800">{r.totalCustomerPrice > 0 ? fmt(r.totalCustomerPrice) : "-"}</td>
                     </tr>
                   );
                 })}
@@ -106,7 +106,7 @@ type="button"             onClick={() => selected && onConfirm(selected)}
             className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm shadow-[#e8473f]/30"
           >
             <Download size={15} />
-            {generating ? "Generating…" : `Download Excel (${selected?.moqRow.moq ?? "—"} MOQ)`}
+            {generating ? "Generating..." : `Download Excel (${selected?.moqRow.moq ?? "-"} MOQ)`}
           </button>
         </div>
 

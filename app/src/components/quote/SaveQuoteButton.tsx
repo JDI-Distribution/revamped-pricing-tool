@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save, X, Check, AlertCircle, BookmarkPlus, RefreshCw, Pencil } from "lucide-react";
 import { useProject } from "@/lib/ProjectContext";
+import { buildQuoteBaseName, buildVersionedQuoteName, nextQuoteRevisionVersion, quoteFamilyKey } from "@/lib/quoteVersioning";
 
 const API = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/quotes";
 
@@ -15,14 +16,12 @@ interface QuoteListItem {
   quote_name: string;
 }
 
-type Tab     = "new" | "update";
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function SaveQuoteButton({ quotePageState, disabled = false, disabledReason }: Props) {
-  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, currentUser, saveState, markSaved } = useProject();
 
   const [open,       setOpen]       = useState(false);
-  const [tab,        setTab]        = useState<Tab>("new");
   const [quoteName,  setQuoteName]  = useState("");
   const [saving,     setSaving]     = useState(false);
   const [toast,      setToast]      = useState<ToastState>(null);
@@ -30,7 +29,6 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
   // Existing quotes list (fetched on open)
   const [existing,    setExisting]    = useState<QuoteListItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [updateId,    setUpdateId]    = useState<string>("");
   const [updateFilter, setUpdateFilter] = useState("");
 
   const showToast = (type: "success" | "error", message: string) => {
@@ -51,22 +49,41 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
       .finally(() => setLoadingList(false));
   }, [open]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, ...quotePageState });
+  const currentUserName = currentUser?.name || currentUser?.email || "";
+  const normalizedCoPackingProcesses = () => coPackingProcesses.map(proc => ({ ...proc, quantityStoredAs: "grams" as const }));
+  const quoteData = (meta: Record<string, unknown> = {}) => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses: normalizedCoPackingProcesses(), createdBy: currentUserName, modifiedBy: currentUserName, savedBy: currentUserName, ...quotePageState, ...meta });
 
   // Duplicate name check (client-side against fetched list)
+  const generatedBaseName = () => buildQuoteBaseName({ formData, customer });
   const duplicateEntry = quoteName.trim()
     ? existing.find((q) => q.quote_name.toLowerCase() === quoteName.trim().toLowerCase())
     : null;
 
   const handleSaveNew = async () => {
-    const name = quoteName.trim();
-    if (!name) return;
     setSaving(true);
     try {
+      const baseName = generatedBaseName();
+      const existingNames = existing.map((q) => q.quote_name);
+      const version = nextQuoteRevisionVersion(
+        baseName,
+        existingNames,
+        saveState.savedQuoteId && saveState.hasUnsavedChanges ? saveState.savedQuoteName : null,
+      );
+      const name = buildVersionedQuoteName(baseName, version);
+      const familyKey = quoteFamilyKey(baseName, crmAccountId);
       const res = await fetch(API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ quote_name: name, quote_data: quoteData() }),
+        body:    JSON.stringify({
+          quote_name: name,
+          quote_data: quoteData({
+            quoteVersion: version,
+            quoteBaseName: baseName,
+            quoteFamilyKey: familyKey,
+            crmDealId: crmAccountId,
+            sentToCrm: false,
+          }),
+        }),
       });
       if (res.status === 409) {
         const body = await res.json();
@@ -74,6 +91,8 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
         return;
       }
       if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const created: { id: string } = await res.json();
+      markSaved(created.id, name);
       close();
       showToast("success", `"${name}" saved`);
     } catch (err) {
@@ -83,44 +102,15 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
     }
   };
 
-  const handleUpdate = async () => {
-    if (!updateId) return;
-    const target = existing.find((q) => q.id === updateId);
-    setSaving(true);
-    try {
-      const res = await fetch(`${API}/${updateId}`, {
-        method:  "PUT",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ quote_data: quoteData() }),
-      });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      close();
-      showToast("success", `"${target?.quote_name ?? "Quote"}" updated`);
-    } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Update failed");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const close = () => {
     setOpen(false);
-    setTab("new");
     setQuoteName("");
-    setUpdateId("");
     setUpdateFilter("");
   };
 
   const filteredExisting = existing.filter((q) =>
     q.quote_name.toLowerCase().includes(updateFilter.toLowerCase())
   );
-
-  const tabCls = (t: Tab) =>
-    `flex-1 py-2.5 text-xs font-semibold transition-colors rounded-lg ${
-      tab === t
-        ? "bg-white text-zinc-950 shadow-sm"
-        : "text-white/70 hover:text-white"
-    }`;
 
   return (
     <>
@@ -171,18 +161,13 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                   <X size={18} />
                 </button>
               </div>
-              {/* Tab switcher */}
-              <div className="flex gap-1 bg-white/10 rounded-xl p-1 mb-0">
-                <button type="button" onClick={() => setTab("new")}    className={tabCls("new")}>Save as New</button>
-                <button type="button" onClick={() => setTab("update")} className={tabCls("update")}>Update Existing</button>
-              </div>
             </div>
 
             {/* Body */}
             <div className="px-6 py-6">
 
-              {/* ── Save as New ── */}
-              {tab === "new" && (
+              {/* -- Save as New -- */}
+              {(
                 <>
                   <label className="block text-[0.65rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
                     Quote Name
@@ -190,10 +175,11 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                   <input
                     autoFocus
                     type="text"
-                    placeholder="e.g. Bartesian 4oz Sachets Q2"
-                    value={quoteName}
+                    placeholder={generatedBaseName()}
+                    value={quoteName || `${generatedBaseName()}_v...`}
                     onChange={(e) => setQuoteName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !duplicateEntry && handleSaveNew()}
+                    readOnly
                     className={`w-full h-11 px-4 text-sm border-2 rounded-xl focus:outline-none transition-colors placeholder:text-zinc-500 ${
                       duplicateEntry ? "border-amber-400 focus:border-amber-400 bg-amber-50" : "border-gray-200 focus:border-[#e8473f]"
                     }`}
@@ -217,12 +203,11 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                         <button
                           type="button"
                           onClick={() => {
-                            setUpdateId(duplicateEntry.id);
-                            setTab("update");
+                            setQuoteName("");
                           }}
                           className="flex-1 h-8 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
                         >
-                          Update Existing
+                          Regenerate
                         </button>
                       </div>
                     </div>
@@ -240,18 +225,18 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                       <button
                         type="button"
                         onClick={handleSaveNew}
-                        disabled={saving || !quoteName.trim()}
+                        disabled={saving}
                         className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm shadow-[#e8473f]/30"
                       >
-                        {saving ? "Saving…" : <><Save size={15} /> Save Quote</>}
+                        {saving ? "Saving..." : <><Save size={15} /> Save Quote</>}
                       </button>
                     </div>
                   )}
                 </>
               )}
 
-              {/* ── Update Existing ── */}
-              {tab === "update" && (
+              {/* -- Update Existing -- */}
+              {false && (
                 <>
                   <label className="block text-[0.65rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
                     Select Quote to Update
@@ -261,7 +246,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Search quotes…"
+                    placeholder="Search quotes..."
                     value={updateFilter}
                     onChange={(e) => setUpdateFilter(e.target.value)}
                     className="w-full h-9 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#e8473f] transition-colors placeholder:text-zinc-500 mb-2"
@@ -271,7 +256,7 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                   <div className="border-2 border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
                     {loadingList ? (
                       <div className="flex items-center justify-center py-6 text-xs text-zinc-600">
-                        <RefreshCw size={12} className="animate-spin mr-2" /> Loading…
+                        <RefreshCw size={12} className="animate-spin mr-2" /> Loading...
                       </div>
                     ) : filteredExisting.length === 0 ? (
                       <p className="py-6 text-center text-xs text-zinc-600 italic">
@@ -281,30 +266,24 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                       <button
                         type="button"
                         key={q.id}
-                        onClick={() => setUpdateId(q.id)}
-                        className={`w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 last:border-0 transition-colors ${
-                          updateId === q.id
+                          onClick={() => undefined}
+                          className={`w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 last:border-0 transition-colors ${
+                          false
                             ? "bg-[#e8473f]/8 text-[#e8473f] font-semibold"
                             : "text-zinc-800 hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            updateId === q.id ? "border-[#e8473f]" : "border-gray-300"
+                            false ? "border-[#e8473f]" : "border-gray-300"
                           }`}>
-                            {updateId === q.id && <div className="w-1.5 h-1.5 rounded-full bg-[#e8473f]" />}
+                            {false && <div className="w-1.5 h-1.5 rounded-full bg-[#e8473f]" />}
                           </div>
                           {q.quote_name}
                         </div>
                       </button>
                     ))}
                   </div>
-
-                  {updateId && (
-                    <p className="mt-2 text-[0.65rem] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      This will overwrite "{existing.find(q => q.id === updateId)?.quote_name}" with the current quote data.
-                    </p>
-                  )}
 
                   <div className="flex gap-3 mt-4">
                     <button
@@ -316,11 +295,11 @@ export default function SaveQuoteButton({ quotePageState, disabled = false, disa
                     </button>
                     <button
                       type="button"
-                      onClick={handleUpdate}
-                      disabled={saving || !updateId}
+                      onClick={handleSaveNew}
+                      disabled={saving}
                       className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm shadow-[#e8473f]/30"
                     >
-                      {saving ? "Updating…" : <><Pencil size={14} /> Update Quote</>}
+                      {saving ? "Updating..." : <><Pencil size={14} /> Update Quote</>}
                     </button>
                   </div>
                 </>

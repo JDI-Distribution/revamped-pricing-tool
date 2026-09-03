@@ -3,7 +3,7 @@ import { useProject } from "@/lib/ProjectContext";
 import CurrencyInput, { CurrencyInputType } from "@/components/ui/CurrencyInput";
 import { uid } from "@/lib/uid";
 
-// ── Style constants ───────────────────────────────────────────────────────────
+// â"€â"€ Style constants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const inputCls =
   "h-9 w-full px-3 border border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md";
 const prefixBadge =
@@ -17,8 +17,10 @@ const inputWithSuffix =
 const card        = "border border-gray-200 rounded-xl p-5";
 const labelCls    = "text-[0.65rem] text-zinc-600 mb-1 block";
 const sectionHead = "text-[0.55rem] font-semibold text-zinc-600 uppercase tracking-widest mb-2";
+const RAW_MATERIAL_COST_UNITS = ["g", "kg", "lb", "oz"] as const;
+const RAW_MATERIAL_COST_GRAMS_PER: Record<string, number> = { g: 1, kg: 1000, lb: 453.592, oz: 28.3495 };
 
-// ── Shared components ─────────────────────────────────────────────────────────
+// â"€â"€ Shared components â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 interface FieldProps {
   label:       string;
   field:       keyof CoPackingState;
@@ -70,7 +72,7 @@ function Toggle({ enabled, onToggle, label }: { enabled: boolean; onToggle: () =
 }
 
 
-// Plain hours input — no currency prefix, step 0.5, decimal values
+// Plain hours input - no currency prefix, step 0.5, decimal values
 function HrsInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -88,7 +90,7 @@ function HrsInput({ value, onChange }: { value: number; onChange: (v: number) =>
   );
 }
 
-// ── Labor hours helpers ───────────────────────────────────────────────────────
+// â"€â"€ Labor hours helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function calcLaborHrs(deliveredUnits: number, overage: number, unitsPerMin: number, effBuffer: number): number {
   const req  = deliveredUnits * (1 + overage);
   const rate = unitsPerMin * (1 - effBuffer);
@@ -103,7 +105,7 @@ function LaborHrsDisplay({ calcHrs, minHrs }: { calcHrs: number; minHrs: number 
     <p className="text-[0.65rem] text-zinc-600 mt-2">
       {minApplied ? (
         <>Est. Labor: <span className="line-through text-zinc-500">{calcHrs.toFixed(2)} hrs</span>{" "}
-          → billed <span className="font-semibold text-amber-600">{billed.toFixed(2)} hrs</span>
+          {"->"} billed <span className="font-semibold text-amber-600">{billed.toFixed(2)} hrs</span>
           <span className="ml-1 text-amber-500">(minimum applied)</span>
           <span className="ml-1">({mins.toFixed(0)} min)</span>
         </>
@@ -116,7 +118,7 @@ function LaborHrsDisplay({ calcHrs, minHrs }: { calcHrs: number; minHrs: number 
   );
 }
 
-// ── Co-Packing Packaging Summary + Columns helpers ────────────────────────────
+// â"€â"€ Co-Packing Packaging Summary + Columns helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const CP_LEVEL_OPTIONS = ["Individual Units", "Final Kit Units", "Inner / Case", "Shipper / Outer"];
 
 function newCoPackingSummaryRow(): CoPackingPackagingSummaryRow {
@@ -165,13 +167,13 @@ const cpSelectCls   = "h-8 w-full px-2 border border-amber-200 text-xs text-zinc
 const cpInputYellow = "h-8 w-full px-2 border border-amber-300 text-xs text-zinc-950 bg-[#FFFDE7] focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400 transition rounded-md";
 const cpThCls       = "text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-widest pb-2";
 
-// ── Main component ────────────────────────────────────────────────────────────
+// â"€â"€ Main component â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export default function CoPackingDetails() {
   const { coPackingState: s, setCoPackingField } = useProject();
   const set = (field: keyof CoPackingState, v: number | string | boolean | PricingTier[]) =>
     setCoPackingField(field, v as CoPackingState[typeof field]);
 
-  // ── Setup fee three-way sync ──────────────────────────────────────────────
+  // â"€â"€ Setup fee three-way sync â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const handleSetupChange = (field: "setupFeeCustomer" | "setupFeeOurCost" | "setupFeeMargin", raw: string) => {
     const val = parseFloat(raw);
     if (isNaN(val)) return;
@@ -190,7 +192,7 @@ export default function CoPackingDetails() {
     setCoPackingField("setupFeeMargin", margin);
   };
 
-  // ── Units (Delivered) ↔ Packaging Summary first row — single source of truth ──
+  // â"€â"€ Units (Delivered) <-> Packaging Summary first row - single source of truth â"€â"€
   const setUnitsDelivered = (v: number) => {
     setCoPackingField("unitsDelivered", v);
     const rows = s.coPackingPackagingSummaryRows ?? [];
@@ -199,7 +201,7 @@ export default function CoPackingDetails() {
     }
   };
 
-  // ── Co-Packing Packaging Summary — row mutation helpers ───────────────────
+  // â"€â"€ Co-Packing Packaging Summary - row mutation helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const cpSummaryRows = s.coPackingPackagingSummaryRows ?? [];
   const cpCols        = s.coPackingColumns ?? [];
 
@@ -244,7 +246,7 @@ export default function CoPackingDetails() {
     cpUpdateSummaryRow(id, { units: derived });
   };
 
-  // ── Co-Packing Columns — mutation helpers ─────────────────────────────────
+  // â"€â"€ Co-Packing Columns - mutation helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const cpUpdateColumn = (idx: number, patch: Partial<CoPackingColumn>) =>
     setCpColumns(cpCols.map((c, i) => i === idx ? { ...c, ...patch } : c));
 
@@ -260,7 +262,7 @@ export default function CoPackingDetails() {
     setCpSummaryRows(cpSummaryRows.filter((_, i) => i !== idx));
   };
 
-  // ── Derived quantities ────────────────────────────────────────────────────
+  // â"€â"€ Derived quantities â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const UNIT_SIZE_OPTS = ["g", "kg", "oz", "fl oz", "lbs", "mg", "mL", "L"] as const;
   const unitSizeUnit    = s.unitSizeUnit || "g";
   const totalUnits      = s.unitsDelivered;
@@ -281,7 +283,7 @@ export default function CoPackingDetails() {
   }, 0);
   const totalCalcHrs = blendingCalcHrs + columnsCalcHrs;
 
-  // ── Pricing tiers helpers ─────────────────────────────────────────────────
+  // â"€â"€ Pricing tiers helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const tiers = s.pricingTiers ?? [];
 
   const addTier = () => {
@@ -312,7 +314,7 @@ export default function CoPackingDetails() {
   return (
     <div className="px-4 md:px-6 py-5 space-y-4">
 
-      {/* ── Header ── */}
+      {/* â"€â"€ Header â"€â"€ */}
       <div className="flex items-start gap-3 pb-2">
         <div className="mt-0.5 w-1 h-5 rounded-full bg-[#e8473f] shrink-0" />
         <div>
@@ -321,7 +323,7 @@ export default function CoPackingDetails() {
         </div>
       </div>
 
-      {/* ── Customer Project Overview ── */}
+      {/* â"€â"€ Customer Project Overview â"€â"€ */}
       <div className={card}>
         <p className="text-xs font-semibold text-zinc-950 mb-4">Customer Project Overview</p>
 
@@ -346,7 +348,7 @@ export default function CoPackingDetails() {
           </div>
           <Field label="Units / Inner" field="sachetsPerInner" value={s.sachetsPerInner} onChange={set} placeholder="30" />
           <Field label="Inners / Master" field="innersPerMaster" value={s.innersPerMaster} onChange={set} placeholder="20" />
-          {/* Setup fee — three-way linked */}
+          {/* Setup fee - three-way linked */}
           <div className="min-w-0">
             <span className={labelCls}>Setup Fee (Customer)</span>
             <div className="flex items-center">
@@ -356,7 +358,7 @@ export default function CoPackingDetails() {
             </div>
           </div>
           <div className="min-w-0">
-            <span className={labelCls}>Setup Our Cost</span>
+            <span className={labelCls}>Setup Project Cost</span>
             <div className="flex items-center">
               <span className={prefixBadge}>$</span>
               <CurrencyInput type="dollar" value={s.setupFeeOurCost}
@@ -365,7 +367,7 @@ export default function CoPackingDetails() {
           </div>
         </div>
 
-        {/* Radio group — Raw Materials */}
+        {/* Radio group - Raw Materials */}
         <div className="border-t border-gray-100 pt-4 mb-4">
           <div className="max-w-md">
             <p className={sectionHead}>Raw Materials</p>
@@ -402,7 +404,7 @@ export default function CoPackingDetails() {
         )}
       </div>
 
-      {/* ── Inbound / Raw Material ── */}
+      {/* â"€â"€ Inbound / Raw Material â"€â"€ */}
       <div className={card}>
         <p className="text-xs font-semibold text-zinc-950 mb-4">Inbound / Raw Material</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-4 items-start">
@@ -411,7 +413,7 @@ export default function CoPackingDetails() {
           </SubSection>
           <SubSection title="Intake Handling">
             <Field label="Inventory Handling Fee / Pallet" field="intakeFeePerPallet" value={s.intakeFeePerPallet} onChange={set} prefix="$" placeholder="595" />
-            <Field label="Intake Pallet Weight" field="intakePalletWeightLbs" value={s.intakePalletWeightLbs ?? 1200} onChange={set} suffix="lbs" placeholder="1200" />
+            <Field label="Max Pallet Weight" field="intakePalletWeightLbs" value={s.intakePalletWeightLbs ?? 1200} onChange={set} suffix="lbs" placeholder="1200" />
             {(() => {
               const rawGrams = s.unitsDelivered * s.sachetSizeG * (1 + s.inboundOverage);
               const rawLbs   = rawGrams / 453.592;
@@ -421,7 +423,7 @@ export default function CoPackingDetails() {
                 <div>
                   <span className={labelCls}># of Intake Pallets (auto)</span>
                   <div className="h-9 px-3 flex items-center text-xs text-zinc-800 font-semibold bg-orange-100/90 border border-orange-300 rounded-md tabular-nums">
-                    {autoPallets > 0 ? autoPallets : "—"}
+                    {autoPallets > 0 ? autoPallets : "-"}
                     {autoPallets > 0 && <span className="ml-1.5 text-[0.6rem] text-zinc-600 font-normal">{rawLbs.toLocaleString("en-US", { maximumFractionDigits: 0 })} lbs total</span>}
                   </div>
                 </div>
@@ -432,7 +434,35 @@ export default function CoPackingDetails() {
           {/* JDI-supplied raw materials (shown when rawMaterialSource === 'jdi') */}
           {s.rawMaterialSource === "jdi" && (
             <SubSection title="Raw Materials (JDI-Supplied)">
-              <Field label="Cost / gram" field="costPerGram" value={s.costPerGram ?? 0} onChange={set} prefix="$" placeholder="0.01" />
+              {(() => {
+                const rawCostUnit = s.rawMaterialCostUnit || "g";
+                const factor = RAW_MATERIAL_COST_GRAMS_PER[rawCostUnit] || 1;
+                const displayCost = (s.costPerGram ?? 0) * factor;
+                return (
+                  <div className="min-w-0">
+                    <span className={labelCls}>Cost / {rawCostUnit}</span>
+                    <div className="flex items-center">
+                      <span className={prefixBadge}>$</span>
+                      <CurrencyInput
+                        type="dollar"
+                        value={displayCost}
+                        onChange={v => setCoPackingField("costPerGram", v / factor)}
+                        placeholder="0.01"
+                        className="h-9 w-full px-3 border border-x-0 border-amber-200 text-xs text-zinc-950 placeholder:text-zinc-500 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition flex-1"
+                      />
+                      <select
+                        value={rawCostUnit}
+                        onChange={e => setCoPackingField("rawMaterialCostUnit", e.target.value)}
+                        className="h-9 w-16 border border-l-0 border-amber-200 bg-amber-50/50 text-[0.65rem] text-zinc-700 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f]"
+                      >
+                        {RAW_MATERIAL_COST_UNITS.map(unit => (
+                          <option key={unit} value={unit}>/{unit}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })()}
               <Field label="Overage Rate" field="rawOverage" value={s.rawOverage ?? 0} onChange={set} suffix="%" isPct placeholder="0" />
               <Field label="Raw Material Markup" field="rawMaterialMarkup" value={s.rawMaterialMarkup ?? 3.0} onChange={set} suffix="%" isPct placeholder="300" />
               {s.sachetSizeG > 0 && (
@@ -447,7 +477,7 @@ export default function CoPackingDetails() {
         </div>
       </div>
 
-      {/* ── Testing ── */}
+      {/* â"€â"€ Testing â"€â"€ */}
       {(() => {
         const TEST_TYPES = [
           "Certificate of Analysis (COA)",
@@ -513,7 +543,7 @@ export default function CoPackingDetails() {
                                 onChange={e => updateRow(row.id, { testType: e.target.value, customTestName: "" })}
                                 className="flex-1 h-8 px-2 border border-amber-200 text-xs text-zinc-950 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-[#e8473f]/20 focus:border-[#e8473f] transition rounded-md"
                               >
-                                <option value="" disabled>— select test type —</option>
+                                <option value="" disabled>- select test type -</option>
                                 {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                               {row.testType === "Custom" && (
@@ -537,7 +567,7 @@ export default function CoPackingDetails() {
                           </td>
                           <td className="py-1.5 pl-2">
                             <button type="button" onClick={() => removeRow(row.id)}
-                              className="text-zinc-500 hover:text-red-400 text-base leading-none transition-colors" title="Remove">×</button>
+                              className="text-zinc-500 hover:text-red-400 text-base leading-none transition-colors" title="Remove">x</button>
                           </td>
                         </tr>
                       ))}
@@ -556,8 +586,8 @@ export default function CoPackingDetails() {
                     </div>
                     {totalOur > 0 && (
                       <span className="text-[0.6rem] text-zinc-600 ml-auto">
-                        Our cost: <span className="font-semibold text-zinc-700">${totalOur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        {" · "}Customer: <span className="font-semibold text-zinc-700">${totalCx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        Project Cost: <span className="font-semibold text-zinc-700">${totalOur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        {"  -  "}Customer: <span className="font-semibold text-zinc-700">${totalCx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </span>
                     )}
                   </div>
@@ -623,7 +653,7 @@ export default function CoPackingDetails() {
 
             {s.blendingEnabled ? (
               <div className="mt-4 space-y-4">
-                {/* Description — full width */}
+                {/* Description - full width */}
                 <div>
                   <span className={labelCls}>Line Item Description (optional)</span>
                   <input type="text" value={s.blendingDescription}
@@ -634,7 +664,7 @@ export default function CoPackingDetails() {
                 {/* Two-column body: Labor (left) + Recipe (right) */}
                 <div className="flex gap-6 items-start">
 
-                  {/* ── LEFT: Labor inputs stacked vertically ── */}
+                  {/* â"€â"€ LEFT: Labor inputs stacked vertically â"€â"€ */}
                   <div className="w-44 shrink-0 space-y-3">
                     <div className="min-w-0">
                       <span className={labelCls}>Batches to Blend</span>
@@ -686,7 +716,7 @@ export default function CoPackingDetails() {
                     </div>
                   </div>
 
-                  {/* ── RIGHT: Recipe Breakdown ── */}
+                  {/* â"€â"€ RIGHT: Recipe Breakdown â"€â"€ */}
                   <div className="flex-1 min-w-0">
 
                     {/* Batch size input */}
@@ -710,7 +740,7 @@ export default function CoPackingDetails() {
                         <div className="text-[0.65rem] text-zinc-600 pb-2 whitespace-nowrap">
                           {batches} batch{batches !== 1 ? "es" : ""} = <span className="font-semibold text-zinc-800">{fmtAmt(batchSize * batches)} {batchUnit}</span>
                           {s.blendingOverage > 0 && (
-                            <span className="ml-1 text-amber-600">→ order <span className="font-semibold">{fmtAmt(totalRequired)} {batchUnit}</span></span>
+                            <span className="ml-1 text-amber-600">{"->"} order <span className="font-semibold">{fmtAmt(totalRequired)} {batchUnit}</span></span>
                           )}
                         </div>
                       )}
@@ -745,7 +775,7 @@ export default function CoPackingDetails() {
                         </div>
                         <div className="flex items-center justify-between mt-1">
                           <span className={`text-[0.6rem] font-semibold tabular-nums ${pctOk ? "text-green-600" : pctOver ? "text-red-500" : "text-amber-500"}`}>
-                            {pctSum.toFixed(2)}% {pctOk ? "✓" : pctOver ? `(+${(pctSum - 100).toFixed(2)}% over)` : `(${(100 - pctSum).toFixed(2)}% remaining)`}
+                            {pctSum.toFixed(2)}% {pctOk ? "OK" : pctOver ? `(+${(pctSum - 100).toFixed(2)}% over)` : `(${(100 - pctSum).toFixed(2)}% remaining)`}
                           </span>
                           <span className="text-[0.6rem] text-zinc-600">Target: 100%</span>
                         </div>
@@ -804,7 +834,7 @@ export default function CoPackingDetails() {
                               {/* Per-batch amount (read-only, derived) */}
                               {batchSize > 0 && <>
                                 <td className="py-1.5 px-2 text-right tabular-nums text-zinc-700">
-                                  {ing.amtPerBatch > 0 ? `${fmtAmt(ing.amtPerBatch)} ${batchUnit}` : "—"}
+                                  {ing.amtPerBatch > 0 ? `${fmtAmt(ing.amtPerBatch)} ${batchUnit}` : "-"}
                                 </td>
                                 {/* Total required with overage */}
                                 <td className="py-1.5 pl-2 text-right">
@@ -819,13 +849,13 @@ export default function CoPackingDetails() {
                                         </div>
                                       )}
                                     </>
-                                  ) : "—"}
+                                  ) : "-"}
                                 </td>
                               </>}
                               {/* Delete */}
                               <td className="py-1.5 pl-1">
                                 <button type="button" onClick={() => removeIngredient(ing.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 text-base leading-none transition-all" title="Remove">×</button>
+                                  className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 text-base leading-none transition-all" title="Remove">x</button>
                               </td>
                             </tr>
                           );
@@ -857,7 +887,7 @@ export default function CoPackingDetails() {
                           {s.blendingOverage > 0 && batchSize > 0 && (
                             <tr>
                               <td colSpan={5} className="pt-1.5 text-[0.6rem] text-amber-600">
-                                ⚠ Order <span className="font-semibold">{fmtAmt(totalRequired)} {batchUnit}</span> of raw materials ({(s.blendingOverage * 100).toFixed(0)}% overage applied to {fmtAmt(batchSize * batches)} {batchUnit} base)
+                                Warning: Order <span className="font-semibold">{fmtAmt(totalRequired)} {batchUnit}</span> of raw materials ({(s.blendingOverage * 100).toFixed(0)}% overage applied to {fmtAmt(batchSize * batches)} {batchUnit} base)
                               </td>
                             </tr>
                           )}
@@ -879,12 +909,12 @@ export default function CoPackingDetails() {
         );
       })()}
 
-      {/* ── Co-Packing Packaging Summary ── */}
+      {/* â"€â"€ Co-Packing Packaging Summary â"€â"€ */}
       <div className={card}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-xs font-semibold text-zinc-950">Packaging Summary</p>
-            <p className="text-[0.6rem] text-zinc-600 mt-0.5">Configure packaging levels — details auto-populate the columns below</p>
+            <p className="text-[0.6rem] text-zinc-600 mt-0.5">Configure packaging levels - details auto-populate the columns below</p>
           </div>
           <button type="button" onClick={cpAddSummaryRow}
             className="flex items-center gap-1 text-[0.6rem] font-semibold text-[#e8473f] hover:text-[#c73d36] uppercase tracking-wider transition-colors">
@@ -906,7 +936,7 @@ export default function CoPackingDetails() {
               {cpSummaryRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-4 text-center text-xs text-zinc-500 italic">
-                    No packaging levels — click Add Row
+                    No packaging levels - click Add Row
                   </td>
                 </tr>
               ) : cpSummaryRows.map((row) => {
@@ -916,7 +946,7 @@ export default function CoPackingDetails() {
                     {/* Level */}
                     <td className="pr-2 pb-2">
                       <select value={row.packagingLevel} onChange={(e) => cpUpdateSummaryRow(row.id, { packagingLevel: e.target.value })} className={cpSelectCls}>
-                        <option value="">— select level —</option>
+                        <option value="">- select level -</option>
                         {CP_LEVEL_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
                       </select>
                     </td>
@@ -939,7 +969,7 @@ export default function CoPackingDetails() {
                         {row.isAutoUnits && (
                           <button type="button" onClick={() => cpSyncSummaryRowUnits(row.id)}
                             title="Resync from derived value"
-                            className="shrink-0 text-zinc-600 hover:text-[#e8473f] transition-colors text-[0.7rem] leading-none">↺</button>
+                            className="shrink-0 text-zinc-600 hover:text-[#e8473f] transition-colors text-[0.7rem] leading-none">Reset</button>
                         )}
                       </div>
                     </td>
@@ -959,7 +989,7 @@ export default function CoPackingDetails() {
                     <td className="pb-2">
                       {cpSummaryRows.length > 1 && (
                         <button type="button" onClick={() => cpRemoveSummaryRow(row.id)}
-                          className="text-zinc-500 hover:text-red-400 transition-colors" title="Remove row">🗑</button>
+                          className="text-zinc-500 hover:text-red-400 transition-colors" title="Remove row">ðŸ-'</button>
                       )}
                     </td>
                   </tr>
@@ -970,7 +1000,7 @@ export default function CoPackingDetails() {
         </div>
       </div>
 
-      {/* ── Co-Packing Packaging & Packout (vertical column layout, mirrors standard mode) ── */}
+      {/* â"€â"€ Co-Packing Packaging & Packout (vertical column layout, mirrors standard mode) â"€â"€ */}
       <div className={card}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
@@ -1000,7 +1030,7 @@ export default function CoPackingDetails() {
             </colgroup>
             <tbody>
 
-              {/* ── Column header row (Type name + delete) ── */}
+              {/* â"€â"€ Column header row (Type name + delete) â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white" />
                 {cpCols.map((col, idx) => (
@@ -1010,14 +1040,14 @@ export default function CoPackingDetails() {
                       {cpCols.length > 1 && (
                         <button type="button" onClick={() => cpRemoveColumn(idx)}
                           className="shrink-0 text-zinc-500 hover:text-red-400 transition-colors p-0.5"
-                          title={`Remove Level ${idx + 1}`}>🗑</button>
+                          title={`Remove Level ${idx + 1}`}>ðŸ-'</button>
                       )}
                     </div>
                   </td>
                 ))}
               </tr>
 
-              {/* ── Units (read-only from Packaging Summary) ── */}
+              {/* â"€â"€ Units (read-only from Packaging Summary) â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Units</td>
                 {cpCols.map((col, idx) => (
@@ -1029,7 +1059,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Eff. Buffer % ── */}
+              {/* â"€â"€ Eff. Buffer % â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Eff. Buffer %</td>
                 {cpCols.map((col, idx) => (
@@ -1042,7 +1072,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Labor Mkp % ── */}
+              {/* â"€â"€ Labor Mkp % â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Labor Mkp %</td>
                 {cpCols.map((col, idx) => (
@@ -1055,7 +1085,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Unit Mkp % ── */}
+              {/* â"€â"€ Unit Mkp % â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Unit Mkp %</td>
                 {cpCols.map((col, idx) => (
@@ -1068,7 +1098,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Level ── */}
+              {/* â"€â"€ Level â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Level</td>
                 {cpCols.map((col, idx) => (
@@ -1077,14 +1107,14 @@ export default function CoPackingDetails() {
                       cpUpdateColumn(idx, { level: e.target.value });
                       cpUpdateSummaryRow(cpSummaryRows[idx]?.id ?? "", { packagingLevel: e.target.value });
                     }} className={cpSelectCls}>
-                      <option value="">— select level —</option>
+                      <option value="">- select level -</option>
                       {CP_LEVEL_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </td>
                 ))}
               </tr>
 
-              {/* ── Type (plain text — drives the column header label) ── */}
+              {/* â"€â"€ Type (plain text - drives the column header label) â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-1 pr-2 text-xs font-medium text-zinc-600">Type</td>
                 {cpCols.map((col, idx) => (
@@ -1100,7 +1130,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Overage Rate ── */}
+              {/* â"€â"€ Overage Rate â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Overage Rate</td>
                 {cpCols.map((col, idx) => (
@@ -1113,7 +1143,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Wage Rate ── */}
+              {/* â"€â"€ Wage Rate â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Wage Rate</td>
                 {cpCols.map((col, idx) => (
@@ -1126,7 +1156,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Unit Fill Rate / Min ── */}
+              {/* â"€â"€ Unit Fill Rate / Min â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Unit Fill Rate / Min</td>
                 {cpCols.map((col, idx) => (
@@ -1136,7 +1166,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Packaging Weight (g) ── */}
+              {/* â"€â"€ Packaging Weight (g) â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Packaging Weight</td>
                 {cpCols.map((col, idx) => (
@@ -1149,7 +1179,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── No. of Staff / Stations ── */}
+              {/* â"€â"€ No. of Staff / Stations â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">No. of Staff / Stations</td>
                 {cpCols.map((col, idx) => (
@@ -1159,7 +1189,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Hrs / Shift ── */}
+              {/* â"€â"€ Hrs / Shift â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Hrs / Shift</td>
                 {cpCols.map((col, idx) => (
@@ -1169,7 +1199,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Working Days ── */}
+              {/* â"€â"€ Working Days â"€â"€ */}
               <tr className="border-b border-gray-50">
                 <td className="sticky left-0 z-10 bg-white py-1.5 pr-3 text-xs text-zinc-700">Working Days</td>
                 {cpCols.map((col, idx) => (
@@ -1179,7 +1209,7 @@ export default function CoPackingDetails() {
                 ))}
               </tr>
 
-              {/* ── Label toggle + inline conditional rows ── */}
+              {/* â"€â"€ Label toggle + inline conditional rows â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-2 pr-3 text-xs font-medium text-zinc-600">Label</td>
                 {cpCols.map((col, idx) => (
@@ -1199,7 +1229,7 @@ export default function CoPackingDetails() {
                             <span className={prefixBadge}>$</span>
                             <CurrencyInput type="dollar" value={col.labelPrintCost} onChange={(v) => cpUpdateColumn(idx, { labelPrintCost: v })} placeholder="0.00" className={`${inputWithPrefix} min-w-0`} />
                           </div>
-                        ) : <span className="text-[0.6rem] text-zinc-500 italic">—</span>}
+                        ) : <span className="text-[0.6rem] text-zinc-500 italic">-</span>}
                       </td>
                     ))}
                   </tr>
@@ -1209,14 +1239,14 @@ export default function CoPackingDetails() {
                       <td key={col.id} className="px-2 py-1.5">
                         {col.labelEnabled ? (
                           <CurrencyInput type="rate" value={col.labelApplyRate} onChange={(v) => cpUpdateColumn(idx, { labelApplyRate: v })} placeholder="0" className={inputCls} />
-                        ) : <span className="text-[0.6rem] text-zinc-500 italic">—</span>}
+                        ) : <span className="text-[0.6rem] text-zinc-500 italic">-</span>}
                       </td>
                     ))}
                   </tr>
                 </>
               )}
 
-              {/* ── Tabs toggle + inline conditional row ── */}
+              {/* â"€â"€ Tabs toggle + inline conditional row â"€â"€ */}
               <tr>
                 <td className="sticky left-0 z-10 bg-white py-2 pr-3 text-xs font-medium text-zinc-600">Tabs</td>
                 {cpCols.map((col, idx) => (
@@ -1235,7 +1265,7 @@ export default function CoPackingDetails() {
                           <span className={prefixBadge}>$</span>
                           <CurrencyInput type="dollar" value={col.tabCostPerUnit} onChange={(v) => cpUpdateColumn(idx, { tabCostPerUnit: v })} placeholder="0.00" className={`${inputWithPrefix} min-w-0`} />
                         </div>
-                      ) : <span className="text-[0.6rem] text-zinc-500 italic">—</span>}
+                      ) : <span className="text-[0.6rem] text-zinc-500 italic">-</span>}
                     </td>
                   ))}
                 </tr>
@@ -1246,7 +1276,7 @@ export default function CoPackingDetails() {
         </div>
       </div>
 
-      {/* ── Total labor summary ── */}
+      {/* â"€â"€ Total labor summary â"€â"€ */}
       {totalCalcHrs > 0 && (
         <div className="flex items-center gap-2 px-1">
           <span className="text-[0.65rem] text-zinc-600">Total Est. Labor:</span>
@@ -1254,9 +1284,9 @@ export default function CoPackingDetails() {
         </div>
       )}
 
-      {/* ── Pallets ── */}
+      {/* â"€â"€ Pallets â"€â"€ */}
       <div className={card}>
-        <p className="text-xs font-semibold text-zinc-950 mb-4">Packout 3 — Palletization & Outbound</p>
+        <p className="text-xs font-semibold text-zinc-950 mb-4">Packout 3 - Palletization & Outbound</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-4 items-start">
           <Field label="# of Outbound Pallets" field="outboundPallets"      value={s.outboundPallets}      onChange={set} placeholder="4" />
           <Field label="Outbound Fee / Pallet" field="outboundFeePerPallet" value={s.outboundFeePerPallet} onChange={set} prefix="$" placeholder="595" />
@@ -1264,7 +1294,7 @@ export default function CoPackingDetails() {
         </div>
       </div>
 
-      {/* ── Addition 3 — Overhead ── */}
+      {/* â"€â"€ Addition 3 - Overhead â"€â"€ */}
       <div className={card}>
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs font-semibold text-zinc-950">Overhead & Indirect Costs</p>
@@ -1282,12 +1312,12 @@ export default function CoPackingDetails() {
         )}
       </div>
 
-      {/* ── Minimum Charges ── */}
+      {/* â"€â"€ Minimum Charges â"€â"€ */}
       <div className={card}>
         <p className="text-xs font-semibold text-zinc-950 mb-4">Minimum Charges</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 max-w-md">
           <Field label="Minimum Job Charge (Customer)" field="minimumJobCharge" value={s.minimumJobCharge} onChange={set} prefix="$" placeholder="0" />
-          {/* Addition 4 — global min labor */}
+          {/* Addition 4 - global min labor */}
           <div className="min-w-0">
             <span className={labelCls}>Global Minimum Labor Hours</span>
             <HrsInput value={s.globalMinLaborHrs ?? 0} onChange={v => setCoPackingField("globalMinLaborHrs", v)} />
@@ -1296,7 +1326,7 @@ export default function CoPackingDetails() {
         <p className="text-[0.6rem] text-zinc-600 mt-2">Set to $0 / 0 hrs to disable minimums.</p>
       </div>
 
-      {/* ── Addition 5 — Scaled Pricing Tiers ── */}
+      {/* â"€â"€ Addition 5 - Scaled Pricing Tiers â"€â"€ */}
       <div className={card}>
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs font-semibold text-zinc-950">Scaled Pricing Tiers</p>
@@ -1333,7 +1363,7 @@ export default function CoPackingDetails() {
                   </div>
                   {!tier.locked && (
                     <button type="button" onClick={() => removeTier(tier.id)}
-                      className="text-zinc-500 hover:text-red-500 text-base leading-none transition-colors" title="Remove tier">×</button>
+                      className="text-zinc-500 hover:text-red-500 text-base leading-none transition-colors" title="Remove tier">x</button>
                   )}
                 </div>
               ))}
@@ -1350,9 +1380,9 @@ export default function CoPackingDetails() {
         )}
       </div>
 
-      {/* ── Pricing Assumptions ── */}
+      {/* â"€â"€ Pricing Assumptions â"€â"€ */}
       <div className={card}>
-        <span className={labelCls}>Pricing Assumptions (appears on PDF — leave blank for default)</span>
+        <span className={labelCls}>Pricing Assumptions (appears on PDF - leave blank for default)</span>
         <textarea value={s.pricingAssumptions}
           onChange={e => setCoPackingField("pricingAssumptions", e.target.value)}
           placeholder="Customer supplies all materials (product, film, cartons). Pricing assumes production rates and handling consistent with prior testing..."

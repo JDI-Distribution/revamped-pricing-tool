@@ -159,7 +159,7 @@ export default function ManageQuotes() {
                 <input
                   ref={searchRef}
                   type="text"
-                  placeholder="Search quotes…"
+                  placeholder="Search quotes..."
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   className="flex-1 text-xs bg-transparent outline-none text-zinc-800 placeholder:text-zinc-500"
@@ -174,7 +174,7 @@ export default function ManageQuotes() {
 
             <div className="flex-1 overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-10 text-xs text-zinc-600">Loading…</div>
+                <div className="flex items-center justify-center py-10 text-xs text-zinc-600">Loading...</div>
               ) : filtered.length === 0 ? (
                 <div className="flex items-center justify-center py-10 text-xs text-zinc-600 italic">
                   {filter ? "No quotes match your search." : "No saved quotes yet."}
@@ -193,7 +193,7 @@ export default function ManageQuotes() {
                         disabled={loading1 === q.id}
                         className="h-6 px-2.5 text-[0.65rem] font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-50 rounded-lg transition-colors"
                       >
-                        {loading1 === q.id ? "Loading…" : "Load"}
+                        {loading1 === q.id ? "Loading..." : "Load"}
                       </button>
                       <button
                         type="button"

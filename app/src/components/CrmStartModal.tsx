@@ -58,7 +58,7 @@ interface CrmStartModalProps {
 const cardCls = "flex-1 bg-white rounded-lg shadow-md border-2 border-gray-100 hover:border-amber-400 transition-colors p-6 flex flex-col items-center text-center cursor-pointer";
 
 export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalProps) {
-  const { setCustomer, setCrmAccountId, setCrmContactId, loadQuoteState } = useProject();
+  const { setCustomer, setCrmAccountId, setCrmContactId, loadQuoteState, clearSave, setQuoteApproval } = useProject();
   const [step, setStep] = useState<"start" | "browse">("start");
   const [quotes, setQuotes] = useState<QuoteListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,6 +99,14 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
   }, [step]);
 
   const handleStartFromScratch = () => {
+    clearSave();
+    setQuoteApproval({
+      status: "Draft",
+      decidedAt: "",
+      decidedBy: "",
+      decidedByEmail: "",
+      decidedByCrmUserId: "",
+    });
     setCustomer(applyCrmInfo);
     if (crmParams.crmDealId) setCrmAccountId(crmParams.crmDealId);
     if (crmParams.crmContactId) setCrmContactId(crmParams.crmContactId);
@@ -181,7 +189,7 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search quotes…"
+              placeholder="Search quotes..."
               className="h-8 w-full pl-8 pr-2 text-xs border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition rounded"
             />
           </div>
@@ -194,7 +202,7 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
 
           <div className="flex-1 overflow-auto border border-gray-100 rounded divide-y divide-gray-100 mb-4 min-h-30">
             {loading ? (
-              <p className="py-8 text-center text-xs text-zinc-600">Loading quotes…</p>
+              <p className="py-8 text-center text-xs text-zinc-600">Loading quotes...</p>
             ) : filteredQuotes.length === 0 ? (
               <p className="py-8 text-center text-xs text-zinc-600 italic">No quotes found</p>
             ) : filteredQuotes.map((q) => (
@@ -229,7 +237,7 @@ export default function CrmStartModal({ crmParams, onComplete }: CrmStartModalPr
               disabled={!selectedId || cloneLoading}
               className="flex-1 h-9 text-xs font-semibold text-white bg-[#e8473f] hover:bg-[#d43f37] disabled:opacity-40 rounded-lg transition-colors"
             >
-              {cloneLoading ? "Cloning…" : "Clone & Continue"}
+              {cloneLoading ? "Cloning..." : "Clone & Continue"}
             </button>
           </div>
         </div>

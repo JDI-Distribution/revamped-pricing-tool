@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save, X, Check, AlertCircle, BookmarkPlus, Pencil, FilePlus } from "lucide-react";
 import { useProject } from "@/lib/ProjectContext";
+import { buildQuoteBaseName, buildVersionedQuoteName, nextQuoteRevisionVersion, quoteFamilyKey } from "@/lib/quoteVersioning";
 
 const API = "https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/quotes";
 
@@ -12,7 +13,7 @@ interface QuoteListItem {
 type ToastState = { type: "success" | "error"; message: string } | null;
 
 export default function NavbarSaveButton() {
-  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, additionalFees, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, saveState, markSaved, clearSave, loadQuoteState } = useProject();
+  const { moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, additionalFees, quoteApproval, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, currentUser, saveState, markSaved, clearSave, loadQuoteState } = useProject();
   const { savedQuoteId, savedQuoteName, hasUnsavedChanges } = saveState;
 
   const [modalOpen,    setModalOpen]    = useState(false);
@@ -43,57 +44,75 @@ export default function NavbarSaveButton() {
       .finally(() => setLoadingList(false));
   }, [modalOpen]);
 
-  const quoteData = () => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses, additionalFees, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides });
+  const currentUserName = currentUser?.name || currentUser?.email || "";
+  const generatedBaseName = () => buildQuoteBaseName({ formData, customer });
+  const normalizedCoPackingProcesses = () => coPackingProcesses.map(proc => ({ ...proc, quantityStoredAs: "grams" as const }));
+  const quoteData = (meta: Record<string, unknown> = {}) => JSON.stringify({ moqRows, columns, formData, customer, selectedBrand, crmAccountId, crmContactId, packagingLevels, projectType, coPackingState, coPackingProcesses: normalizedCoPackingProcesses(), additionalFees, quoteApproval, moqMargins, moqPpuInputs, moqLastEdited, whatIfPpus, costPpuOverrides, createdBy: currentUserName, modifiedBy: currentUserName, savedBy: currentUserName, ...meta });
+
+  const fetchExistingNames = async () => {
+    const res = await fetch(API);
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const data: QuoteListItem[] = await res.json();
+    return Array.isArray(data) ? data.map(q => q.quote_name) : [];
+  };
+
+  const saveNewGeneratedVersion = async (sentToCrm = false) => {
+    const baseName = generatedBaseName();
+    const existingNames = await fetchExistingNames();
+    const version = nextQuoteRevisionVersion(baseName, existingNames, savedQuoteId && hasUnsavedChanges ? savedQuoteName : null);
+    const name = buildVersionedQuoteName(baseName, version);
+    const familyKey = quoteFamilyKey(baseName, crmAccountId);
+    const res = await fetch(API, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        quote_name: name,
+        quote_data: quoteData({
+          quoteVersion: version,
+          quoteBaseName: baseName,
+          quoteFamilyKey: familyKey,
+          crmDealId: crmAccountId,
+          sentToCrm,
+        }),
+      }),
+    });
+    if (res.status === 409) throw new Error("A quote with this generated name already exists");
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const created: { id: string } = await res.json();
+    markSaved(created.id, name);
+    return { id: created.id, name, version, baseName, familyKey };
+  };
 
   // Auto-save (PUT) when quote already has an ID
   const handleAutoSave = async () => {
-    if (!savedQuoteId) { setModalOpen(true); return; }
+    if (savedQuoteId && !hasUnsavedChanges) {
+      showToast("success", `"${savedQuoteName}" is already saved`);
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch(`${API}/${savedQuoteId}`, {
-        method:  "PUT",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ quote_data: quoteData() }),
-      });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      markSaved(savedQuoteId, savedQuoteName!);
-      showToast("success", `"${savedQuoteName}" saved ✓`);
+      const saved = await saveNewGeneratedVersion(false);
+      showToast("success", `"${saved.name}" saved`);
     } catch (err) {
       showToast("error", err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
   };
-
   // Save as new (POST)
   const handleSaveNew = async () => {
-    const name = quoteName.trim();
-    if (!name) return;
     setSaving(true);
     try {
-      const res = await fetch(API, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ quote_name: name, quote_data: quoteData() }),
-      });
-      if (res.status === 409) {
-        const body = await res.json();
-        showToast("error", body.error ?? "Name already exists");
-        return;
-      }
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const created: { id: string } = await res.json();
-      markSaved(created.id, name);
+      const saved = await saveNewGeneratedVersion(false);
       setModalOpen(false);
       setQuoteName("");
-      showToast("success", `"${name}" saved ✓`);
+      showToast("success", `"${saved.name}" saved`);
     } catch (err) {
       showToast("error", err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
   };
-
   // Rename current saved quote
   const handleRename = async () => {
     if (!savedQuoteId || !renameName.trim()) return;
@@ -108,7 +127,7 @@ export default function NavbarSaveButton() {
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       markSaved(savedQuoteId, name);
       setRenameOpen(false);
-      showToast("success", `Renamed to "${name}" ✓`);
+      showToast("success", `Renamed to "${name}" OK`);
     } catch (err) {
       showToast("error", err instanceof Error ? err.message : "Rename failed");
     } finally {
@@ -116,7 +135,7 @@ export default function NavbarSaveButton() {
     }
   };
 
-  // New quote — clears all state
+  // New quote - clears all state
   const handleNewQuote = () => {
     if (hasUnsavedChanges) {
       setNewQuoteOpen(true);
@@ -126,11 +145,22 @@ export default function NavbarSaveButton() {
   };
 
   const doNewQuote = () => {
+    const today = new Date().toISOString().slice(0, 10);
     loadQuoteState({
       moqRows: [],
       columns: [],
-      formData: formData,
+      formData: {
+        ...formData,
+        startDate: today,
+      },
       projectType: "standard",
+      quoteApproval: {
+        status: "Draft",
+        decidedAt: "",
+        decidedBy: "",
+        decidedByEmail: "",
+        decidedByCrmUserId: "",
+      },
     });
     clearSave();
     setNewQuoteOpen(false);
@@ -142,7 +172,7 @@ export default function NavbarSaveButton() {
 
   return (
     <>
-      {/* ── Toast ── */}
+      {/* -- Toast -- */}
       {toast && (
         <div className={`fixed bottom-6 right-6 z-60 flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-xl text-sm font-semibold text-white transition-all ${
           toast.type === "success" ? "bg-green-600" : "bg-red-500"
@@ -152,7 +182,7 @@ export default function NavbarSaveButton() {
         </div>
       )}
 
-      {/* ── New Quote confirm dialog ── */}
+      {/* -- New Quote confirm dialog -- */}
       {newQuoteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -185,7 +215,7 @@ export default function NavbarSaveButton() {
         </div>
       )}
 
-      {/* ── Rename modal ── */}
+      {/* -- Rename modal -- */}
       {renameOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={(e) => e.target === e.currentTarget && setRenameOpen(false)}>
@@ -207,14 +237,14 @@ export default function NavbarSaveButton() {
               </button>
               <button type="button" onClick={handleRename} disabled={saving || !renameName.trim()}
                 className="flex-1 h-10 text-sm font-bold text-white bg-[#e8473f] disabled:opacity-40 rounded-xl hover:bg-[#d43f37] transition-colors">
-                {saving ? "Saving…" : "Rename"}
+                {saving ? "Saving..." : "Rename"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Save as New modal ── */}
+      {/* -- Save as New modal -- */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={(e) => e.target === e.currentTarget && setModalOpen(false)}>
@@ -242,9 +272,10 @@ export default function NavbarSaveButton() {
               <input
                 autoFocus
                 type="text"
-                placeholder="e.g. Bartesian 4oz Sachets Q2"
-                value={quoteName}
+                placeholder={generatedBaseName()}
+                value={quoteName || `${generatedBaseName()}_v...`}
                 onChange={(e) => setQuoteName(e.target.value)}
+                readOnly
                 onKeyDown={(e) => e.key === "Enter" && handleSaveNew()}
                 className="w-full h-11 px-4 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#e8473f] mb-4"
               />
@@ -253,13 +284,13 @@ export default function NavbarSaveButton() {
                   className="flex-1 h-11 text-sm font-medium text-zinc-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
-                <button type="button" onClick={handleSaveNew} disabled={saving || !quoteName.trim()}
+                <button type="button" onClick={handleSaveNew} disabled={saving}
                   className="flex-1 h-11 text-sm font-bold text-white bg-[#e8473f] disabled:opacity-40 rounded-xl hover:bg-[#d43f37] transition-colors flex items-center justify-center gap-2">
-                  {saving ? "Saving…" : <><Save size={15} /> Save</>}
+                  {saving ? "Saving..." : <><Save size={15} /> Save</>}
                 </button>
               </div>
             </div>
-            {loadingList === false && existing.length > 0 && (
+            {false && loadingList === false && existing.length > 0 && (
               <div className="px-6 pb-5 border-t border-gray-100 pt-4">
                 <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Or update existing</p>
                 <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
@@ -275,7 +306,7 @@ export default function NavbarSaveButton() {
                           if (!res.ok) throw new Error();
                           markSaved(q.id, q.quote_name);
                           setModalOpen(false);
-                          showToast("success", `"${q.quote_name}" updated ✓`);
+                          showToast("success", `"${q.quote_name}" updated OK`);
                         } catch { showToast("error", "Update failed"); }
                         finally { setSaving(false); }
                       }}
@@ -290,7 +321,7 @@ export default function NavbarSaveButton() {
         </div>
       )}
 
-      {/* ── Navbar button group ── */}
+      {/* -- Navbar button group -- */}
       <div className="flex items-center gap-1">
         {/* New Quote */}
         <button
@@ -333,7 +364,7 @@ export default function NavbarSaveButton() {
           // New quote: show Save button
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
+            onClick={handleAutoSave}
             disabled={saving}
             title="Save current quote"
             className="h-8 px-3 flex items-center gap-1.5 text-[0.65rem] font-semibold text-zinc-800 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"

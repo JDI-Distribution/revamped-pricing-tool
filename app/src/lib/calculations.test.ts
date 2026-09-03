@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeDetailSections } from "./calculations";
+import { computeColumnOutputs, computeDetailSections } from "./calculations";
 import { Column, MoqRow, ProjectFormData } from "./types";
 
 // Tolerance: within $0.01
@@ -7,7 +7,7 @@ const near = (actual: number, expected: number, label = "") => {
   expect(actual, label).toBeCloseTo(expected, 1);
 };
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// -- Shared helpers ------------------------------------------------------------
 
 function makeCol(
   id: number,
@@ -53,9 +53,35 @@ function rows(
 
 const dummyMoqRow: MoqRow = { id: 1, moq: "6600", individualUnits: "6600", unitsPerInner: "24", innersPerMaster: "0" };
 
-// ── Test Case 1: Bartesian Brew Glitter 4oz Sachets (6600 MOQ, 24pk) ─────────
+describe("packout labor rates", () => {
+  it("uses label apply rate for labor when unit fill rate is zero", () => {
+    const out = computeColumnOutputs(
+      0, 0, 30, 1, 8, 5, 0, 120, 0, 0, 20, 12, 0,
+    );
 
-describe("TC1 — Bartesian 4oz Sachets 6600 MOQ", () => {
+    expect(out.unitsReq).toBe(120);
+    near(out.effRate, 12, "label-driven effective rate");
+    near(out.totalMinReq, 10, "label-driven minutes");
+    near(out.ourLaborCost, 5, "label-driven project labor");
+    near(out.customerLaborCost, 6, "label-driven selling labor");
+  });
+
+  it("uses tab apply rate for labor when unit fill and label rates are zero", () => {
+    const out = computeColumnOutputs(
+      0, 0, 30, 1, 8, 5, 0, 120, 0, 0, 20, 0, 6,
+    );
+
+    expect(out.unitsReq).toBe(120);
+    near(out.effRate, 6, "tab-driven effective rate");
+    near(out.totalMinReq, 20, "tab-driven minutes");
+    near(out.ourLaborCost, 10, "tab-driven project labor");
+    near(out.customerLaborCost, 12, "tab-driven selling labor");
+  });
+});
+
+// -- Test Case 1: Bartesian Brew Glitter 4oz Sachets (6600 MOQ, 24pk) ---------
+
+describe("TC1 - Bartesian 4oz Sachets 6600 MOQ", () => {
   const formData: ProjectFormData = {
     unitWeight:              "113.4",
     unitWeightUnit:          "g",
@@ -159,9 +185,9 @@ describe("TC1 — Bartesian 4oz Sachets 6600 MOQ", () => {
   });
 });
 
-// ── Test Case 2: DecoPac 25g Pump (3000 MOQ, 12pk) ───────────────────────────
+// -- Test Case 2: DecoPac 25g Pump (3000 MOQ, 12pk) ---------------------------
 
-describe("TC2 — DecoPac 25g Pump 3000 MOQ", () => {
+describe("TC2 - DecoPac 25g Pump 3000 MOQ", () => {
   const formData: ProjectFormData = {
     unitWeight:              "25",
     unitWeightUnit:          "g",
@@ -245,33 +271,33 @@ describe("TC2 — DecoPac 25g Pump 3000 MOQ", () => {
   });
 });
 
-// ── MOQ scaling: inner units use each row's own unitsPerInner ─────────────────
+// -- MOQ scaling: inner units use each row's own unitsPerInner -----------------
 
-describe("MOQ scaling — Inner units derived per-row", () => {
-  it("Row 1: 6600 units 24pk → 275 inners", () => {
+describe("MOQ scaling - Inner units derived per-row", () => {
+  it("Row 1: 6600 units 24pk -> 275 inners", () => {
     expect(Math.ceil(6600 / 24)).toBe(275);
   });
 
-  it("Row 2: 13200 units 24pk → 550 inners", () => {
+  it("Row 2: 13200 units 24pk -> 550 inners", () => {
     expect(Math.ceil(13200 / 24)).toBe(550);
   });
 
-  it("Row 3: 6600 units 48pk → 138 inners", () => {
+  it("Row 3: 6600 units 48pk -> 138 inners", () => {
     expect(Math.ceil(6600 / 48)).toBe(138);
   });
 
-  it("6600 units 1pk → 6600 inners", () => {
+  it("6600 units 1pk -> 6600 inners", () => {
     expect(Math.ceil(6600 / 1)).toBe(6600);
   });
 
-  it("100 units 200pk → 1 inner (ceil rounds up)", () => {
+  it("100 units 200pk -> 1 inner (ceil rounds up)", () => {
     expect(Math.ceil(100 / 200)).toBe(1);
   });
 });
 
-// ── Guard: invalid unitsPerInner zeroes out inner column ──────────────────────
+// -- Guard: invalid unitsPerInner zeroes out inner column ----------------------
 
-describe("Inner/Case guard — invalid unitsPerInner", () => {
+describe("Inner/Case guard - invalid unitsPerInner", () => {
   const baseFormData: ProjectFormData = {
     unitWeight: "25", unitWeightUnit: "g", costPerGram: "0.10",
     numSkus: "1", rawMaterialSkus: "1", materialOverage: "0", rawMaterialMarkup: "0",
@@ -289,7 +315,7 @@ describe("Inner/Case guard — invalid unitsPerInner", () => {
     rows("0", "0", "1", "0.20", "0", "0", "0", "1", "8", "5"),
     { unitsPerInner: "0" });
 
-  it("unitsPerInner=0 → inner units zeroed, no nonsensical labor cost", () => {
+  it("unitsPerInner=0 -> inner units zeroed, no nonsensical labor cost", () => {
     const { summaryRows } = computeDetailSections([innerColBase], [moqRow], baseFormData);
     const r = summaryRows.find(r => r.label === "Inners");
     // With units zeroed to 0, labor and packaging should also be 0
@@ -297,8 +323,8 @@ describe("Inner/Case guard — invalid unitsPerInner", () => {
     expect(r?.customerPrice ?? 0).toBe(0);
   });
 
-  it("innerUnits > moqUnits → corrected to ceil(moq/pack)", () => {
-    // Inner col claims 999 units but MOQ is 100 and pack is 24 → should correct to ceil(100/24)=5
+  it("innerUnits > moqUnits -> corrected to ceil(moq/pack)", () => {
+    // Inner col claims 999 units but MOQ is 100 and pack is 24 -> should correct to ceil(100/24)=5
     const innerColOvercount = makeCol(1, "Inner / Case", "Inners", "999", "0", "0", "0",
       rows("0", "26", "1", "0.20", "0", "0", "0", "1", "8", "5"),
       { unitsPerInner: "24" });
@@ -307,14 +333,14 @@ describe("Inner/Case guard — invalid unitsPerInner", () => {
     const r = summaryRows.find(r => r.label === "Inners");
     // corrected inners = ceil(100/24) = 5; pkgOur = 0.20 * 5 * 1.02 = 1.02
     expect(r?.ourCosts ?? 0).toBeGreaterThan(0);
-    // The key check: cost must be based on ≤5 inners, not 999
+    // The key check: cost must be based on <=5 inners, not 999
     expect(r?.ourCosts ?? 999).toBeLessThan(10); // 999 inners would cost far more
   });
 });
 
-// ── Test Case 3: DecoPac 10g Pump (3600 MOQ, 9pk) ────────────────────────────
+// -- Test Case 3: DecoPac 10g Pump (3600 MOQ, 9pk) ----------------------------
 
-describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
+describe("TC3 - DecoPac 10g Pump 3600 MOQ 9pk", () => {
   const formData: ProjectFormData = {
     unitWeight:              "10",
     unitWeightUnit:          "g",
@@ -373,7 +399,7 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
   it("Inners customer price visible (not 0)", () => {
     const r = get("Inners");
     near(r.ourCosts,      302.60, "inners our");
-    near(r.customerPrice, 481.95, "inners customer — must not be 0");
+    near(r.customerPrice, 481.95, "inners customer - must not be 0");
   });
 
   it("Pallets (2 pallets total)", () => {
@@ -397,7 +423,7 @@ describe("TC3 — DecoPac 10g Pump 3600 MOQ 9pk", () => {
   });
 });
 
-// ── Auto pallet calculation from weight ───────────────────────────────────────
+// -- Auto pallet calculation from weight ---------------------------------------
 // Pallets are now auto-calculated: ceil(totalProjectWeightG / maxPalletWeightG).
 // totalProjectWeightG = reqGrams + packagingWeightG
 describe("Auto pallet calculation from project weight", () => {
@@ -425,7 +451,7 @@ describe("Auto pallet calculation from project weight", () => {
   const weightTestCol = makeCol(1, "Individual Units", "Test Units", "15000", "0", "0", "0",
     rows("0", "0", "0", "0", "0", "0", "71", "1", "8", "5"));
 
-  it("8 total pallets → outbound our=$2800, customer=$3920", () => {
+  it("8 total pallets -> outbound our=$2800, customer=$3920", () => {
     const { summaryRows } = computeDetailSections([weightTestCol], [], baseFormData);
     const r = summaryRows.find(r => r.label === "Pallets & Fees")!;
     near(r.ourCosts,      2800, "pallets our");

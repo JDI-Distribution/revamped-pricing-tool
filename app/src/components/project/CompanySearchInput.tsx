@@ -143,7 +143,7 @@ export default function CompanySearchInput() {
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (results.length > 0) setOpen(true); }}
-          placeholder="Search or type company name…"
+          placeholder="Search or type company name..."
           className={inputCls}
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">

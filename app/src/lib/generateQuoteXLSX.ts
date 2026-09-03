@@ -4,7 +4,7 @@ import { MoqPricingRow } from "./ProjectContext";
 import { Column } from "./types";
 import { BrandId, CustomerInfo } from "./generateQuotePDF";
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+// --- helpers ------------------------------------------------------------------
 
 const n = (s: string | undefined) => parseFloat(s || "0") || 0;
 
@@ -18,14 +18,14 @@ function dateToSerial(iso: string): number {
   return Math.round(d.getTime() / 86400000) + 25569;
 }
 
-// ─── column helpers ───────────────────────────────────────────────────────────
+// --- column helpers -----------------------------------------------------------
 
 // Find the first column of a given level in the columns array
 function colByLevel(columns: Column[], level: string): Column | undefined {
   return columns.find((c) => c.level === level);
 }
 
-// ─── main export ─────────────────────────────────────────────────────────────
+// --- main export -------------------------------------------------------------
 
 export interface XlsxExportArgs {
   formData:            ProjectFormData;
@@ -78,7 +78,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     cell.value = value;
   };
 
-  // ── G/H: Customer Project Overview inputs ─────────────────────────────────
+  // -- G/H: Customer Project Overview inputs ---------------------------------
   set("H3",  col1?.type ?? "4oz Sachets");                       // Packaging Type 1
   set("H4",  col2?.type ?? "4oz Tins");                          // Packaging Type 2
   set("H5",  moqQty || n(col1?.units || formData.ppuDenominator)); // # of units Pkg 1
@@ -91,7 +91,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
 
   set("H27", n(formData.leadTimeBufferDays));                    // Lead time buffer (days)
 
-  // H34 is Start Date — template stores as Excel serial number
+  // H34 is Start Date - template stores as Excel serial number
   const startSerial = dateToSerial(formData.startDate);
   if (startSerial > 0) {
     const cell = ws.getCell("H34");
@@ -99,7 +99,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     // Keep whatever number format the template already has for dates
   }
 
-  // H39: Landed price per lb — template has 4.18, not directly in our formData.
+  // H39: Landed price per lb - template has 4.18, not directly in our formData.
   // We can derive it: costPerGram * 453.592 (g/lb). If zero, leave template default.
   const landedPricePerLb = n(formData.costPerGram) * 453.592;
   if (landedPricePerLb > 0) set("H39", landedPricePerLb);
@@ -107,7 +107,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
   set("H44", moqQty || n(col1?.units || formData.ppuDenominator)); // Units (same as H5)
   set("H45", moqPack > 0 ? moqPack : 24);                         // Units per case pack
 
-  // ── J/K: Raw Material inputs ──────────────────────────────────────────────
+  // -- J/K: Raw Material inputs ----------------------------------------------
   set("K3",  n(formData.materialOverage) / 100);                 // Overage rate (decimal)
   set("K4",  n(formData.intakeFee));                             // Intake fee per pallet
   set("K5",  n(formData.numPallets));                            // # of pallets
@@ -123,7 +123,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
   set("K18", n(formData.testingMarkup) / 100);                   // Testing markup %
   set("K19", n(formData.rawMaterialMarkup) / 100);               // Raw material markup %
 
-  // ── M/N: Packaging 1 (Individual Units) inputs ───────────────────────────
+  // -- M/N: Packaging 1 (Individual Units) inputs ---------------------------
   if (col1) {
     set("N3",  n(col1.rows?.["Overage Rate"]) / 100);
     set("N4",  n(col1.rows?.["Wage Rate"]));
@@ -131,7 +131,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     set("N6",  n(col1.rows?.["Packaging Cost / unit"]));
     set("N7",  n(col1.rows?.["Label Print Cost / unit"]));
     set("N8",  n(col1.rows?.["Label Apply Rate / min"]));
-    set("N9",  0);                                                // packaging weight (g) — not stored per-column in our model
+    set("N9",  0);                                                // packaging weight (g) - not stored per-column in our model
     set("N10", n(col1.rows?.["No. of Staff / Stations"]));
     set("N11", n(col1.rows?.["Hrs / Shift"]));
     set("N12", n(col1.rows?.["Working Days"]) || 5);
@@ -141,7 +141,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     set("N19", n(col1.unitCost) / 100);                          // Cost per unit markup %
   }
 
-  // ── P/Q: Packaging 2 (Final Kit Units) inputs ────────────────────────────
+  // -- P/Q: Packaging 2 (Final Kit Units) inputs ----------------------------
   if (col2) {
     set("Q3",  n(col2.rows?.["Overage Rate"]) / 100);
     set("Q4",  n(col2.rows?.["Wage Rate"]));
@@ -159,13 +159,13 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     set("Q19", n(col2.unitCost) / 100);
   }
 
-  // ── S/T: Packout 1 - Inners inputs ───────────────────────────────────────
+  // -- S/T: Packout 1 - Inners inputs ---------------------------------------
   if (col3) {
     set("T3",  n(col3.rows?.["Overage Rate"]) / 100);
     set("T4",  n(col3.rows?.["Wage Rate"]));
     set("T5",  n(col3.rows?.["Unit Fill Rate / min"]));
     set("T6",  n(col3.rows?.["Packaging Cost / unit"]));
-    set("T7",  0);                                                // carton weight (g) — not in our model
+    set("T7",  0);                                                // carton weight (g) - not in our model
     set("T8",  n(col3.rows?.["No. of Staff / Stations"]));
     set("T9",  n(col3.rows?.["Hrs / Shift"]));
     set("T10", n(col3.rows?.["Working Days"]) || 5);
@@ -174,7 +174,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     set("T19", n(col3.unitCost) / 100);
   }
 
-  // ── V/W: Packout 2 - Shippers inputs ─────────────────────────────────────
+  // -- V/W: Packout 2 - Shippers inputs -------------------------------------
   if (col4) {
     set("W3",  n(col4.rows?.["Overage Rate"]) / 100);
     set("W4",  n(col4.rows?.["Wage Rate"]));
@@ -189,9 +189,9 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
     set("W19", n(col4.unitCost) / 100);
   }
 
-  // ── Y/Z: Packout 3 - Pallets & Outbound inputs ───────────────────────────
+  // -- Y/Z: Packout 3 - Pallets & Outbound inputs ---------------------------
   set("Z3",  n(formData.outboundFee));                           // Outbound fee per pallet
-  // Z4: total pallets — derive from pallet summary row: palletOurCost / outboundFee
+  // Z4: total pallets - derive from pallet summary row: palletOurCost / outboundFee
   const moqSRows    = perMoqSummaryRows.get(firstMoq?.moqRow.id ?? -1) ?? [];
   const palletSRow  = moqSRows.find(r => r.label === "Pallets & Fees");
   const outFeeXlsx  = n(formData.outboundFee);
@@ -202,7 +202,7 @@ export async function generateQuoteXLSX(args: XlsxExportArgs): Promise<void> {
   set("Z17", n(formData.outboundFeeMarkup) / 100);               // Outbound fee markup %
   set("Z18", n(formData.palletBuffer) || 1);                     // Added pallets buffer
 
-  // ── C61: What If — Lowered Sale Price (customer PPU from selected MOQ) ──
+  // -- C61: What If - Lowered Sale Price (customer PPU from selected MOQ) --
   if (firstMoq) {
     const marginStr = moqMargins[firstMoq.moqRow.id] ?? "";
     const marginVal = parseFloat(marginStr);

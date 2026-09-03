@@ -108,7 +108,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
         <div className="px-4 py-3 space-y-3">
           {/* Context */}
           <p className="text-[0.6rem] text-zinc-600 uppercase tracking-wider font-semibold">
-            {moqQty.toLocaleString()} units · {unitsPerInner}pk
+            {moqQty.toLocaleString()} units  -  {unitsPerInner}pk
           </p>
 
           {/* Weight Breakdown */}
@@ -165,7 +165,7 @@ export default function PalletToolPopover({ row, formData, columns, onUse, onClo
           {/* Result */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <div className="flex justify-between text-xs text-zinc-700 mb-1">
-              <span>ceil({fmtW(totalLbs)} ÷ {fmtW(maxWeightLbs)})</span>
+              <span>ceil({fmtW(totalLbs)} / {fmtW(maxWeightLbs)})</span>
               <span>{calc} pallets</span>
             </div>
             <div className="flex justify-between text-xs text-zinc-700 mb-2">

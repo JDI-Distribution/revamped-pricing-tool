@@ -17,17 +17,17 @@ const SECTIONS = [
     title: "Customer Info",
     fields: [
       { key: "customer",    label: "Company",       placeholder: "Company name" },
-      { key: "customerId",  label: "Customer ID",   placeholder: "—" },
-      { key: "name",        label: "Contact Name",  placeholder: "—" },
-      { key: "phone",       label: "Phone",         placeholder: "—" },
-      { key: "email",       label: "Email",         placeholder: "—" },
-      { key: "salesRep",    label: "Sales Rep",     placeholder: "—" },
+      { key: "customerId",  label: "Customer ID",   placeholder: "-" },
+      { key: "name",        label: "Contact Name",  placeholder: "-" },
+      { key: "phone",       label: "Phone",         placeholder: "-" },
+      { key: "email",       label: "Email",         placeholder: "-" },
+      { key: "salesRep",    label: "Sales Rep",     placeholder: "-" },
     ] as { key: keyof CustomerInfo; label: string; placeholder: string }[],
   },
   {
     title: "Product",
     fields: [
-      { key: "productName",     label: "Product Name",     placeholder: "—" },
+      { key: "productName",     label: "Product Name",     placeholder: "-" },
       { key: "productCategory", label: "Product Category", placeholder: "e.g. Beverage, Snack" },
     ] as { key: keyof CustomerInfo; label: string; placeholder: string }[],
   },
@@ -48,7 +48,7 @@ export default function PdfTextEditorModal({ initial, onConfirm, onClose }: Prop
           <FileText size={16} className="text-[#e8473f] shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-zinc-950">Edit PDF Text</p>
-            <p className="text-[0.6rem] text-zinc-600 mt-0.5">Changes apply to this PDF only — project data is unchanged.</p>
+            <p className="text-[0.6rem] text-zinc-600 mt-0.5">Changes apply to this PDF only - project data is unchanged.</p>
           </div>
           <button type="button" onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-full text-zinc-600 hover:bg-gray-100 hover:text-zinc-950 transition-colors shrink-0">
@@ -79,7 +79,7 @@ export default function PdfTextEditorModal({ initial, onConfirm, onClose }: Prop
             </div>
           ))}
 
-          {/* Project Overview — full width textarea */}
+          {/* Project Overview - full width textarea */}
           <div>
             <p className="text-[0.58rem] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Project Overview</p>
             <label className={labelCls}>Overview Text</label>
@@ -87,7 +87,7 @@ export default function PdfTextEditorModal({ initial, onConfirm, onClose }: Prop
               value={draft.projectOverview}
               onChange={e => set("projectOverview", e.target.value)}
               rows={5}
-              placeholder="Describe the project scope, requirements, or any notes for the customer…"
+              placeholder="Describe the project scope, requirements, or any notes for the customer..."
               className="w-full px-2.5 py-2 text-xs text-zinc-950 border border-amber-200 bg-amber-50/50 rounded focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition placeholder:text-zinc-500 resize-y"
             />
           </div>

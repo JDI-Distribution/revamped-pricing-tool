@@ -1,6 +1,6 @@
 
 
-import { createContext, useContext, useState, useMemo, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useMemo, useEffect, useCallback, ReactNode } from "react";
 import { MoqRow, Column, PackagingLevel, ProjectFormData, SummaryRow, SummaryTableRow, DetailSection, ProjectType, CoPackingState, CoPackingResult, AdditionalFeeRow, CoPackingScenario, CoPackingPackagingSummaryRow, CoPackingColumn, TestingRow, CoPackingProcess } from "./types";
 import { computeDetailSections } from "./calculations";
 import { computeCoPackingResults, computeCoPackingTotals } from "./coPackingCalculations";
@@ -9,10 +9,12 @@ import { packagingLevelsToColumns } from "./packagingLevelsCompat";
 import { BrandId, CustomerInfo } from "./generateQuotePDF";
 
 const initialMoqRows: MoqRow[] = [];
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const initialFormData: ProjectFormData = {
   unitWeight:              "113.4",
   costPerGram:             "0.00922737306843267",
+  rawMaterialCostUnit:     "g",
   numSkus:                 "1",
   rawMaterialSkus:         "1",
   leftOverInventoryCost:   "0",
@@ -36,7 +38,7 @@ const initialFormData: ProjectFormData = {
   testingMarkup:           "20",
   setupFeeOur:             "598",
   setupFeeCustomer:        "1495",
-  projectManagementFee:    "350",
+  projectManagementFee:    "0",
   ppuDenominator:          "6600",
   manufacturingMoqQty:     "",
   manufacturingMoqUom:     "kg",
@@ -47,7 +49,7 @@ const initialFormData: ProjectFormData = {
   manufacturingMoqRoundingIncrement: "1000",
   manufacturingMoqApplyToPpu: "false",
   leadTimeBufferDays:      "57",
-  startDate:               (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })(),
+  startDate:               todayIso(),
   rawMaterialProvider:     "customer",
   materialOverage:         "25",
   rawMaterialMarkup:       "300",
@@ -116,7 +118,7 @@ const initialPackagingLevels: PackagingLevel[] = [
 
 export interface MoqPricingRow {
   moqRow:            MoqRow;
-  casePack:          string;   // "unitsPerInner × innersPerMaster" or just unitsPerInner
+  casePack:          string;   // "unitsPerInner x innersPerMaster" or just unitsPerInner
   totalCustomerPrice: number;
   totalOurCost:      number;
   ppuDenominator:    number;
@@ -135,8 +137,31 @@ export interface MoqRowError {
 export interface SaveState {
   savedQuoteId:    string | null;
   savedQuoteName:  string | null;
+  crmQuoteId?:     string;
+  crmQuoteNumber?: string;
   hasUnsavedChanges: boolean;
   lastSavedAt:     Date | null;
+}
+
+export type QuoteApprovalStatus = "Draft" | "Approved" | "Rejected";
+
+export interface QuoteApprovalState {
+  status: QuoteApprovalStatus;
+  decidedAt: string;
+  decidedBy: string;
+  decidedByEmail?: string;
+  decidedByCrmUserId?: string;
+}
+
+export interface CatalystAppUser {
+  authenticated: boolean;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  email: string;
+  domainAllowed: boolean;
+  appAccessAllowed?: boolean;
 }
 
 const initialCoPackingPackagingSummaryRows: CoPackingPackagingSummaryRow[] = [
@@ -154,6 +179,14 @@ const initialCoPackingColumns: CoPackingColumn[] = [
     packagingWeightG: 2, numStaff: 1, hrsPerShift: 7, workingDays: 5,
   },
 ];
+
+const initialQuoteApproval: QuoteApprovalState = {
+  status: "Draft",
+  decidedAt: "",
+  decidedBy: "",
+  decidedByEmail: "",
+  decidedByCrmUserId: "",
+};
 
 const initialCoPackingState: CoPackingState = {
   // Project Overview
@@ -203,20 +236,21 @@ const initialCoPackingState: CoPackingState = {
   minimumJobCharge: 0,
   // JDI raw material fields
   costPerGram:       0,
+  rawMaterialCostUnit: "g",
   rawOverage:        0,
   rawMaterialMarkup: 3.0,
-  // Addition 2 — Packaging Type
+  // Addition 2 - Packaging Type
   packagingType:   "retail",
-  // Addition 3 — Overhead
+  // Addition 3 - Overhead
   overheadEnabled:     false,
   overheadRate:        0.15,
   overheadMarkup:      0.20,
   fixedOverheadFee:    0,
   fixedOverheadMarkup: 0.20,
-  // Addition 4 — Minimum labor
+  // Addition 4 - Minimum labor
   blendingMinLaborHrs:    0,
   globalMinLaborHrs:      0,
-  // Addition 5 — Pricing Tiers
+  // Addition 5 - Pricing Tiers
   tiersEnabled:  false,
   pricingTiers:  [],
   // Meta
@@ -242,6 +276,12 @@ function withCurrentFormDefaults(draft?: Partial<ProjectFormData>): ProjectFormD
   }
   if (!draft || isLegacy(draft.outboundFeeMarkup, 40)) {
     next.outboundFeeMarkup = "30";
+  }
+  if (!draft || isLegacy(draft.projectManagementFee, 350)) {
+    next.projectManagementFee = "0";
+  }
+  if (!draft || !draft.startDate) {
+    next.startDate = todayIso();
   }
 
   return next;
@@ -303,16 +343,16 @@ interface ProjectContextValue {
   // Raw state
   moqRows:      MoqRow[];
   setMoqRows:   React.Dispatch<React.SetStateAction<MoqRow[]>>;
-  // Packaging levels — unified source of truth (replaces columns + packagingSummaryRows)
+  // Packaging levels - unified source of truth (replaces columns + packagingSummaryRows)
   packagingLevels:    PackagingLevel[];
   setPackagingLevels: React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
-  // Process levels — separate PackagingLevel state for the Processes section
+  // Process levels - separate PackagingLevel state for the Processes section
   processLevels:      PackagingLevel[];
   setProcessLevels:   React.Dispatch<React.SetStateAction<PackagingLevel[]>>;
   // Overall process cost markup %
   processCostMarkup:    number;
   setProcessCostMarkup: React.Dispatch<React.SetStateAction<number>>;
-  // Derived columns (for internal calc compatibility — do not expose to UI)
+  // Derived columns (for internal calc compatibility - do not expose to UI)
   columns:      Column[];
   setColumns:   React.Dispatch<React.SetStateAction<Column[]>>;
   formData:     ProjectFormData;
@@ -326,20 +366,20 @@ interface ProjectContextValue {
   setCustomerField: (field: keyof CustomerInfo, value: string) => void;
   selectedBrand:    BrandId;
   setSelectedBrand: React.Dispatch<React.SetStateAction<BrandId>>;
-  // CRM linkage (Zoho CRM account/contact ids — session-only)
+  // CRM linkage (Zoho CRM account/contact ids - session-only)
   crmAccountId:    string;
   setCrmAccountId: React.Dispatch<React.SetStateAction<string>>;
   crmContactId:    string;
   setCrmContactId: React.Dispatch<React.SetStateAction<string>>;
   // columns + auto-generated derived columns from MOQ pack sizes
   effectiveColumns: Column[];
-  // Derived — active MOQ
+  // Derived - active MOQ
   scaledColumns:    Column[];
   detailSections:   DetailSection[];
   summaryRows:      SummaryRow[];
   summaryTableRows: SummaryTableRow[];
   ppuUnits:         number;
-  // Derived — all MOQs (for the MOQ pricing table)
+  // Derived - all MOQs (for the MOQ pricing table)
   allMoqResults:       MoqPricingRow[];
   perMoqSummaryRows:   Map<number, SummaryRow[]>;
   // Compute costs for an arbitrary unit count (interstitial pricing)
@@ -350,6 +390,11 @@ interface ProjectContextValue {
   // Additional Costs & Fees (standard mode, internal only)
   additionalFees:    AdditionalFeeRow[];
   setAdditionalFees: React.Dispatch<React.SetStateAction<AdditionalFeeRow[]>>;
+  quoteApproval: QuoteApprovalState;
+  setQuoteApproval: React.Dispatch<React.SetStateAction<QuoteApprovalState>>;
+  currentUser: CatalystAppUser | null;
+  currentUserLoading: boolean;
+  refreshCurrentUser: () => Promise<CatalystAppUser | null>;
   // Price adjustment state (MOQ Pricing Table + Price Adjustment on Home; used by PDF on Quote page)
   moqMargins:    Record<number, string>;
   setMoqMargins: React.Dispatch<React.SetStateAction<Record<number, string>>>;
@@ -362,16 +407,16 @@ interface ProjectContextValue {
   costPpuOverrides:    Record<number, string>;
   setCostPpuOverrides: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   resolvedMoqMargins: Record<number, string>;
-  // Addition 6 — Scenario comparison
+  // Addition 6 - Scenario comparison
   scenarioA: CoPackingScenario | null;
   scenarioB: CoPackingScenario | null;
   saveScenario: (slot: 'A' | 'B', name: string) => void;
   clearScenarios: () => void;
   // Restore all project state from a saved quote snapshot
-  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[]; crmAccountId?: string; crmContactId?: string }, savedId?: string, savedName?: string) => void;
-  // Save state — tracks whether current quote has been saved and if there are unsaved changes
+  loadQuoteState: (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[]; crmAccountId?: string; crmContactId?: string; quoteApproval?: QuoteApprovalState; moqMargins?: Record<number, string>; moqPpuInputs?: Record<number, string>; moqLastEdited?: Record<number, "margin" | "ppu">; whatIfPpus?: Record<number, string>; costPpuOverrides?: Record<number, string> }, savedId?: string, savedName?: string) => void;
+  // Save state - tracks whether current quote has been saved and if there are unsaved changes
   saveState:    SaveState;
-  markSaved:    (id: string, name: string) => void;
+  markSaved:    (id: string, name: string, meta?: { crmQuoteId?: string; crmQuoteNumber?: string }) => void;
   clearSave:    () => void;
 }
 
@@ -400,13 +445,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   );
   const [processCostMarkup, setProcessCostMarkup] = useState<number>((_draft as any).processCostMarkup ?? 0);
 
-  const [formData, setFormData] = useState<ProjectFormData>(withCurrentFormDefaults(_draft.formData));
+  const initialDraftFormData = _draft.saveState?.savedQuoteId
+    ? _draft.formData
+    : { ...(_draft.formData ?? {}), startDate: todayIso() };
+  const [formData, setFormData] = useState<ProjectFormData>(withCurrentFormDefaults(initialDraftFormData));
   const [activeMoqId, setActiveMoqId] = useState<number>(1);
   const [customer, setCustomer] = useState<CustomerInfo>(_draft.customer ?? initialCustomer);
   const [selectedBrand, setSelectedBrand] = useState<BrandId>(_draft.selectedBrand ?? initialBrand);
   const [crmAccountId, setCrmAccountId] = useState(_draft.crmAccountId ?? "");
   const [crmContactId, setCrmContactId] = useState(_draft.crmContactId ?? "");
   const [additionalFees, setAdditionalFees] = useState<AdditionalFeeRow[]>(_draft.additionalFees ?? initialAdditionalFees);
+  const [quoteApproval, setQuoteApproval] = useState<QuoteApprovalState>(_draft.quoteApproval ?? initialQuoteApproval);
+  const [currentUser, setCurrentUser] = useState<CatalystAppUser | null>(null);
+  const [currentUserLoading, setCurrentUserLoading] = useState(true);
   const [scenarioA, setScenarioA] = useState<CoPackingScenario | null>(null);
   const [scenarioB, setScenarioB] = useState<CoPackingScenario | null>(null);
 
@@ -457,7 +508,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const effectiveColumns = scaledColumns;
 
-  // ── Per-MOQ pricing rows + per-MOQ summary line items ────────────────────────
+  // -- Per-MOQ pricing rows + per-MOQ summary line items ------------------------
   const { allMoqResults, perMoqSummaryRows } = useMemo(() => {
     if (!moqRows[0]) return { allMoqResults: [] as MoqPricingRow[], perMoqSummaryRows: new Map<number, SummaryRow[]>() };
     const ppuDenom     = n(formData.ppuDenominator);
@@ -500,7 +551,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const moqVal    = n(row.moq);
       const innerVal  = n(row.unitsPerInner);
       const masterVal = n(row.innersPerMaster);
-      const casePack  = masterVal > 0 ? `${innerVal} × ${masterVal}` : innerVal > 0 ? String(innerVal) : "—";
+      const casePack  = masterVal > 0 ? `${innerVal} x ${masterVal}` : innerVal > 0 ? String(innerVal) : "-";
       const effectivePpuDenom = ppuDenom > 0 ? ppuDenom : moqVal || 1;
       const ppu       = effectivePpuDenom > 0 ? totalCustomerPrice / effectivePpuDenom : 0;
       const ppuCost   = effectivePpuDenom > 0 ? totalOurCost / effectivePpuDenom : 0;
@@ -514,7 +565,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return { allMoqResults: pricing, perMoqSummaryRows: summaryMap };
   }, [effectiveColumns, moqRows, formData, packagingLevels]);
 
-  // ── Interstitial pricing: compute costs for any arbitrary unit count ──────────
+  // -- Interstitial pricing: compute costs for any arbitrary unit count ----------
   // Substitutes qty into Individual/Final Kit columns, scales container columns
   // proportionally, then runs the full calculation engine.
   const computeForQty = useMemo(() => {
@@ -541,7 +592,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             return { ...col, units: String(customInners) };
           }
           if (col.level === "Shipper / Outer") {
-            // innersPerMaster unknown for custom qty — derive from base MOQ if available
+            // innersPerMaster unknown for custom qty - derive from base MOQ if available
             const baseMoq = moqRows[0];
             const ipm = baseMoq ? n(baseMoq.innersPerMaster) : 0;
             const shippers = ipm > 0 ? Math.ceil(customInners / ipm) : 0;
@@ -576,7 +627,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     };
   }, [effectiveColumns, formData, moqRows]);
 
-  // ── MOQ row validation ────────────────────────────────────────────────────
+  // -- MOQ row validation ----------------------------------------------------
   const moqErrors = useMemo((): MoqRowError[] => {
     return moqRows
       .map((row): MoqRowError | null => {
@@ -589,7 +640,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // Only validate if the field has been filled in (non-empty)
         if (row.unitsPerInner !== "") {
           if (inner < 1) {
-            err.unitsPerInner = "Units / Inner must be ≥ 1";
+            err.unitsPerInner = "Units / Inner must be >= 1";
             hasError = true;
           } else if (qty > 0 && !Number.isInteger(qty / inner)) {
             err.unitsPerInner = `# of Units (${qty}) must be divisible by Units / Inner (${inner})`;
@@ -600,7 +651,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         if (row.innersPerMaster !== "" && ipm !== 0) {
           const inners = inner > 0 ? qty / inner : 0;
           if (ipm < 1) {
-            err.innersPerMaster = "Inners / Master must be ≥ 1";
+            err.innersPerMaster = "Inners / Master must be >= 1";
             hasError = true;
           } else if (inners > 0 && !Number.isInteger(inners / ipm)) {
             err.innersPerMaster = `Inners (${Math.ceil(inners)}) must be divisible by Inners / Master (${ipm})`;
@@ -615,7 +666,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const hasMoqErrors = moqErrors.length > 0;
 
-  // ── Price adjustment state (shared: Home renders tables, QuotePage uses for PDF) ──
+  // -- Price adjustment state (shared: Home renders tables, QuotePage uses for PDF) --
   const [moqMargins,    setMoqMargins]    = useState<Record<number, string>>({});
   const [moqPpuInputs,  setMoqPpuInputs]  = useState<Record<number, string>>({});
   const [moqLastEdited, setMoqLastEdited] = useState<Record<number, "margin" | "ppu">>({});
@@ -639,32 +690,89 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return merged;
   }, [moqMargins, moqLastEdited, moqPpuInputs, allMoqResults]);
 
-  // ── Save state ────────────────────────────────────────────────
+  // -- Save state ------------------------------------------------
   const [saveState, setSaveState] = useState<SaveState>({
-    savedQuoteId:    null,
-    savedQuoteName:  null,
+    savedQuoteId:    _draft.saveState?.savedQuoteId ?? null,
+    savedQuoteName:  _draft.saveState?.savedQuoteName ?? null,
+    crmQuoteId:      _draft.saveState?.crmQuoteId ?? _draft.crmQuoteId ?? "",
+    crmQuoteNumber:  _draft.saveState?.crmQuoteNumber ?? _draft.crmQuoteNumber ?? "",
     hasUnsavedChanges: false,
-    lastSavedAt:     null,
+    lastSavedAt:     _draft.saveState?.lastSavedAt ? new Date(_draft.saveState.lastSavedAt) : null,
   });
+
+  const refreshCurrentUser = useCallback(async () => {
+    setCurrentUserLoading(true);
+    try {
+      const response = await fetch("https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/auth/me");
+      const data = await response.json();
+      const user = data?.user ?? null;
+      setCurrentUser(user);
+      return user;
+    } catch {
+      setCurrentUser(null);
+      return null;
+    } finally {
+      setCurrentUserLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("https://jdi-pricing-tool-914416811.development.catalystserverless.com/server/quotes-api/auth/me")
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setCurrentUser(data?.user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCurrentUserLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Track a snapshot of state at last save to detect changes
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string>("");
 
-  // Current snapshot — recomputed whenever project state changes
+  // Current snapshot - recomputed whenever project state changes
   const currentSnapshot = useMemo(
-    () => JSON.stringify({ moqRows, packagingLevels, formData, customer, selectedBrand, projectType, coPackingState, additionalFees, coPackingProcesses }),
-    [moqRows, packagingLevels, formData, customer, selectedBrand, projectType, coPackingState, additionalFees, coPackingProcesses],
+    () => JSON.stringify({ moqRows, packagingLevels, formData, customer, selectedBrand, projectType, coPackingState, additionalFees, coPackingProcesses, quoteApproval }),
+    [moqRows, packagingLevels, formData, customer, selectedBrand, projectType, coPackingState, additionalFees, coPackingProcesses, quoteApproval],
   );
 
   // Persist draft to localStorage on every state change
   useEffect(() => {
     try {
-      localStorage.setItem("jdi_draft_v1", JSON.stringify({ moqRows, packagingLevels, formData, customer, selectedBrand, crmAccountId, crmContactId, projectType, coPackingState, additionalFees, coPackingProcesses }));
+      localStorage.setItem("jdi_draft_v1", JSON.stringify({
+        moqRows,
+        packagingLevels,
+        formData,
+        customer,
+        selectedBrand,
+        crmAccountId,
+        crmContactId,
+        crmQuoteId: saveState.crmQuoteId ?? "",
+        crmQuoteNumber: saveState.crmQuoteNumber ?? "",
+        projectType,
+        coPackingState,
+        additionalFees,
+        coPackingProcesses,
+        quoteApproval,
+        saveState: {
+          savedQuoteId: saveState.savedQuoteId,
+          savedQuoteName: saveState.savedQuoteName,
+          crmQuoteId: saveState.crmQuoteId ?? "",
+          crmQuoteNumber: saveState.crmQuoteNumber ?? "",
+          lastSavedAt: saveState.lastSavedAt?.toISOString?.() ?? null,
+        },
+      }));
     } catch { /* quota exceeded or private browsing */ }
-  }, [currentSnapshot, crmAccountId, crmContactId]);
+  }, [currentSnapshot, crmAccountId, crmContactId, saveState.savedQuoteId, saveState.savedQuoteName, saveState.crmQuoteId, saveState.crmQuoteNumber, saveState.lastSavedAt]);
 
   // Detect unsaved changes whenever snapshot drifts from saved baseline
-  useMemo(() => {
+  useEffect(() => {
     if (!lastSavedSnapshot) return;
     const hasChanges = currentSnapshot !== lastSavedSnapshot;
     setSaveState((prev) =>
@@ -672,21 +780,32 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     );
   }, [currentSnapshot, lastSavedSnapshot]);
 
-  const markSaved = (id: string, name: string) => {
-    setSaveState({ savedQuoteId: id, savedQuoteName: name, hasUnsavedChanges: false, lastSavedAt: new Date() });
+  const markSaved = (id: string, name: string, meta?: { crmQuoteId?: string; crmQuoteNumber?: string }) => {
+    setSaveState((prev) => ({
+      savedQuoteId: id,
+      savedQuoteName: name,
+      crmQuoteId: meta?.crmQuoteId ?? prev.crmQuoteId ?? "",
+      crmQuoteNumber: meta?.crmQuoteNumber ?? prev.crmQuoteNumber ?? "",
+      hasUnsavedChanges: false,
+      lastSavedAt: new Date(),
+    }));
     setLastSavedSnapshot(currentSnapshot);
   };
 
   const clearSave = () => {
-    setSaveState({ savedQuoteId: null, savedQuoteName: null, hasUnsavedChanges: false, lastSavedAt: null });
+    setSaveState({ savedQuoteId: null, savedQuoteName: null, crmQuoteId: "", crmQuoteNumber: "", hasUnsavedChanges: false, lastSavedAt: null });
     setLastSavedSnapshot("");
   };
 
-  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[]; crmAccountId?: string; crmContactId?: string; moqMargins?: Record<number, string>; moqPpuInputs?: Record<number, string>; moqLastEdited?: Record<number, "margin" | "ppu">; whatIfPpus?: Record<number, string>; costPpuOverrides?: Record<number, string> }, savedId?: string, savedName?: string) => {
+  const loadQuoteState = (state: { moqRows: MoqRow[]; columns: Column[]; formData: ProjectFormData; customer?: CustomerInfo; selectedBrand?: BrandId; packagingLevels?: PackagingLevel[]; packagingSummaryRows?: unknown; packagingCasePack?: number; projectType?: ProjectType; coPackingState?: CoPackingState; additionalFees?: AdditionalFeeRow[]; coPackingProcesses?: CoPackingProcess[]; crmAccountId?: string; crmContactId?: string; quoteApproval?: QuoteApprovalState; moqMargins?: Record<number, string>; moqPpuInputs?: Record<number, string>; moqLastEdited?: Record<number, "margin" | "ppu">; whatIfPpus?: Record<number, string>; costPpuOverrides?: Record<number, string> }, savedId?: string, savedName?: string) => {
     // Reconstruct packagingLevels from legacy columns when missing (quotes saved before packagingLevels was added)
     const resolvedLevels: PackagingLevel[] = (() => {
       if (state.packagingLevels && state.packagingLevels.length > 0) {
-        return state.packagingLevels.map(l => ({ ...l, manualCharges: l.manualCharges ?? [] }));
+        return state.packagingLevels.map(l => ({
+          ...l,
+          tabApplyRate: l.tabApplyRate ?? 0,
+          manualCharges: l.manualCharges ?? [],
+        }));
       }
       if (state.columns && state.columns.length > 0) {
         return state.columns.map((col, i) => ({
@@ -707,6 +826,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           numStaff:        parseFloat(col.rows?.["numStaff"] ?? "1") || 1,
           hrsPerShift:     parseFloat(col.rows?.["hrsPerShift"] ?? "7") || 7,
           workingDays:     parseFloat(col.rows?.["workingDays"] ?? "5") || 5,
+          tabApplyRate:    parseFloat(col.rows?.["Tab Apply Rate / min"] ?? "0") || 0,
           manualCharges:   [],
         }));
       }
@@ -722,6 +842,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const resolvedCoPackingState = withCurrentCoPackingDefaults(state.coPackingState);
     const resolvedAdditionalFees = state.additionalFees ?? initialAdditionalFees;
     const resolvedProcesses = state.coPackingProcesses ?? [];
+    const resolvedQuoteApproval = savedId ? (state.quoteApproval ?? initialQuoteApproval) : (state.quoteApproval ?? { ...initialQuoteApproval });
 
     setMoqRows(state.moqRows);
     setPackagingLevels(resolvedLevels);
@@ -732,6 +853,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setCoPackingStateRaw(resolvedCoPackingState);
     setAdditionalFees(resolvedAdditionalFees);
     setCoPackingProcesses(resolvedProcesses);
+    setQuoteApproval(resolvedQuoteApproval);
     setActiveMoqId(state.moqRows[0]?.id ?? 1);
     if (state.crmAccountId   !== undefined) setCrmAccountId(state.crmAccountId);
     if (state.crmContactId   !== undefined) setCrmContactId(state.crmContactId);
@@ -751,17 +873,40 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         selectedBrand: resolvedBrand,
         crmAccountId: state.crmAccountId ?? "",
         crmContactId: state.crmContactId ?? "",
+        crmQuoteId: (state as any).crmQuoteId ?? "",
+        crmQuoteNumber: (state as any).crmQuoteNumber ?? "",
         projectType: resolvedProjectType,
         coPackingState: resolvedCoPackingState,
         additionalFees: resolvedAdditionalFees,
         coPackingProcesses: resolvedProcesses,
+        quoteApproval: resolvedQuoteApproval,
+        saveState: {
+          savedQuoteId: savedId ?? null,
+          savedQuoteName: savedName ?? null,
+          crmQuoteId: (state as any).crmQuoteId ?? "",
+          crmQuoteNumber: (state as any).crmQuoteNumber ?? "",
+          lastSavedAt: savedId ? new Date().toISOString() : null,
+        },
       }));
     } catch { /* ignore */ }
-    const snap = JSON.stringify(state);
+    const snap = JSON.stringify({
+      moqRows: state.moqRows,
+      packagingLevels: resolvedLevels,
+      formData: resolvedFormData,
+      customer: resolvedCustomer,
+      selectedBrand: resolvedBrand,
+      projectType: resolvedProjectType,
+      coPackingState: resolvedCoPackingState,
+      additionalFees: resolvedAdditionalFees,
+      coPackingProcesses: resolvedProcesses,
+      quoteApproval: resolvedQuoteApproval,
+    });
     setLastSavedSnapshot(snap);
     setSaveState({
       savedQuoteId:   savedId ?? null,
       savedQuoteName: savedName ?? null,
+      crmQuoteId:     (state as any).crmQuoteId ?? "",
+      crmQuoteNumber: (state as any).crmQuoteNumber ?? "",
       hasUnsavedChanges: false,
       lastSavedAt: savedId ? new Date() : null,
     });
@@ -801,6 +946,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       computeForQty,
       moqErrors, hasMoqErrors,
       additionalFees, setAdditionalFees,
+      quoteApproval, setQuoteApproval,
+      currentUser, currentUserLoading, refreshCurrentUser,
       moqMargins, setMoqMargins,
       moqPpuInputs, setMoqPpuInputs,
       moqLastEdited, setMoqLastEdited,

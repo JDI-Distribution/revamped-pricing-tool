@@ -12,12 +12,12 @@ const LOGO_SRCS: Record<string, string> = {
   pfg:         `${BASE}logo_pfg.png`,
 };
 
-// ── Brand definitions ─────────────────────────────────────────────────────────
+// -- Brand definitions ---------------------------------------------------------
 export const BRANDS = [
-  { id: "jdi",         label: "JDI Distribution", accent: "#e8473f", phone: "1-800-292-2137", email: "sales@jdidistribution.com", address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "brewglitter", label: "Brew Glitter",      accent: "#c0932b", phone: "1-800-292-2137", email: "sales@brewglitter.com",    address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "bakell",      label: "Bakell",            accent: "#d45f8a", phone: "1-800-292-2137", email: "sales@bakell.com",         address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
-  { id: "pfg",         label: "Pro Foods Group",   accent: "#2e6faf", phone: "1-800-292-2137", email: "sales@profoods.com",       address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "jdi",         label: "JDI Distribution", accent: "#e8473f", phone: "+1 (877) 355 - 0695", email: "sales@jdidistribution.com", address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "brewglitter", label: "Brew Glitter",      accent: "#c0932b", phone: "+1 (877) 316 - 5913", email: "sales@brewglitter.com",    address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "bakell",      label: "Bakell",            accent: "#d6a431", phone: "+1 (800) 292 - 2137", email: "sales@bakell.com",         address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
+  { id: "pfg",         label: "Pro Foods Group",   accent: "#16aa54", phone: "+1 (833) 434 - 2549", email: "sales@profoods.com",       address1: "1967 Essex Ct", address2: "Redlands, CA 92373" },
 ] as const;
 
 const cleanPhone = (value: string | undefined, fallback = "-") => {
@@ -77,6 +77,10 @@ type QuoteArgs = {
   adjustedRevenue?:  number;
   adjustedPPU?:      number;
   ppuDenominator?:   number;
+  leadTimeDaysOverride?: number;
+  leadTimeWeeksOverride?: number;
+  quoteIdOverride?:   string;
+  pdfFileBaseName?:   string;
   formData:         {
     startDate: string; leadTimeBufferDays: string; ppuDenominator: string;
     outboundFee: string; outboundFeeMarkup: string; palletBuffer: string;
@@ -87,7 +91,7 @@ type QuoteArgs = {
   customer:         CustomerInfo;
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 const fmt = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 function fmtPPU(v: number): string {
@@ -100,6 +104,10 @@ function fmtPPU(v: number): string {
 
 function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+}
+
+function tintRgb(rgb: [number, number, number], amount: number): [number, number, number] {
+  return rgb.map((channel) => Math.round(channel + (255 - channel) * amount)) as [number, number, number];
 }
 
 function addBusinessDays(date: Date, days: number): Date {
@@ -154,7 +162,7 @@ function syntheticBaseRow(summaryRows: SummaryRow[], ppuDenominator: number): Mo
   const ppuCost       = totalOur / denom;
   return {
     moqRow: { id: 0, moq: "Base", individualUnits: String(denom), unitsPerInner: "0", innersPerMaster: "0" },
-    casePack:           "—",
+    casePack:           "-",
     totalCustomerPrice: totalCustomer,
     totalOurCost:       totalOur,
     ppuDenominator:     denom,
@@ -165,29 +173,39 @@ function syntheticBaseRow(summaryRows: SummaryRow[], ppuDenominator: number): Mo
   };
 }
 
-// ── Core builder ──────────────────────────────────────────────────────────────
+// -- Core builder --------------------------------------------------------------
 async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: string; moqLabel: string; packLabel: string; leadTimeTable?: AutoTableSnapshot; pricingTable?: AutoTableSnapshot; overviewBox?: QuotePreview["overviewBox"] }[]> {
   const { brandId, moqMargins, whatIfPpus = {}, summaryRows, summaryTableRows,
           deliveredQtys = [], primaryProductName = "", formData, customer,
-          overviewLineItems, adjustedRevenue, adjustedPPU, ppuDenominator: argPpuDenominator } = args;
+          overviewLineItems, adjustedRevenue, adjustedPPU, ppuDenominator: argPpuDenominator,
+          leadTimeDaysOverride, leadTimeWeeksOverride } = args;
   const moqResults = args.moqResults.length > 0
     ? args.moqResults
     : [syntheticBaseRow(summaryRows, parseFloat(formData.ppuDenominator) || 1)];
   const brand      = BRANDS.find((b) => b.id === brandId)!;
-  const quoteId    = generateQuoteId();
+  const quoteId    = args.quoteIdOverride || generateQuoteId();
   const today      = new Date();
   const logoDataUrl = await loadImageAsDataUrl(LOGO_SRCS[brand.id]);
   if (!logoDataUrl) console.error(`[PDF] Logo failed to load for brand "${brand.id}" from ${LOGO_SRCS[brand.id]}`);
 
   const indivRow      = summaryTableRows.find(r => r.leadTimeWeeks != null && !r.isLeadTimeSummary && r.leadTimeWeeks > 0);
   const totalLTRow    = summaryTableRows.find(r => r.isLeadTimeSummary && r.label === "Estimated Total Lead Time");
-  const leadTimeWeeks = totalLTRow?.leadTimeWeeks ?? indivRow?.leadTimeWeeks ?? 0;
+  const fallbackLeadTimeWeeks = totalLTRow?.leadTimeWeeks ?? indivRow?.leadTimeWeeks ?? 0;
+  const leadTimeWeeks = Number.isFinite(leadTimeWeeksOverride ?? NaN) && (leadTimeWeeksOverride ?? 0) > 0
+    ? leadTimeWeeksOverride!
+    : fallbackLeadTimeWeeks;
+  const leadTimeDays = Number.isFinite(leadTimeDaysOverride ?? NaN) && (leadTimeDaysOverride ?? 0) > 0
+    ? leadTimeDaysOverride!
+    : leadTimeWeeks * 5;
   const startDate     = formData.startDate ? new Date(formData.startDate + "T00:00:00") : today;
-  const shipDate      = addBusinessDays(startDate, leadTimeWeeks * 5);
+  const shipDate      = addBusinessDays(startDate, leadTimeDays);
 
   void primaryProductName; // used in line items below
 
-  void hexToRgb(brand.accent); // accent available for future tinting
+  const accent = hexToRgb(brand.accent);
+  const accentSoft = tintRgb(accent, 0.92);
+  const accentSubtle = tintRgb(accent, 0.96);
+  const accentLine = tintRgb(accent, 0.58);
 
   const results: { doc: jsPDF; filename: string; moqLabel: string; packLabel: string; leadTimeTable?: AutoTableSnapshot; pricingTable?: AutoTableSnapshot; overviewBox?: QuotePreview["overviewBox"] }[] = [];
 
@@ -219,7 +237,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const gray     = [30,  30,  30]  as [number,number,number];
     const midGray  = [100, 100, 100] as [number,number,number];
     const ltGray   = [200, 200, 200] as [number,number,number];
-    const rowEven  = [250, 250, 250] as [number,number,number];
+    const rowEven  = accentSubtle;
 
     const sf = (style: "normal" | "bold" | "italic" = "normal", size = 9) => {
       doc.setFont("helvetica", style);
@@ -230,54 +248,55 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const sectionLabel = (text: string, x: number, y: number, align: "left" | "right" | "center" = "left") => {
       const spaced = text.toUpperCase().split("").join(" ");
       sf("bold", 7);
-      doc.setTextColor(...midGray);
+      doc.setTextColor(...accent);
       doc.text(spaced, x, y, { align });
     };
 
     // Thin full-width rule
-    const rule = (y: number, color: [number,number,number] = ltGray, width = 0.25) => {
+    const rule = (y: number, color: [number,number,number] = accentLine, width = 0.25) => {
       doc.setDrawColor(...color);
       doc.setLineWidth(width);
       doc.line(L, y, R, y);
     };
 
-    let y = 14;
+    let y = 12;
 
-    // ── LOGO (top-left) ───────────────────────────────────────────────────────
+    // -- LOGO (top-left) -------------------------------------------------------
     if (logoDataUrl) {
       const { dataUrl, width: srcW, height: srcH } = logoDataUrl;
-      const maxW = 52, maxH = 16;
+      const maxW = 46, maxH = 13;
       const ratio  = Math.min(maxW / srcW, maxH / srcH);
       const drawW  = srcW * ratio;
       const drawH  = srcH * ratio;
       try { doc.addImage(dataUrl, "JPEG", L, y, drawW, drawH); } catch { /* skip */ }
     }
 
-    // ── QUOTE ID (top-right) ──────────────────────────────────────────────────
-    sf("normal", 7); doc.setTextColor(...midGray);
+    // -- QUOTE ID (top-right) --------------------------------------------------
+    sf("normal", 6.5); doc.setTextColor(...midGray);
     doc.text("Quote ID:", R, y + 3, { align: "right" });
-    sf("bold", 11); doc.setTextColor(...gray);
-    doc.text(quoteId, R, y + 9, { align: "right" });
+    sf("bold", 10); doc.setTextColor(...accent);
+    doc.text(quoteId, R, y + 8, { align: "right" });
 
-    y += 22;
+    y += 18;
     rule(y);
 
-    // ── QUOTE DETAILS — two-column grid ──────────────────────────────────────
-    y += 5;
-    sectionLabel("Quote Details", L, y);
-    y += 5;
-    rule(y);
+    // -- QUOTE DETAILS - two-column grid --------------------------------------
     y += 4;
+    sectionLabel("Quote Details", L, y);
+    y += 4;
+    const quoteDetailsTopY = y;
+    rule(y);
+    y += 3;
 
     const colMid = L + W / 2;  // midpoint for two-column layout
 
     // Left column: customer info
     const leftFields: [string, string][] = [
-      ["CUSTOMER",     customer.customer   || "—"],
-      ["CUSTOMER ID",  customer.customerId || "—"],
-      ["NAME",         customer.name       || "—"],
-      ["PHONE",        customer.phone      || "—"],
-      ["EMAIL",        customer.email      || "—"],
+      ["CUSTOMER",     customer.customer   || "-"],
+      ["CUSTOMER ID",  customer.customerId || "-"],
+      ["NAME",         customer.name       || "-"],
+      ["PHONE",        customer.phone      || "-"],
+      ["EMAIL",        customer.email      || "-"],
     ];
     const validThrough = new Date(today);
     validThrough.setDate(validThrough.getDate() + 14);
@@ -286,7 +305,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     const rightFields: [string, string][] = [
       ["DATE ISSUED",  fmtDate(today)],
       ["VALID FOR",    `14 Days (${fmtDate(validThrough)})`],
-      ["SALES REP",    customer.salesRep || "—"],
+      ["SALES REP",    customer.salesRep || "-"],
       ["PHONE",        brand.phone],
       ["EMAIL",        brand.email],
     ];
@@ -297,61 +316,71 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       if (field[1].includes("\u00e2")) field[1] = "-";
     });
 
-    const fieldLineH = 6.2;   // compact single-line label/value rows
+    const fieldLineH = 5.2;   // compact single-line label/value rows
     const drawField = (label: string, val: string, x: number, fy: number, maxW: number) => {
       const labelW = 38;
-      sf("bold", 7); doc.setTextColor(...midGray);
+      sf("bold", 6.5); doc.setTextColor(...midGray);
       doc.text(label, x, fy);
-      sf("normal", 9); doc.setTextColor(...gray);
+      sf("normal", 8.3); doc.setTextColor(...gray);
       const wrapped = doc.splitTextToSize(val, Math.max(24, maxW - labelW)).slice(0, 2);
       doc.text(wrapped, x + labelW, fy);
     };
 
     const colW = W / 2 - 4;
-    const drawInfoColumn = (fields: [string, string][], x: number, startY: number, width: number, boxed = false) => {
-      const labelW = 24;
+    const infoLabelW = 24;
+    const layoutInfoColumn = (fields: [string, string][], width: number, boxed = false) => {
       const prepared = fields.map(([label, val]) => ({
         label,
-        lines: doc.splitTextToSize(val, Math.max(24, (boxed ? width - 5 : width) - labelW)).slice(0, 2) as string[],
+        lines: doc.splitTextToSize(val, Math.max(24, (boxed ? width - 5 : width) - infoLabelW)).slice(0, 2) as string[],
       }));
-      const boxH = prepared.reduce((sum, item) => sum + Math.max(5.2, item.lines.length * 3.8 + 1.2), 4);
-      if (boxed) {
-        doc.setFillColor(245, 247, 250);
-        doc.setDrawColor(190, 198, 210);
-        doc.setLineWidth(0.35);
-        doc.roundedRect(x - 2.5, startY - 4, width + 5, boxH, 1.2, 1.2, "FD");
-      }
+      const rowHeights = prepared.map((item) => Math.max(4.5, item.lines.length * 3.2 + 1));
+      const bottom = rowHeights.reduce((sum, h) => sum + h, y);
+      return { prepared, rowHeights, bottom };
+    };
 
+    const drawInfoColumn = (
+      layout: ReturnType<typeof layoutInfoColumn>,
+      x: number,
+      startY: number,
+    ) => {
       let cy = startY;
-      prepared.forEach(({ label, lines }) => {
-        sf("bold", 6.8); doc.setTextColor(...midGray);
+      layout.prepared.forEach(({ label, lines }, index) => {
+        sf("bold", 6.4); doc.setTextColor(...midGray);
         doc.text(label, x, cy);
-        sf("normal", 8.7); doc.setTextColor(...gray);
-        doc.text(lines, x + labelW, cy);
-        cy += Math.max(5.2, lines.length * 3.8 + 1.2);
+        sf("normal", 8.1); doc.setTextColor(...gray);
+        doc.text(lines, x + infoLabelW, cy);
+        cy += layout.rowHeights[index];
       });
       return cy;
     };
 
-    const leftBottom  = drawInfoColumn(leftFields, L, y, colW);
-    const rightBottom = drawInfoColumn(rightFields, colMid, y, colW, true);
+    const leftLayout = layoutInfoColumn(leftFields, colW);
+    const rightLayout = layoutInfoColumn(rightFields, colW, true);
+    const quoteDetailsBottomY = Math.max(leftLayout.bottom, rightLayout.bottom) + 2;
 
-    y = Math.max(leftBottom, rightBottom) + 2;
+    doc.setFillColor(...accentSoft);
+    doc.rect(colMid - 2.8, quoteDetailsTopY, colW + 5.6, quoteDetailsBottomY - quoteDetailsTopY, "F");
+
+    drawInfoColumn(leftLayout, L, y);
+    drawInfoColumn(rightLayout, colMid, y);
+
+    rule(quoteDetailsTopY);
+    y = quoteDetailsBottomY;
     rule(y);
 
-    // ── PROJECT OVERVIEW ──────────────────────────────────────────────────────
-    y += 5;
-    sectionLabel("Project Overview", L, y);
-    y += 5;
-    rule(y);
+    // -- PROJECT OVERVIEW ------------------------------------------------------
     y += 4;
+    sectionLabel("Project Overview", L, y);
+    y += 4;
+    rule(y);
+    y += 3;
 
     const unitSizeG  = parseFloat(formData.unitWeight || "0") || 0;
     const unitLabel  = formData.unitWeightUnit || "g";
     const overviewFields: [string, string][] = [
-      ["PRODUCT NAME",               customer.productName || primaryProductName || "—"],
-      ["PRODUCT CATEGORY",           customer.productCategory || "—"],
-      [`UNIT / EA SIZE (${unitLabel.toUpperCase()})`, unitSizeG > 0 ? `${unitSizeG} ${unitLabel}` : "—"],
+      ["PRODUCT NAME",               customer.productName || primaryProductName || "-"],
+      ["PRODUCT CATEGORY",           customer.productCategory || "-"],
+      [`UNIT / EA SIZE (${unitLabel.toUpperCase()})`, unitSizeG > 0 ? `${unitSizeG} ${unitLabel}` : "-"],
     ];
 
     overviewFields.forEach(([label, val], i) => {
@@ -359,49 +388,49 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       drawField(label, val, L, fy, colW);
     });
 
-    // ── Packaging breakdown — single line with arrows (right column) ──
-    const packRows = summaryTableRows.filter(str => !str.isLeadTimeSummary && (str.totalUnits ?? 0) > 0);
-    const overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined = undefined;
-    const maxPackagingLineW = W / 2 - 2;
-    const packagingDisplayLines = packRows.flatMap((row, index) => {
-      const lbl = row.label.replace(/ & Fees$/i, "");
-      const qty = Math.round(row.totalUnits ?? 0).toLocaleString();
-      const prefix = index === 0 ? "" : "-> ";
-      return doc.splitTextToSize(`${prefix}${lbl}: ${qty}`, maxPackagingLineW) as string[];
-    });
-    if (packRows.length > 0) {
-      sf("bold", 7); doc.setTextColor(...midGray);
-      doc.text("PACKAGING STRUCTURE", colMid, y);
-
-      const wrapped = packagingDisplayLines;
-      sf("normal", 8); doc.setTextColor(...gray);
-      wrapped.forEach((line: string, li: number) => {
-        doc.text(line, colMid, y + 4.5 + li * 4.4);
-      });
-    } else if (customer.projectOverview) {
-      // fallback: custom text paragraph
-      sf("normal", 8.5); doc.setTextColor(...midGray);
-      const ovWrapped = doc.splitTextToSize(customer.projectOverview, W / 2 - 4);
-      ovWrapped.forEach((line: string, li: number) => {
-        doc.text(line, colMid, y + li * 4.2);
-      });
+    // -- Packaging breakdown - single line with arrows (right column) --
+    const overviewSummary = (customer.projectOverview || "")
+      .replace(/^\s*project\s+overview\s*:?\s*/i, "")
+      .trim();
+    const summaryY = y + overviewFields.length * fieldLineH + 0.8;
+    let summaryLines: string[] = [];
+    if (overviewSummary) {
+      sf("bold", 6.5); doc.setTextColor(...midGray);
+      doc.text("SUMMARY", L, summaryY);
+      sf("normal", 7.4); doc.setTextColor(...gray);
+      summaryLines = (doc.splitTextToSize(overviewSummary, W - 4) as string[]).slice(0, 4);
+      doc.text(summaryLines, L, summaryY + 3.7);
     }
-
-    const packagingLines = packagingDisplayLines.length;
-    const overviewSectionH = Math.max(overviewFields.length * fieldLineH, packRows.length > 0 ? 8 + packagingLines * 4.4 + 4 : 0);
-    y += overviewSectionH + 4;
+    const overviewBoxSnapshot: QuotePreview["overviewBox"] | undefined = undefined;
+    const overviewSectionH = overviewFields.length * fieldLineH
+      + (summaryLines.length > 0 ? 5.2 + summaryLines.length * 3.3 : 0);
+    y += overviewSectionH + 3;
     rule(y);
 
-    // ── Page-break helper ─────────────────────────────────────────────────────
-    // ── PRICING BREAKDOWN ─────────────────────────────────────────────────────
-    y += 7;
+    // -- Page-break helper -----------------------------------------------------
+    // -- PRICING BREAKDOWN -----------------------------------------------------
+    y += 5;
 
     const body: string[][] = [];
+    let renderedLineTotal: number | null = null;
 
     if (overviewLineItems && overviewLineItems.length > 0) {
       // Use pre-computed Overview line items from QuotePage
-      for (const item of overviewLineItems) {
-        const qtyStr = item.qty != null ? Math.round(item.qty).toLocaleString() : "—";
+      const pdfItems = overviewLineItems.map(item => ({ ...item }));
+      if (adjustedRevenue !== undefined) {
+        const lineTotal = pdfItems.reduce((sum, item) => sum + item.total, 0);
+        const delta = adjustedRevenue - lineTotal;
+        if (Math.abs(delta) >= 0.005) {
+          const targetIdx = pdfItems.findIndex(item => item.desc.toLowerCase().includes("product filling"));
+          const fallbackIdx = pdfItems.reduce((bestIdx, item, idx) =>
+            item.total > (pdfItems[bestIdx]?.total ?? -Infinity) ? idx : bestIdx, 0);
+          const idx = targetIdx >= 0 ? targetIdx : fallbackIdx;
+          if (pdfItems[idx]) pdfItems[idx].total += delta;
+        }
+      }
+      renderedLineTotal = pdfItems.reduce((sum, item) => sum + item.total, 0);
+      for (const item of pdfItems) {
+        const qtyStr = item.qty != null ? Math.round(item.qty).toLocaleString() : "-";
         const ppu    = item.qty && item.qty > 0 ? item.total / item.qty : item.total;
         body.push([item.desc, qtyStr, fmtPPU(ppu), fmt(item.total)]);
       }
@@ -415,7 +444,7 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         !str.label.toLowerCase().includes("material") &&
         !str.label.toLowerCase().includes("pallet") &&
         !str.label.toLowerCase().includes("setup") &&
-        !str.label.toLowerCase().startsWith("testing –")
+        !str.label.toLowerCase().startsWith("testing -")
       );
       const palletSTR  = summaryTableRows.find(str => str.label.toLowerCase().includes("pallet") && !str.isLeadTimeSummary);
       const primaryCol = colItems[0];
@@ -432,21 +461,21 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
         const primName  = primaryCol?.label || customer.productName || primaryProductName || "Primary Fill";
         body.push([`Product Filling, Handling & Intake - ${primName}`, Math.round(combDeliv).toLocaleString(), fmtPPU(combPPU), fmt(combTotal)]);
       }
-      const testingSTRs = summaryTableRows.filter(str => str.label.toLowerCase().startsWith("testing –"));
+      const testingSTRs = summaryTableRows.filter(str => str.label.toLowerCase().startsWith("testing -"));
       const nSkus = parseInt(formData.numSkus ?? "1", 10) || 1;
       for (const t of testingSTRs) {
         const cx = t.totalPrice ?? 0;
-        body.push([`Testing & Documentation – ${t.label.replace(/^testing\s*[–-]\s*/i, "")}`, `${nSkus} SKUs`, fmtPPU(nSkus > 0 ? cx / nSkus : 0), fmt(cx)]);
+        body.push([`Testing & Documentation - ${t.label.replace(/^testing\s*[--]\s*/i, "")}`, `${nSkus} SKUs`, fmtPPU(nSkus > 0 ? cx / nSkus : 0), fmt(cx)]);
       }
       colItems.slice(1).forEach((col) => {
         const delivQty = col.totalUnits ?? 0;
         const totalPrice = col.totalPrice ?? 0;
-        body.push([`${col.label} - Total`, delivQty > 0 ? Math.round(delivQty).toLocaleString() : "—", fmtPPU(delivQty > 0 ? totalPrice / delivQty : 0), fmt(totalPrice)]);
+        body.push([`${col.label} - Total`, delivQty > 0 ? Math.round(delivQty).toLocaleString() : "-", fmtPPU(delivQty > 0 ? totalPrice / delivQty : 0), fmt(totalPrice)]);
       });
       if (palletRow) {
         const nPal  = palletSTR?.totalUnits != null ? Math.round(palletSTR.totalUnits) : 0;
         const palCx = palletRow.customerPrice;
-        body.push(["Palletization & Outbound Staging", nPal > 0 ? String(nPal) : "—", fmtPPU(nPal > 0 ? palCx / nPal : 0), fmt(palCx)]);
+        body.push(["Palletization & Outbound Staging", nPal > 0 ? String(nPal) : "-", fmtPPU(nPal > 0 ? palCx / nPal : 0), fmt(palCx)]);
       }
     }
 
@@ -461,19 +490,18 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
     }
 
     // Totals row
-    const finalRevenue  = adjustedRevenue ?? totalRevenue;
-    const finalPPU      = adjustedPPU ?? totalPPU;
     const finalDenom    = argPpuDenominator ?? r.ppuDenominator;
-    void finalDenom;
+    const finalRevenue  = adjustedRevenue ?? renderedLineTotal ?? totalRevenue;
+    const finalPPU      = adjustedPPU ?? (finalDenom > 0 ? finalRevenue / finalDenom : totalPPU);
     const totalsRowOv   = liOv[body.length];
     const totalsTotal   = (totalsRowOv?.[3] && totalsRowOv[3] !== "") ? totalsRowOv[3] : fmt(finalRevenue);
     body.push(["TOTALS", "", fmtPPU(finalPPU), totalsTotal]);
     const totalsIdx = body.length - 1;
 
     // Estimate full table height: header (8mm) + each row (~8mm each, some wrap to 2 lines)
-    // + section label (10mm) — force new page if it won't all fit
+    // + section label (10mm) - force new page if it won't all fit
     sectionLabel("Pricing Breakdown", L, y);
-    y += 5;
+    y += 4;
 
     const compactPricing = body.length > 7;
     autoTable(doc, {
@@ -481,18 +509,18 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       head: [["Description", "Quantity", "Unit Price", "Total"]],
       body,
       styles: {
-        font: "helvetica", fontSize: compactPricing ? 7.4 : 8,
+        font: "helvetica", fontSize: compactPricing ? 6.7 : 7.2,
         cellPadding: compactPricing
-          ? { top: 1.4, bottom: 1.4, left: 2.5, right: 2.5 }
-          : { top: 1.8, bottom: 1.8, left: 3, right: 3 },
+          ? { top: 0.85, bottom: 0.85, left: 2, right: 2 }
+          : { top: 1.1, bottom: 1.1, left: 2.2, right: 2.2 },
         textColor: gray, lineColor: ltGray, lineWidth: 0.2,
         fillColor: [255, 255, 255],
-        minCellHeight: compactPricing ? 4.8 : 5.4,
+        minCellHeight: compactPricing ? 3.8 : 4.4,
       },
       headStyles: {
-        fontStyle: "bold", fontSize: compactPricing ? 7.2 : 7.6,
-        fillColor: [240, 240, 240],
-        textColor: midGray,
+        fontStyle: "bold", fontSize: compactPricing ? 6.7 : 7,
+        fillColor: accent,
+        textColor: [255, 255, 255],
         halign: "left",
       },
       alternateRowStyles: { fillColor: rowEven },
@@ -505,7 +533,10 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       willDrawCell: (data) => {
         if (data.section === "body" && data.row.index === totalsIdx) {
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(9.5);
+          doc.setFontSize(8.5);
+          doc.setTextColor(...gray);
+        } else if (data.section === "body" && data.column.index === 0) {
+          doc.setFont("helvetica", "bold");
           doc.setTextColor(...gray);
         }
       },
@@ -520,32 +551,35 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       finalY: (doc as any).lastAutoTable.finalY,
     };
 
-    // ── TIMELINE & DELIVERY ───────────────────────────────────────────────────
-    y = (doc as any).lastAutoTable.finalY + 5;
-    if (y + 32 > pageH - 14) {
-      y = pageH - 46;
+    // -- TIMELINE & DELIVERY ---------------------------------------------------
+    y = (doc as any).lastAutoTable.finalY + 4;
+    if (y + 27 > pageH - 13) {
+      y = pageH - 41;
     }
-    rule(y, ltGray, 0.2);
-    y += 5;
+    rule(y);
+    y += 4;
     sectionLabel("Timeline & Delivery", L, y);
-    y += 5;
+    y += 4;
 
     const ltOv = customer.ltOverrides ?? [];
+    const leadTimeText = leadTimeWeeks > 0
+      ? `${leadTimeDays.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Days (${leadTimeWeeks.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Weeks)`
+      : "-";
     autoTable(doc, {
       startY: y, margin: { left: L, right: L },
       head: [["Milestone", "Date / Duration"]],
       body: [
-        ["Lead Time",                       ltOv[0] ?? (leadTimeWeeks > 0 ? `${leadTimeWeeks.toFixed(2)} Weeks` : "—")],
+        ["Lead Time",                       ltOv[0] ?? leadTimeText],
         ["Start Date (Week Of)",             ltOv[1] ?? fmtDate(startDate)],
         ["Estimated Ship Date (Week Of)",    ltOv[2] ?? fmtDate(shipDate)],
       ],
       styles: {
-        font: "helvetica", fontSize: 8,
-        cellPadding: { top: 1.6, bottom: 1.6, left: 3, right: 3 },
+        font: "helvetica", fontSize: 7.1,
+        cellPadding: { top: 0.9, bottom: 0.9, left: 2.2, right: 2.2 },
         textColor: gray, lineColor: ltGray, lineWidth: 0.2,
         fillColor: [255, 255, 255],
       },
-      headStyles: { fontStyle: "bold", fontSize: 7.6, fillColor: [240, 240, 240], textColor: midGray },
+      headStyles: { fontStyle: "bold", fontSize: 6.9, fillColor: accent, textColor: [255, 255, 255] },
       alternateRowStyles: { fillColor: rowEven },
       columnStyles: {
         0: { halign: "left",  cellWidth: "auto", fontStyle: "bold" },
@@ -561,68 +595,59 @@ async function buildDocs(args: QuoteArgs): Promise<{ doc: jsPDF; filename: strin
       finalY: (doc as any).lastAutoTable.finalY,
     };
 
-    // ── TERMS & CONDITIONS ────────────────────────────────────────────────────
-    const firstPageFooterY = pageH - 10;
-    rule(firstPageFooterY, ltGray, 0.2);
-    sf("normal", 7); doc.setTextColor(...midGray);
-    doc.text(`${brand.address1}, ${brand.address2} | ${brand.email} | ${cleanPhone(brand.phone)}`, pageW / 2, firstPageFooterY + 4, { align: "center" });
-    doc.text("Page 1 of 2", R, firstPageFooterY + 4, { align: "right" });
-
-    doc.addPage();
-    y = 14;
-
+    // -- TERMS & CONDITIONS ----------------------------------------------------
     const disclaimer = "This document is a quotation only and does not constitute a formal offer, contract, or order. Prices and terms are subject to change without notice and are valid only for the period specified (14 days from the date hereof). All quotes are subject to product availability, credit approval, and our standard Terms and Conditions, available upon request or at our website. Acceptance of this quote requires written confirmation and may be subject to final review.";
     const cancelPolicy = "All wholesale and bulk orders are final and non-cancellable upon approval. No refunds, returns, cancellations, or modifications will be accepted thereafter.";
 
-    sf("italic", 7.5); doc.setTextColor(...midGray);
-    const disclaimerLines = doc.splitTextToSize(disclaimer, W);
-    const cancelLines     = doc.splitTextToSize(cancelPolicy, W);
-    const footerH = 18 + cancelLines.length * 3.8 + 7 + disclaimerLines.length * 3.5 + 12;
-    void footerH;
+    const footerY = pageH - 10;
+    const termsStart = Math.min((doc as any).lastAutoTable.finalY + 5, footerY - 29);
+    y = Math.max(termsStart, 236);
 
-    rule(y, ltGray, 0.2);
-    y += 4;
+    rule(y);
+    y += 3.4;
 
     sectionLabel("Terms & Conditions", L, y);
-    y += 5;
+    y += 4;
 
-    sf("bold", 8); doc.setTextColor(...gray);
+    sf("bold", 6.6); doc.setTextColor(...gray);
     doc.text("Cancellation Policy", L, y);
-    sf("normal", 8); doc.setTextColor(...midGray);
-    y += 4;
-    doc.text(cancelLines, L, y);
-    y += Math.max(cancelLines.length, 1) * 3.8 + 5;
+    sf("normal", 6.4); doc.setTextColor(...midGray);
+    const cancelLines = doc.splitTextToSize(cancelPolicy, W);
+    y += 3.1;
+    doc.text(cancelLines.slice(0, 2), L, y);
+    y += Math.min(cancelLines.length, 2) * 2.9 + 2.4;
 
-    sf("bold", 8); doc.setTextColor(...gray);
+    sf("bold", 6.6); doc.setTextColor(...gray);
     doc.text("Quote Disclaimer", L, y);
-    sf("italic", 7.5); doc.setTextColor(...midGray);
-    y += 4;
-    doc.text(disclaimerLines, L, y);
+    sf("italic", 6.2); doc.setTextColor(...midGray);
+    const disclaimerLines = doc.splitTextToSize(disclaimer, W);
+    y += 3;
+    doc.text(disclaimerLines.slice(0, 4), L, y);
 
-    // ── Footer bar ────────────────────────────────────────────────────────────
-    const footerY = pageH - 10;
-    const totalPages = doc.getNumberOfPages();
+    // -- Footer bar ------------------------------------------------------------
     rule(footerY, ltGray, 0.2);
     sf("normal", 7); doc.setTextColor(...midGray);
     doc.text(`${brand.address1}, ${brand.address2} | ${brand.email} | ${cleanPhone(brand.phone)}`, pageW / 2, footerY + 4, { align: "center" });
-    doc.text(`Page ${doc.getCurrentPageInfo().pageNumber} of ${totalPages}`, R, footerY + 4, { align: "right" });
+    doc.text("Page 1 of 1", R, footerY + 4, { align: "right" });
 
-    // ── Filename ──────────────────────────────────────────────────────────────
-    const clean = (s: string) => (s || "Unknown").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_\-]/g, "");
+    // -- Filename --------------------------------------------------------------
+    const clean = (s: string) => (s || "Unknown").replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim();
     const dateStr = today.toISOString().split("T")[0];
     const unitsOrMoq = moqResults.length > 1
       ? moqResults.map(m => m.moqRow.moq || "0").join("-")
       : String(Math.round(primaryDelivQty) || r.moqRow.moq || "0");
-    const filename = [clean(customer.customer), clean(customer.productName || primaryProductName), unitsOrMoq, dateStr].join("_") + ".pdf";
+    const generatedPdfBaseName = args.pdfFileBaseName
+      || [unitsOrMoq, `${formData.unitWeight || "0"}${formData.unitWeightUnit || "g"}`, customer.productName || primaryProductName || "Product", customer.customer || "Company", dateStr].join("_");
+    const filename = clean(generatedPdfBaseName) + ".pdf";
     console.log("[PDF] filename:", filename);
 
-    results.push({ doc, filename, moqLabel: r.moqRow.moq || "—", packLabel: r.casePack, leadTimeTable: leadTimeSnapshot, pricingTable: pricingSnapshot, overviewBox: overviewBoxSnapshot });
+    results.push({ doc, filename, moqLabel: r.moqRow.moq || "-", packLabel: r.casePack, leadTimeTable: leadTimeSnapshot, pricingTable: pricingSnapshot, overviewBox: overviewBoxSnapshot });
   }
 
   return results;
 }
 
-// ── Preview: returns blob URLs (no download) ──────────────────────────────────
+// -- Preview: returns blob URLs (no download) ----------------------------------
 export async function buildQuotePreviews(args: QuoteArgs): Promise<QuotePreview[]> {
   const docs = await buildDocs(args);
   return docs.map(({ doc, filename, moqLabel, packLabel, leadTimeTable, pricingTable, overviewBox }) => {
@@ -632,13 +657,13 @@ export async function buildQuotePreviews(args: QuoteArgs): Promise<QuotePreview[
   });
 }
 
-// ── Download: saves all PDFs directly ────────────────────────────────────────
+// -- Download: saves all PDFs directly ----------------------------------------
 export async function generateQuotePDFs(args: QuoteArgs): Promise<void> {
   const docs = await buildDocs(args);
   docs.forEach(({ doc, filename }) => doc.save(filename));
 }
 
-// ── Custom quantity preview ───────────────────────────────────────────────────
+// -- Custom quantity preview ---------------------------------------------------
 export interface CustomQtyQuoteArgs {
   brandId:          BrandId;
   qty:              number;

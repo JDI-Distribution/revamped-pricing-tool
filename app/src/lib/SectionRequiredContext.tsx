@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 type RequiredState = Record<string, boolean>; // sectionId -> true means "not required"
 
@@ -8,9 +8,19 @@ interface SectionRequiredCtx {
 }
 
 const Ctx = createContext<SectionRequiredCtx | null>(null);
+const STORAGE_KEY = "jdi_section_not_required";
 
 export function SectionRequiredProvider({ children }: { children: ReactNode }) {
-  const [notRequired, setNotRequired] = useState<RequiredState>({});
+  const [notRequired, setNotRequired] = useState<RequiredState>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notRequired));
+  }, [notRequired]);
   const toggle = (id: string) =>
     setNotRequired(prev => ({ ...prev, [id]: !prev[id] }));
   return <Ctx.Provider value={{ notRequired, toggle }}>{children}</Ctx.Provider>;

@@ -5,7 +5,7 @@ import { useProject } from "@/lib/ProjectContext";
 interface Props {
   open:    boolean;
   onClose: () => void;
-  /** Called when user clicks "Apply to Quote" — passes moqRowId → adjusted PPU */
+  /** Called when user clicks "Apply to Quote" - passes moqRowId -> adjusted PPU */
   onApply: (moqRowId: number, adjPPU: number) => void;
 }
 
@@ -147,7 +147,7 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
       <div
         className="relative w-full md:max-w-225 max-h-[90vh] bg-white rounded-lg shadow-2xl flex flex-col"
       >
-        {/* ── Header ── */}
+        {/* -- Header -- */}
         <div className="shrink-0 px-5 py-4 border-b border-gray-100 flex items-start justify-between bg-white">
           <div>
             <h2 className="text-sm font-bold text-zinc-950">Margin Calculator</h2>
@@ -158,10 +158,10 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
           </button>
         </div>
 
-        {/* ── Scrollable body ── */}
+        {/* -- Scrollable body -- */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* ── Section 1 — MOQ Overview Table ── */}
+          {/* -- Section 1 - MOQ Overview Table -- */}
           <div className="px-5 pt-4 pb-2">
             <p className="text-[0.6rem] font-bold uppercase tracking-widest text-zinc-600 mb-2">MOQ Overview</p>
             <div className="border border-gray-100 rounded-lg overflow-hidden">
@@ -189,22 +189,22 @@ export default function MarginCalculator({ open, onClose, onApply }: Props) {
                       >
                         <td className={`py-2 px-2 font-semibold ${isActive ? "text-[#e8473f]" : "text-zinc-950"}`}>{r.moqRow.moq}</td>
                         <td className="py-2 px-2 text-zinc-600">{r.casePack}</td>
-                        <td className="py-2 px-2 text-right text-zinc-700">{r.ppuCost > 0 ? fmt(r.ppuCost) : "—"}</td>
-                        <td className="py-2 px-2 text-right text-zinc-900 font-medium">{adjPpu > 0 ? fmt(adjPpu) : "—"}</td>
+                        <td className="py-2 px-2 text-right text-zinc-700">{r.ppuCost > 0 ? fmt(r.ppuCost) : "-"}</td>
+                        <td className="py-2 px-2 text-right text-zinc-900 font-medium">{adjPpu > 0 ? fmt(adjPpu) : "-"}</td>
                         <td className={`py-2 px-2 text-right font-semibold ${marginColor(adjMargin)}`}>{fmtPct(adjMargin)}</td>
-                        <td className="py-2 px-2 text-right text-zinc-800">{rev > 0 ? fmt(rev) : "—"}</td>
+                        <td className="py-2 px-2 text-right text-zinc-800">{rev > 0 ? fmt(rev) : "-"}</td>
                       </tr>
                     );
                   })}
                   {allMoqResults.length === 0 && (
-                    <tr><td colSpan={6} className="py-6 text-center text-xs text-zinc-600 italic">No MOQ data — fill in project details first</td></tr>
+                    <tr><td colSpan={6} className="py-6 text-center text-xs text-zinc-600 italic">No MOQ data - fill in project details first</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* ── Section 3 — Global controls (above per-row) ── */}
+          {/* -- Section 3 - Global controls (above per-row) -- */}
           <div className="px-5 pt-3 pb-2">
             <p className="text-[0.6rem] font-bold uppercase tracking-widest text-zinc-600 mb-2">Apply to All MOQs</p>
             <div className="border border-gray-100 rounded-lg p-3 space-y-3">
@@ -258,7 +258,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                       placeholder="3.0"
                       className="w-16 h-8 px-2 text-xs bg-amber-50 border border-amber-200 rounded-l focus:outline-none focus:ring-1 focus:ring-[#e8473f]"
                     />
-                    <span className="h-8 px-2 flex items-center text-xs text-zinc-600 border border-l-0 border-amber-200 bg-amber-50/50 rounded-r">×</span>
+                    <span className="h-8 px-2 flex items-center text-xs text-zinc-600 border border-l-0 border-amber-200 bg-amber-50/50 rounded-r">x</span>
                   </div>
                   <button type="button" onClick={resetAll} className="h-8 px-3 text-xs font-semibold text-zinc-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Reset</button>
                 </div>
@@ -266,7 +266,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
             </div>
           </div>
 
-          {/* ── Live Output Preview ── */}
+          {/* -- Live Output Preview -- */}
           {(() => {
             // Pre-compute per-row adjusted values and original values
             const rows = allMoqResults.map((r) => {
@@ -294,7 +294,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
 
             const deltaFmt = (v: number, isCurrency = true) => {
               const sign = v > 0 ? "+" : "";
-              const arrow = v > 0 ? " ↑" : v < 0 ? " ↓" : "";
+              const arrow = v > 0 ? " ^" : v < 0 ? " v" : "";
               const val = isCurrency ? fmt(v) : fmtPct(v);
               return `${sign}${val}${arrow}`;
             };
@@ -314,7 +314,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                   <div className="border border-gray-100 rounded-lg overflow-hidden">
                     {/* Table header */}
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-0 bg-gray-50 border-b border-gray-100">
-                      {["Line Item","Current Rev","Adjusted Rev","Δ Change"].map((h, i) => (
+                      {["Line Item","Current Rev","Adjusted Rev","Delta Change"].map((h, i) => (
                         <div key={h} className={`py-2 px-2.5 text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider ${i > 0 ? "text-right" : ""}`}>{h}</div>
                       ))}
                     </div>
@@ -325,28 +325,28 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                           {/* Summary row */}
                           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-0">
                             <div className={`py-2 px-2.5 text-xs font-semibold ${isActive ? "text-[#e8473f]" : "text-zinc-800"}`}>
-                              {r.moqRow.moq} · {r.casePack}pk
+                              {r.moqRow.moq}  -  {r.casePack}pk
                             </div>
-                            <div className="py-2 px-2.5 text-xs text-right text-zinc-600">{origRev > 0 ? fmt(origRev) : "—"}</div>
-                            <div className="py-2 px-2.5 text-xs text-right font-semibold text-zinc-900">{adjRev > 0 ? fmt(adjRev) : "—"}</div>
+                            <div className="py-2 px-2.5 text-xs text-right text-zinc-600">{origRev > 0 ? fmt(origRev) : "-"}</div>
+                            <div className="py-2 px-2.5 text-xs text-right font-semibold text-zinc-900">{adjRev > 0 ? fmt(adjRev) : "-"}</div>
                             <div className={`py-2 px-2.5 text-xs text-right font-semibold ${deltaColor(deltaRev)}`}>
-                              {Math.abs(deltaRev) > 0.005 ? deltaFmt(deltaRev) : "—"}
+                              {Math.abs(deltaRev) > 0.005 ? deltaFmt(deltaRev) : "-"}
                             </div>
                           </div>
                           {/* Detail sub-row */}
                           <div className="grid grid-cols-3 gap-0 px-2.5 pb-2 text-[0.6rem] border-t border-gray-50">
                             <div className="space-y-0.5 pt-1">
                               <div className="text-zinc-600">Current</div>
-                              <div className="text-zinc-700">PPU {r.ppu > 0 ? fmt(r.ppu) : "—"} · {fmtPct(origMargin)}</div>
+                              <div className="text-zinc-700">PPU {r.ppu > 0 ? fmt(r.ppu) : "-"}  -  {fmtPct(origMargin)}</div>
                             </div>
                             <div className="space-y-0.5 pt-1">
                               <div className="text-zinc-600">Adjusted</div>
-                              <div className="font-semibold text-zinc-900">PPU {fmt(adjPpu)} · <span className={marginColor(adjMargin)}>{fmtPct(adjMargin)}</span></div>
+                              <div className="font-semibold text-zinc-900">PPU {fmt(adjPpu)}  -  <span className={marginColor(adjMargin)}>{fmtPct(adjMargin)}</span></div>
                             </div>
                             <div className="space-y-0.5 pt-1">
                               <div className="text-zinc-600">Change</div>
                               <div className="space-x-2">
-                                <span className={deltaColor(deltaPpu)}>{Math.abs(deltaPpu) > 0.0001 ? deltaFmt(deltaPpu) : "—"}</span>
+                                <span className={deltaColor(deltaPpu)}>{Math.abs(deltaPpu) > 0.0001 ? deltaFmt(deltaPpu) : "-"}</span>
                                 <span className={deltaColor(deltaMargin)}>{Math.abs(deltaMargin) > 0.005 ? deltaFmt(deltaMargin, false) : ""}</span>
                               </div>
                             </div>
@@ -355,7 +355,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                       );
                     })}
 
-                    {/* Bar chart — active MOQ only */}
+                    {/* Bar chart - active MOQ only */}
                     {activeRow && (
                       <div className="border-t border-gray-100 px-3 py-3 bg-gray-50/40">
                         <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Active MOQ Revenue</p>
@@ -394,7 +394,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                           {fmtPct(origAvgMargin)}
                           {Math.abs(avgMargin - origAvgMargin) > 0.005 && (
                             <span className={`ml-1 ${deltaColor(avgMargin - origAvgMargin)}`}>
-                              → {fmtPct(avgMargin)}
+                              {"->"} {fmtPct(avgMargin)}
                             </span>
                           )}
                         </span>
@@ -405,7 +405,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                           {fmt(origActiveRev)}
                           {Math.abs(adjActiveRev - origActiveRev) > 0.005 && (
                             <span className={`ml-1 ${deltaColor(adjActiveRev - origActiveRev)}`}>
-                              → {fmt(adjActiveRev)}
+                              {"->"} {fmt(adjActiveRev)}
                             </span>
                           )}
                         </span>
@@ -413,10 +413,10 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                       <div className="col-span-2 flex items-center justify-between">
                         <span className="text-zinc-600">Revenue Range</span>
                         <span className="font-semibold text-zinc-800">
-                          {fmt(Math.min(...rows.map(r => r.origRev)))}–{fmt(Math.max(...rows.map(r => r.origRev)))}
+                          {fmt(Math.min(...rows.map(r => r.origRev)))}-{fmt(Math.max(...rows.map(r => r.origRev)))}
                           {hasChanges && (
                             <span className="ml-1 text-zinc-600">
-                              → {fmt(Math.min(...rows.map(r => r.adjRev)))}–{fmt(Math.max(...rows.map(r => r.adjRev)))}
+                              {"->"} {fmt(Math.min(...rows.map(r => r.adjRev)))}-{fmt(Math.max(...rows.map(r => r.adjRev)))}
                             </span>
                           )}
                         </span>
@@ -428,7 +428,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
             );
           })()}
 
-          {/* ── Section 2 — Per-row adjusters ── */}
+          {/* -- Section 2 - Per-row adjusters -- */}
           <div className="px-5 pt-1 pb-4 space-y-2">
             <p className="text-[0.6rem] font-bold uppercase tracking-widest text-zinc-600 mb-2">Per-MOQ Adjustment</p>
             {allMoqResults.map((r) => {
@@ -456,14 +456,14 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                     <div className="flex items-center gap-2">
                       {isActive && <div className="w-1.5 h-1.5 rounded-full bg-[#e8473f]" />}
                       <span className={`text-xs font-semibold ${isActive ? "text-[#e8473f]" : "text-zinc-800"}`}>
-                        {r.moqRow.moq} MOQ · {r.casePack}pk
+                        {r.moqRow.moq} MOQ  -  {r.casePack}pk
                       </span>
-                      <span className="text-[0.6rem] text-zinc-600">Cost PPU: {r.ppuCost > 0 ? fmt(r.ppuCost) : "—"}</span>
+                      <span className="text-[0.6rem] text-zinc-600">Cost PPU: {r.ppuCost > 0 ? fmt(r.ppuCost) : "-"}</span>
                     </div>
                     <span className={`text-xs font-bold ${marginColor(adjMargin)}`}>{fmtPct(adjMargin)}</span>
                   </div>
 
-                  {/* PPU ↔ Margin inputs */}
+                  {/* PPU <-> Margin inputs */}
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     <div>
                       <p className="text-[0.6rem] font-semibold text-zinc-600 uppercase tracking-wider mb-1">PPU</p>
@@ -504,7 +504,7 @@ type="button"                   onClick={() => setGlobalMode("multiplier")}
                   {/* Revenue + Apply button */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-zinc-600">
-                      Revenue: <span className="font-semibold text-zinc-900">{rev > 0 ? fmt(rev) : "—"}</span>
+                      Revenue: <span className="font-semibold text-zinc-900">{rev > 0 ? fmt(rev) : "-"}</span>
                       {adjPpu !== r.ppu && r.ppu > 0 && (
                         <span className={`ml-1 text-[0.6rem] ${adjPpu > r.ppu ? "text-green-500" : "text-red-500"}`}>
                           ({adjPpu > r.ppu ? "+" : ""}{fmt(adjPpu - r.ppu)} PPU)
@@ -529,7 +529,7 @@ type="button"                         onClick={() => {
           </div>
         </div>
 
-        {/* ── Footer ── */}
+        {/* -- Footer -- */}
         <div className="shrink-0 border-t border-gray-100 px-5 py-3 bg-white space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-600">Avg Margin</span>
@@ -537,11 +537,11 @@ type="button"                         onClick={() => {
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-600">Revenue Range</span>
-            <span className="font-semibold text-zinc-900">{fmt(minRev)} — {fmt(maxRev)}</span>
+            <span className="font-semibold text-zinc-900">{fmt(minRev)} - {fmt(maxRev)}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-600">Active MOQ Revenue</span>
-            <span className="font-bold text-[#e8473f]">{activeRev > 0 ? fmt(activeRev) : "—"}</span>
+            <span className="font-bold text-[#e8473f]">{activeRev > 0 ? fmt(activeRev) : "-"}</span>
           </div>
         </div>
       </div>

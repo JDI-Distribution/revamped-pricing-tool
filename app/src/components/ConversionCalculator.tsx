@@ -12,7 +12,7 @@ interface Props {
   prefill?: ConversionPrefill;  // pre-loads the Weight converter's left side when set
 }
 
-// ── Conversion factors (everything to a base unit) ───────────────────────────
+// -- Conversion factors (everything to a base unit) ---------------------------
 
 const WEIGHT_TO_G: Record<string, number> = {
   mg:  0.001,
@@ -41,7 +41,7 @@ function convert(value: number, from: string, to: string, table: Record<string, 
   return (value * table[from]) / table[to];
 }
 
-// Format for display — never uses toLocaleString (commas break <input type="number">)
+// Format for display - never uses toLocaleString (commas break <input type="number">)
 // Uses plain decimal strings safe for both display and input value prop.
 function fmtResult(v: number): string {
   if (!isFinite(v)) return "";
@@ -51,7 +51,7 @@ function fmtResult(v: number): string {
   return parseFloat(v.toPrecision(6)).toString();
 }
 
-// ── Shared UI pieces ─────────────────────────────────────────────────────────
+// -- Shared UI pieces ---------------------------------------------------------
 
 const inputCls  = "h-9 px-3 text-sm bg-amber-50 border border-amber-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition w-full";
 const resultCls = "h-9 px-3 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#e8473f] focus:border-[#e8473f] transition w-full";
@@ -70,7 +70,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-// ── Generic two-way converter row ────────────────────────────────────────────
+// -- Generic two-way converter row --------------------------------------------
 // "left" side is the user's primary input; "right" shows the converted result
 // but is also editable (changes back-calculate left).
 // Both sides use type="text" so fmtResult strings render without browser mangling.
@@ -148,7 +148,7 @@ function ConverterRow({ leftVal, leftUnit, rightUnit, units, table, onLeftVal, o
   );
 }
 
-// ── Weight Converter ─────────────────────────────────────────────────────────
+// -- Weight Converter ---------------------------------------------------------
 
 function WeightConverter({ prefill }: { prefill?: ConversionPrefill }) {
   const [leftVal,   setLeftVal]   = useState(prefill?.value ?? "1");
@@ -157,7 +157,7 @@ function WeightConverter({ prefill }: { prefill?: ConversionPrefill }) {
   return <ConverterRow leftVal={leftVal} leftUnit={leftUnit} rightUnit={rightUnit} units={WEIGHT_UNITS} table={WEIGHT_TO_G} onLeftVal={setLeftVal} onLeftUnit={setLeftUnit} onRightUnit={setRightUnit} />;
 }
 
-// ── Volume Converter ─────────────────────────────────────────────────────────
+// -- Volume Converter ---------------------------------------------------------
 
 function VolumeConverter() {
   const [leftVal,   setLeftVal]   = useState("1");
@@ -166,29 +166,29 @@ function VolumeConverter() {
   return <ConverterRow leftVal={leftVal} leftUnit={leftUnit} rightUnit={rightUnit} units={VOL_UNITS} table={VOL_TO_ML} onLeftVal={setLeftVal} onLeftUnit={setLeftUnit} onRightUnit={setRightUnit} />;
 }
 
-// ── Price Converter ──────────────────────────────────────────────────────────
+// -- Price Converter ----------------------------------------------------------
 // Price conversion is the inverse of unit conversion:
-//   $/fromUnit → $/toUnit = price × (fromUnit_in_g / toUnit_in_g) is WRONG
-//   $/fromUnit → $/toUnit = price / (toUnit_in_g / fromUnit_in_g)
-//               = price × (fromUnit_in_g / toUnit_in_g)  ← wait that IS the same
-// Wait: $7.33/lb → $/g: there are 453.592 g per lb, so $7.33/lb ÷ 453.592 = $0.01616/g
-// i.e. result = price × (WEIGHT_TO_G[toUnit] / WEIGHT_TO_G[fromUnit])
-//             = price × (1/453.592)
+//   $/fromUnit -> $/toUnit = price x (fromUnit_in_g / toUnit_in_g) is WRONG
+//   $/fromUnit -> $/toUnit = price / (toUnit_in_g / fromUnit_in_g)
+//               = price x (fromUnit_in_g / toUnit_in_g)  <- wait that IS the same
+// Wait: $7.33/lb -> $/g: there are 453.592 g per lb, so $7.33/lb / 453.592 = $0.01616/g
+// i.e. result = price x (WEIGHT_TO_G[toUnit] / WEIGHT_TO_G[fromUnit])
+//             = price x (1/453.592)
 // But WEIGHT_TO_G["lb"]=453.592, WEIGHT_TO_G["g"]=1
-// So: price × WEIGHT_TO_G[toUnit] / WEIGHT_TO_G[fromUnit]
-//   = 7.33 × 1 / 453.592 = 0.01616 ✓
-// The existing convert() does: value × table[from] / table[to]
-//   = 7.33 × 453.592 / 1 = 3325 ✗  (that's mass conversion, not price)
+// So: price x WEIGHT_TO_G[toUnit] / WEIGHT_TO_G[fromUnit]
+//   = 7.33 x 1 / 453.592 = 0.01616 OK
+// The existing convert() does: value x table[from] / table[to]
+//   = 7.33 x 453.592 / 1 = 3325 x  (that's mass conversion, not price)
 // We need the reciprocal table: use convert with to/from swapped.
 
 const PRICE_TO_G: Record<string, number> = WEIGHT_TO_G; // same table, different interpretation
 
 function convertPrice(price: number, from: string, to: string): number {
-  // $/from → $/to = price × (to_grams_per_unit / from_grams_per_unit) is wrong direction
-  // $/from → $/to = price / (from_grams / to_grams) = price × to_grams / from_grams
-  // Wait: $7.33/lb, want $/g. 1 lb = 453.592 g → $7.33 covers 453.592 g → $7.33/453.592 per g
-  // = price × PRICE_TO_G[to] / PRICE_TO_G[from]  but PRICE_TO_G[to]="g"=1, PRICE_TO_G[from]="lb"=453.592
-  // = 7.33 × 1 / 453.592 = 0.01616 ✓
+  // $/from -> $/to = price x (to_grams_per_unit / from_grams_per_unit) is wrong direction
+  // $/from -> $/to = price / (from_grams / to_grams) = price x to_grams / from_grams
+  // Wait: $7.33/lb, want $/g. 1 lb = 453.592 g -> $7.33 covers 453.592 g -> $7.33/453.592 per g
+  // = price x PRICE_TO_G[to] / PRICE_TO_G[from]  but PRICE_TO_G[to]="g"=1, PRICE_TO_G[from]="lb"=453.592
+  // = 7.33 x 1 / 453.592 = 0.01616 OK
   if (!PRICE_TO_G[from] || !PRICE_TO_G[to]) return 0;
   return price * PRICE_TO_G[to] / PRICE_TO_G[from];
 }
@@ -236,19 +236,19 @@ function PriceConverter() {
   );
 }
 
-// ── Quick Reference ──────────────────────────────────────────────────────────
+// -- Quick Reference ----------------------------------------------------------
 
 const REFS = [
-  { from: "1 lb",    to: "453.592 g",   factor: "× 453.592" },
-  { from: "1 oz",    to: "28.3495 g",   factor: "× 28.3495" },
-  { from: "1 kg",    to: "1,000 g",     factor: "× 1,000" },
-  { from: "1 lb",    to: "16 oz",       factor: "× 16" },
-  { from: "1 fl oz", to: "29.5735 ml",  factor: "× 29.5735" },
-  { from: "1 cup",   to: "236.588 ml",  factor: "× 236.588" },
-  { from: "1 gal",   to: "3,785.41 ml", factor: "× 3,785.41" },
+  { from: "1 lb",    to: "453.592 g",   factor: "x 453.592" },
+  { from: "1 oz",    to: "28.3495 g",   factor: "x 28.3495" },
+  { from: "1 kg",    to: "1,000 g",     factor: "x 1,000" },
+  { from: "1 lb",    to: "16 oz",       factor: "x 16" },
+  { from: "1 fl oz", to: "29.5735 ml",  factor: "x 29.5735" },
+  { from: "1 cup",   to: "236.588 ml",  factor: "x 236.588" },
+  { from: "1 gal",   to: "3,785.41 ml", factor: "x 3,785.41" },
 ];
 
-// ── Main modal ───────────────────────────────────────────────────────────────
+// -- Main modal ---------------------------------------------------------------
 
 export default function ConversionCalculator({ open, onClose, prefill }: Props) {
   useEffect(() => {
@@ -282,28 +282,28 @@ export default function ConversionCalculator({ open, onClose, prefill }: Props) 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
-          {/* Section 1 — Weight */}
+          {/* Section 1 - Weight */}
           <div>
             <SectionHeader title="Weight" />
             <WeightConverter prefill={prefill} />
           </div>
 
-          {/* Section 2 — Volume */}
+          {/* Section 2 - Volume */}
           <div>
             <SectionHeader title="Volume" />
             <VolumeConverter />
           </div>
 
-          {/* Section 3 — Price per unit */}
+          {/* Section 3 - Price per unit */}
           <div>
             <SectionHeader
               title="Price per Unit"
-              sub="Convert landed cost between weight units — e.g. $/lb → $/g for raw material inputs"
+              sub="Convert landed cost between weight units - e.g. $/lb -> $/g for raw material inputs"
             />
             <PriceConverter />
           </div>
 
-          {/* Section 4 — Quick reference */}
+          {/* Section 4 - Quick reference */}
           <div>
             <SectionHeader title="Common Conversions" />
             <div className="border border-gray-100 rounded-lg overflow-hidden">
